@@ -363,7 +363,7 @@ if df is not None:
                 
             with col_met2:
                 st.markdown("**📋 Resumo Numérico**")
-                st.dataframe(contagem_nlp.reset_index().rename(columns={"index": "Categoria", "count": "Quantidade", "CATEGORIA_NLP": "Quantidade"}), use_container_width=True)
+                st.dataframe(contagem_nlp.reset_index(name="Quantidade"), use_container_width=True)
 
             st.markdown("---")
             st.subheader("📥 Exportar Dados Classificados")
