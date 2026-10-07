@@ -16,9 +16,23 @@ st.set_page_config(
 # ==========================================
 # CONFIGURAÇÃO DA IA (GROQ)
 # ==========================================
-def obter_modelo_seguro() -> str:
-    """Retorna um modelo padrão amplamente disponível na Groq."""
-    return "llama-3.3-70b-versatile"
+def obter_modelo_ativo(client, api_key: str) -> str:
+    """Busca dinamicamente na API da Groq um modelo leve e adequado."""
+    if not api_key:
+        return "llama-3.1-8b-instant"
+    try:
+        modelos_disponiveis = client.models.list()
+        for m in modelos_disponiveis.data:
+            m_id = m.id.lower()
+            if "llama-3.1-8b" in m_id or "8b" in m_id:
+                return m.id
+        for m in modelos_disponiveis.data:
+            m_id = m.id.lower()
+            if any(nome in m_id for nome in ["llama-3.1", "qwen"]) and not any(ign in m_id for ign in ["guard", "safeguard", "whisper", "vision", "embed", "gpt-oss"]):
+                return m.id
+    except Exception:
+        pass
+    return "llama-3.1-8b-instant"
 
 def gerar_relatorio_ia(termo: str, lista_observacoes: list, api_key: str) -> str:
     """Gera o relatório executivo baseado nas ocorrências encontradas."""
@@ -30,16 +44,16 @@ def gerar_relatorio_ia(termo: str, lista_observacoes: list, api_key: str) -> str
     except Exception as e:
         return f"❌ Erro ao inicializar o cliente Groq: {e}"
 
-    modelo_ativo = obter_modelo_seguro()
+    modelo_ativo = obter_modelo_ativo(client, api_key)
 
-    amostra = [str(obs)[:100] for obs in lista_observacoes[:15]]
+    amostra = [str(obs)[:150] for obs in lista_observacoes[:30]]
     texto_observacoes = "\n".join([f"- {obs}" for obs in amostra])
 
     prompt = f"""Você é um especialista em manutenção de Ordens de Serviço (OS).
-Total de registros para '{termo.upper()}': {len(lista_observacoes)}. Amostra:
+Foram encontrados {len(lista_observacoes)} registros no total para o termo '{termo.upper()}'. Abaixo estão alguns exemplos representativos:
 {texto_observacoes}
 
-Escreva um relatório executivo em português contendo:
+Escreva um relatório executivo detalhado em português contendo:
 1. Resumo dos Principais Problemas Relatados (Inclua obrigatoriamente uma tabela em Markdown com colunas 'Área/Problema' e 'Frequência' ex: | Área | Frequência | / | --- | --- | / | Hidráulica | 5 ocorrências |)
 2. Padrões ou Causas Recorrentes
 3. Recomendações e Ações Preventivas"""
@@ -49,14 +63,14 @@ Escreva um relatório executivo em português contendo:
             messages=[{"role": "user", "content": prompt}],
             model=modelo_ativo,
             temperature=0.2,
-            max_tokens=800,
+            max_tokens=1000,
         )
         return response.choices[0].message.content
     except Exception as e:
         return f"❌ Erro ao gerar relatório com a IA: {e}"
 
 def responder_pergunta_livre_com_todo_arquivo(pergunta_usuario: str, df: pd.DataFrame, api_key: str) -> str:
-    """Analisa o arquivo utilizando estatísticas compactas e amostra reduzida para evitar erros de token."""
+    """Analisa todo o arquivo processando estatísticas completas e buscando linhas relevantes."""
     if not api_key:
         return "⚠️ Chave da Groq não configurada! Insira sua chave na barra lateral."
 
@@ -65,41 +79,50 @@ def responder_pergunta_livre_com_todo_arquivo(pergunta_usuario: str, df: pd.Data
     except Exception as e:
         return f"❌ Erro ao inicializar o cliente Groq: {e}"
 
-    modelo_ativo = obter_modelo_seguro()
+    modelo_ativo = obter_modelo_ativo(client, api_key)
 
     total_linhas = len(df)
     
-    # Estatísticas compactas
-    resumo_status = df["STATUS"].value_counts().to_dict() if "STATUS" in df.columns else "N/D"
+    # 1. Agregações estatísticas globais de todo o arquivo
+    resumo_status = df["STATUS"].value_counts().to_dict() if "STATUS" in df.columns else "Não disponível"
+    resumo_setor = df["SETOR"].value_counts().head(5).to_dict() if "SETOR" in df.columns else (df["TIPO"].value_counts().head(5).to_dict() if "TIPO" in df.columns else "Não disponível")
 
-    # Busca restrita por palavras-chave na pergunta para enviar apenas o necessário
+    # 2. Busca inteligente por termos mencionados na pergunta do usuário em todo o DataFrame
     pergunta_lower = pergunta_usuario.lower()
-    palavras_chave = [p for p in pergunta_lower.split() if len(p) > 3]
+    palavras_chave = [palavra for palavra in pergunta_lower.split() if len(palavra) > 3]
     
     df_relevante = df
     if palavras_chave:
+        # Filtra linhas que contenham alguma palavra-chave da pergunta do usuário nas observações
         filtro = df["OBSERVAÇÃO ABERTURA"].astype(str).str.lower().apply(lambda x: any(p in x for p in palavras_chave))
         df_filtrado_ia = df[filtro]
         if len(df_filtrado_ia) > 0:
             df_relevante = df_filtrado_ia
 
-    # Amostra extremamente enxuta (apenas 8 linhas e textos curtos)
-    colunas_foco = [c for c in ["OS", "STATUS", "SETOR", "OBSERVAÇÃO ABERTURA"] if c in df.columns]
-    amostra_relevante = df_relevante[colunas_foco].head(8).to_string(index=False)
+    # Pega uma amostra focada dos registros mais relevantes encontrados na base completa (até 25 linhas)
+    amostra_relevante = df_relevante[["OS", "DATA", "STATUS", "SETOR", "OBSERVAÇÃO ABERTURA"]].head(25).to_string(index=False) if "SETOR" in df.columns else df_relevante.head(25).to_string(index=False)
 
-    prompt = f"""Base de OS: {total_linhas} registros no total. Status: {resumo_status}.
+    prompt = f"""Você é um analista especialista em gestão de manutenção. A planilha completa possui {total_linhas} registros analisados.
 
-Amostra de chamados relevantes:
+--- ESTATÍSTICAS GLOBAIS DA PLANILHA COMPLETA ---
+- Total de registros: {total_linhas}
+- Distribuição por Status: {resumo_status}
+- Principais Setores/Tipos: {resumo_setor}
+--------------------------------------------------
+
+--- REGISTROS MAIS RELEVANTES ENCONTRADOS PARA A SUA PERGUNTA ---
 {amostra_relevante}
+-----------------------------------------------------------------
 
-Responda de forma concisa e direta em português à pergunta: {pergunta_usuario}"""
+Com base em **todos os dados da planilha completa** e nas estatísticas acima, responda de forma clara, técnica e objetiva em português à seguinte pergunta do usuário:
+Pergunta: {pergunta_usuario}"""
 
     try:
         response = client.chat.completions.create(
             messages=[{"role": "user", "content": prompt}],
             model=modelo_ativo,
             temperature=0.3,
-            max_tokens=600,
+            max_tokens=1000,
         )
         return response.choices[0].message.content
     except Exception as e:
