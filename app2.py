@@ -17,14 +17,19 @@ st.set_page_config(
 # CONFIGURAÇÃO DA IA (GROQ)
 # ==========================================
 def obter_modelo_ativo(client, api_key: str) -> str:
-    """Busca dinamicamente na API da Groq um modelo de texto ativo e disponível."""
+    """Busca dinamicamente na API da Groq um modelo leve e adequado para evitar limites de token."""
     if not api_key:
         return "llama-3.1-8b-instant"
     try:
         modelos_disponiveis = client.models.list()
         for m in modelos_disponiveis.data:
             m_id = m.id.lower()
-            if any(nome in m_id for nome in ["llama-3.1", "llama-3.3", "gpt-oss", "qwen"]) and not any(ign in m_id for ign in ["guard", "safeguard", "whisper", "vision", "embed"]):
+            # Prioriza modelos Llama menores e mais rápidos que estouram menos o TPM
+            if "llama-3.1-8b" in m_id or "8b" in m_id:
+                return m.id
+        for m in modelos_disponiveis.data:
+            m_id = m.id.lower()
+            if any(nome in m_id for nome in ["llama-3.1", "qwen"]) and not any(ign in m_id for ign in ["guard", "safeguard", "whisper", "vision", "embed", "gpt-oss"]):
                 return m.id
     except Exception:
         pass
@@ -42,35 +47,31 @@ def gerar_relatorio_ia(termo: str, lista_observacoes: list, api_key: str) -> str
 
     modelo_ativo = obter_modelo_ativo(client, api_key)
 
-    amostra = [str(obs)[:200] for obs in lista_observacoes[:20]]
+    amostra = [str(obs)[:150] for obs in lista_observacoes[:15]]
     texto_observacoes = "\n".join([f"- {obs}" for obs in amostra])
 
-    prompt = f"""Você é um especialista em manutenção e análise de Ordens de Serviço (OS).
-Abaixo estão {len(amostra)} chamados encontrados para o termo '{termo.upper()}':
-
---- REGISTROS ---
+    prompt = f"""Você é um especialista em manutenção de Ordens de Serviço (OS).
+Chamados para '{termo.upper()}':
 {texto_observacoes}
---- FIM DOS REGISTROS ---
 
-Escreva um relatório executivo em português seguindo rigorosamente a estrutura abaixo:
-1. Resumo dos Principais Problemas Relatados
-(IMPORTANTE: Nesta seção, inclua obrigatoriamente uma tabela em Markdown contendo colunas como 'Área' ou 'Problema' e uma coluna 'Frequência' contendo valores numéricos seguidos de 'ocorrências')
+Escreva um relatório executivo em português contendo:
+1. Resumo dos Principais Problemas Relatados (Inclua obrigatoriamente uma tabela em Markdown com colunas 'Área/Problema' e 'Frequência' ex: | Área | Frequência | / | --- | --- | / | Hidráulica | 5 ocorrências |)
 2. Padrões ou Causas Recorrentes
-3. Recomendações e Ações Preventivas para a Equipe"""
+3. Recomendações e Ações Preventivas"""
 
     try:
         response = client.chat.completions.create(
             messages=[{"role": "user", "content": prompt}],
             model=modelo_ativo,
             temperature=0.2,
-            max_tokens=1600,
+            max_tokens=1000,
         )
         return response.choices[0].message.content
     except Exception as e:
         return f"❌ Erro ao gerar relatório com a IA: {e}"
 
 def responder_pergunta_livre(pergunta_usuario: str, df: pd.DataFrame, api_key: str) -> str:
-    """Permite que a IA responda qualquer pergunta sobre o conteúdo geral da planilha."""
+    """Permite que a IA responda perguntas resumindo os dados de forma compacta para não estourar tokens."""
     if not api_key:
         return "⚠️ Chave da Groq não configurada! Insira sua chave na barra lateral."
 
@@ -81,27 +82,27 @@ def responder_pergunta_livre(pergunta_usuario: str, df: pd.DataFrame, api_key: s
 
     modelo_ativo = obter_modelo_ativo(client, api_key)
 
-    # Prepara um resumo amostral dos dados da planilha para dar contexto à IA
-    # Convertemos uma amostra das linhas principais para texto estruturado
     total_linhas = len(df)
-    amostra_df = df.head(50).to_string(index=False)
+    
+    # Reduzimos drasticamente a amostra e pegamos colunas essenciais para caber no limite de tokens
+    colunas_chave = [c for c in ["OS", "DATA", "STATUS", "SETOR", "LOCAL", "OBSERVAÇÃO ABERTURA"] if c in df.columns]
+    if not colunas_chave:
+        colunas_chave = list(df.columns[:4])
+        
+    amostra_df = df[colunas_chave].head(15).to_string(index=False)
 
-    prompt = f"""Você é um assistente analítico especialista em gestão de manutenção.
-Você tem acesso a uma base de dados de Ordens de Serviço (OS) com um total de {total_linhas} registros.
-Abaixo está uma amostra dos dados disponíveis na planilha:
-
+    prompt = f"""Você é um assistente de manutenção. A planilha possui {total_linhas} registros. 
+Aqui está uma amostra recente dos dados:
 {amostra_df}
 
-Responda à seguinte pergunta do usuário com base nos dados fornecidos ou no seu conhecimento técnico de manutenção correlato. Seja direto, claro e objetivo em português.
-
-Pergunta do usuário: {pergunta_usuario}"""
+Responda de forma direta e concisa em português à pergunta: {pergunta_usuario}"""
 
     try:
         response = client.chat.completions.create(
             messages=[{"role": "user", "content": prompt}],
             model=modelo_ativo,
             temperature=0.3,
-            max_tokens=1000,
+            max_tokens=800,
         )
         return response.choices[0].message.content
     except Exception as e:
@@ -190,7 +191,6 @@ if df is not None:
 
         st.markdown("---")
         
-        # Abas para Organizar: Pesquisa/Relatórios vs Chat Inteligente Geral
         aba_busca, aba_chat = st.tabs(["🔍 Pesquisa & Relatórios por Termo", "💬 Chat Livre com a Planilha (IA)"])
 
         with aba_busca:
@@ -275,23 +275,18 @@ if df is not None:
             st.subheader("💬 Tire qualquer dúvida sobre a planilha de manutenção")
             st.markdown("Faça perguntas abertas sobre os dados carregados (ex: *'Quais os principais equipamentos com falha?'*, *'Resuma o status geral dos chamados'*).")
 
-            # Exibe o histórico de mensagens do chat
             for mensagem in st.session_state.mensagens_chat:
                 with st.chat_message(mensagem["role"]):
                     st.markdown(mensagem["content"])
 
-            # Entrada de texto do chat do Streamlit
             if prompt_usuario := st.chat_input("Digite sua pergunta sobre a planilha..."):
-                # Adiciona mensagem do usuário ao histórico
                 st.session_state.mensagens_chat.append({"role": "user", "content": prompt_usuario})
                 with st.chat_message("user"):
                     st.markdown(prompt_usuario)
 
-                # Gera a resposta da IA
                 with st.chat_message("assistant"):
                     with st.spinner("Analisando a planilha para responder..."):
                         resposta_ia = responder_pergunta_livre(prompt_usuario, df, groq_api_key_input)
                         st.markdown(resposta_ia)
                 
-                # Adiciona resposta da IA ao histórico
                 st.session_state.mensagens_chat.append({"role": "assistant", "content": resposta_ia})
