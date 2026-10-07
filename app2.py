@@ -65,7 +65,7 @@ Escreva um relatório executivo em português seguindo rigorosamente a estrutura
             messages=[{"role": "user", "content": prompt}],
             model=modelo_ativo,
             temperature=0.2,
-            max_tokens=1600,
+            max_tokens=900,
         )
         return response.choices[0].message.content
     except Exception as e:
