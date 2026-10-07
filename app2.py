@@ -84,10 +84,6 @@ arquivo_carregado = st.sidebar.file_uploader("Envie sua planilha Excel (.xls, .x
 st.title("🛠️ Sistema Inteligente de Ordens de Serviço (OS)")
 st.markdown("Consulte registros de manutenção, analise gráficos e gere relatórios executivos com Inteligência Artificial.")
 
-# Gerenciamento de estado seguro
-if 'termo_input' not in st.session_state:
-    st.session_state.termo_input = ""
-
 df = None
 coluna_comentario = "OBSERVAÇÃO ABERTURA"
 
@@ -116,22 +112,8 @@ if df is not None:
 
         st.markdown("---")
         
-        # Layout de Pesquisa e Botão de Reiniciar seguros
-        col_input, col_btn = st.columns([3, 1])
-        
-        with col_input:
-            termo_usuario = st.text_input(
-                "🔍 Digite o termo de busca (ex: vazamento, luz, ar):",
-                value=st.session_state.termo_input,
-                key="campo_busca_texto"
-            ).strip().lower()
-            st.session_state.termo_input = termo_usuario
-
-        with col_btn:
-            st.markdown("<br>", unsafe_allow_html=True)
-            if st.button("🔄 Reiniciar Pesquisa", use_container_width=True):
-                st.session_state.termo_input = ""
-                st.rerun()
+        # Campo de busca padrão do Streamlit (estável e sem conflitos)
+        termo_usuario = st.text_input("🔍 Digite o termo de busca (ex: vazamento, luz, ar):").strip().lower()
 
         if termo_usuario:
             df_filtrado = df[df["texto_busca"].str.contains(termo_usuario, na=False)]
@@ -191,6 +173,9 @@ if df is not None:
                     
                     st.markdown("---")
                     st.subheader("📋 Resumo dos Principais Problemas Relatados & Relatório IA")
+                    st.markdown(relatorio)
+            else:
+                st.warning("⚠️ Nenhum registro encontrado com esse termo na planilha.")
                     st.markdown(relatorio)
             else:
                 st.warning("⚠️ Nenhum registro encontrado com esse termo na planilha.")
