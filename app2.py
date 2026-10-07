@@ -17,8 +17,8 @@ st.set_page_config(
 # CONFIGURAÇÃO DA IA (GROQ)
 # ==========================================
 def obter_modelo_seguro() -> str:
-    """Retorna explicitamente o modelo mais estável e com maior limite de TPM gratuito."""
-    return "llama-3.1-8b-instant"
+    """Retorna um modelo padrão amplamente disponível na Groq."""
+    return "llama-3.3-70b-versatile"
 
 def gerar_relatorio_ia(termo: str, lista_observacoes: list, api_key: str) -> str:
     """Gera o relatório executivo baseado nas ocorrências encontradas."""
@@ -83,7 +83,7 @@ def responder_pergunta_livre_com_todo_arquivo(pergunta_usuario: str, df: pd.Data
         if len(df_filtrado_ia) > 0:
             df_relevante = df_filtrado_ia
 
-    # Amostra extremamente enxuta (apenas 8 linhas e textos curtos) para garantir que fique bem abaixo do limite de 7000 tokens
+    # Amostra extremamente enxuta (apenas 8 linhas e textos curtos)
     colunas_foco = [c for c in ["OS", "STATUS", "SETOR", "OBSERVAÇÃO ABERTURA"] if c in df.columns]
     amostra_relevante = df_relevante[colunas_foco].head(8).to_string(index=False)
 
