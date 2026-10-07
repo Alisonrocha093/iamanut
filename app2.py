@@ -90,7 +90,7 @@ coluna_comentario = "OBSERVAÇÃO ABERTURA"
 if arquivo_carregado is not None:
     try:
         df = pd.read_excel(arquivo_carregado)
-        st.success(f"✅ Arquivo `{arquivo_carregado.name}` carregado com sucesso via upload!")
+        st.success(f"✅ Arquivo carregado com sucesso via upload!")
     except Exception as e:
         st.error(f"❌ Erro ao ler o arquivo enviado: {e}")
 elif os.path.exists("OS Geral.xls"):
@@ -98,24 +98,23 @@ elif os.path.exists("OS Geral.xls"):
         df = pd.read_excel("OS Geral.xls")
         st.info("ℹ️ Usando o arquivo padrão local: `OS Geral.xls`")
     except Exception as e:
-        st.error(f"❌ Erro ao ler o arquivo local `OS Geral.xls`: {e}")
+        st.error(f"❌ Erro ao ler o arquivo local: {e}")
 else:
     st.warning("⚠️ Por favor, envie uma planilha na barra lateral para começar.")
 
 if df is not None:
     if coluna_comentario not in df.columns:
         st.error(f"❌ A coluna obrigatória **'{coluna_comentario}'** não foi encontrada na planilha.")
-        st.write(f"📋 **Colunas disponíveis na planilha:** `{list(df.columns)}`")
+        st.write(f"📋 **Colunas disponíveis:** `{list(df.columns)}`")
     else:
         df = df.dropna(subset=[coluna_comentario]).copy()
         df["texto_busca"] = df[coluna_comentario].astype(str).str.lower()
 
         st.markdown("---")
         
-        # Campo de busca padrão do Streamlit (estável e sem conflitos)
         termo_usuario = st.text_input("🔍 Digite o termo de busca (ex: vazamento, luz, ar):").strip().lower()
 
-        if termo_usuario:
+        if termo_usuario != "":
             df_filtrado = df[df["texto_busca"].str.contains(termo_usuario, na=False)]
             total_encontrados = len(df_filtrado)
 
@@ -130,52 +129,27 @@ if df is not None:
                 st.markdown("---")
                 st.subheader("📈 Análise Gráfica dos Chamados")
                 
-                col_g1, col_g2 = st.columns(2)
+                if "STATUS" in df_filtrado.columns:
+                    st.markdown("**Ocorrências por Status**")
+                    st.bar_chart(df_filtrado["STATUS"].value_counts())
                 
-                with col_g1:
-                    if "STATUS" in df_filtrado.columns:
-                        st.markdown("**Ocorrências por Status**")
-                        status_counts = df_filtrado["STATUS"].value_counts()
-                        st.bar_chart(status_counts)
-                    else:
-                        st.info("ℹ️ Coluna 'STATUS' não encontrada para gerar gráfico por status.")
+                coluna_cat = next((col for col in ["SETOR", "LOCAL", "TIPO", "EQUIPAMENTO"] if col in df_filtrado.columns), None)
+                if coluna_cat:
+                    st.markdown(f"**Ocorrências por {coluna_cat.title()}**")
+                    st.bar_chart(df_filtrado[coluna_cat].value_counts().head(10))
 
-                with col_g2:
-                    coluna_cat_alternativa = None
-                    for col in ["SETOR", "LOCAL", "TIPO", "EQUIPAMENTO"]:
-                        if col in df_filtrado.columns:
-                            coluna_cat_alternativa = col
-                            break
-                    
-                    if coluna_cat_alternativa:
-                        st.markdown(f"**Ocorrências por {coluna_cat_alternativa.title()}**")
-                        cat_counts = df_filtrado[coluna_cat_alternativa].value_counts().head(10)
-                        st.bar_chart(cat_counts)
-                    else:
-                        if "DATA" in df_filtrado.columns:
-                            st.markdown("**Ocorrências por Data**")
-                            try:
-                                data_counts = pd.to_datetime(df_filtrado["DATA"]).dt.date.value_counts().sort_index()
-                                st.line_chart(data_counts)
-                            except Exception:
-                                st.info("ℹ️ Não foi possível agrupar por data.")
-                        else:
-                            st.info("ℹ️ Nenhuma outra categoria secundária detectada na planilha.")
-
-                with st.expander("📋 Ver registros detalhados encontrados", expanded=False):
-                    st.dataframe(df_filtrado[colunas_exibicao], use_container_width=True)
+                st.markdown("---")
+                st.subheader("📋 Registros Detalhados")
+                st.dataframe(df_filtrado[colunas_exibicao], use_container_width=True)
 
                 st.markdown("---")
                 if st.button("🤖 Gerar Relatório Executivo com IA", type="primary"):
-                    with st.spinner("Analisando dados e gerando resumo dos principais problemas..."):
+                    with st.spinner("Analisando dados e gerando resumo..."):
                         lista_obs = df_filtrado[coluna_comentario].astype(str).tolist()
                         relatorio = gerar_relatorio_ia(termo_usuario, lista_obs, groq_api_key_input)
                     
                     st.markdown("---")
                     st.subheader("📋 Resumo dos Principais Problemas Relatados & Relatório IA")
-                    st.markdown(relatorio)
-            else:
-                st.warning("⚠️ Nenhum registro encontrado com esse termo na planilha.")
                     st.markdown(relatorio)
             else:
                 st.warning("⚠️ Nenhum registro encontrado com esse termo na planilha.")
