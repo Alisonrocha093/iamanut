@@ -243,10 +243,12 @@ if 'termo_pesquisa' not in st.session_state:
 if 'mensagens_chat' not in st.session_state:
     st.session_state.mensagens_chat = []
 
+# Função para limpar a pesquisa anterior e o relatório armazenado na tela
 def limpar_pesquisa():
-    st.session_state.termo_pesquisa = ""
     if "relatorio_gerado" in st.session_state:
         del st.session_state.relatorio_gerado
+    if "termo_relatorio" in st.session_state:
+        del st.session_state.termo_relatorio
 
 # Carregamento do arquivo
 df = None
@@ -274,7 +276,7 @@ if df is not None:
     else:
         df = df.dropna(subset=[coluna_comentario]).copy()
         
-        # Aplicação automática do algoritmo NLP nos 16.250 registros com cache/progresso
+        # Aplicação automática do algoritmo NLP nos registros com cache/progresso
         if "CATEGORIA_NLP" not in df.columns:
             with st.spinner(f"Processando algoritmo de classificação NLP em {len(df):,} registros..."):
                 df = classificar_texto_nlp(df, coluna_comentario)
@@ -292,9 +294,11 @@ if df is not None:
         with aba_busca:
             col_input, col_btn = st.columns([3, 1])
             with col_input:
+                # Adicionado on_change para limpar a tela automaticamente ao alterar a pesquisa
                 termo_usuario = st.text_input(
                     "🔍 Digite o termo de busca (ex: vazamento, luz, ar):", 
-                    key="termo_pesquisa"
+                    key="termo_pesquisa",
+                    on_change=limpar_pesquisa
                 ).strip().lower()
                 
             with col_btn:
