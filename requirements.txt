@@ -2,4 +2,6 @@ streamlit
 pandas
 openpyxl
 groq
-xlrd
+scikit-learn
+
+
