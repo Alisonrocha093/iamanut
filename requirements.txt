@@ -3,5 +3,5 @@ pandas
 openpyxl
 groq
 scikit-learn
-
+xlrd
 
