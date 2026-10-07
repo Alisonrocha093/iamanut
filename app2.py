@@ -3,6 +3,8 @@ import io
 import pandas as pd
 import streamlit as st
 from groq import Groq
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.cluster import KMeans
 
 # ==========================================
 # CONFIGURAÇÃO DA PÁGINA (STREAMLIT)
@@ -12,6 +14,58 @@ st.set_page_config(
     page_icon="🛠️",
     layout="wide"
 )
+
+# ==========================================
+# MÓDULO DE NLP & CLASSIFICAÇÃO DE TEXTO
+# ==========================================
+def classificar_texto_nlp(df: pd.DataFrame, coluna_texto: str) -> pd.DataFrame:
+    """Aplica algoritmo NLP (TF-IDF + Regras/Clusters) para classificar as observações."""
+    df_cls = df.copy()
+    if coluna_texto not in df_cls.columns:
+        return df_cls
+    
+    # Preenche nulos
+    textos = df_cls[coluna_texto].fillna("").astype(str).str.lower()
+    
+    # Dicionário de regras semânticas para classificação robusta de manutenção
+    def categorizar_por_regras(texto):
+        if any(w in texto for w in ["vazamento", "agua", "cano", "infiltracao", "esgoto", "torneira", "registro", "valvula", "hydra"]):
+            return "Hidráulica / Saneamento"
+        elif any(w in texto for w in ["luz", "lampada", "disjuntor", "tomada", "energia", "curto", "quadro eletrico", "fio", "cabo"]):
+            return "Elétrica"
+        elif any(w in texto for w in ["ar condicionado", "split", "climatizacao", "temperatura", "geladeira", "ventilador"]):
+            return "Climatização / Refrigeração"
+        elif any(w in texto for w in ["porta", "janela", "fechadura", "piso", "parede", "teto", "infiltracao", "telhado", "vidro", "pintura"]):
+            return "Estrutural / Civil"
+        elif any(w in texto for w in ["motor", "bomba", "correia", "peca", "maquina", "equipamento", "correia"]):
+            return "Mecânica / Equipamentos"
+        elif any(w in texto for w in ["limpeza", "lixo", "entulho", "higienizacao"]):
+            return "Limpeza / Conservação"
+        else:
+            return "Outros / Diversos"
+
+    # Aplicação inicial baseada em regras de domínio de manutenção
+    df_cls["CATEGORIA_NLP"] = textos.apply(categorizar_por_regras)
+    
+    # Refinamento opcional com Machine Learning (TF-IDF + KMeans para os "Outros")
+    try:
+        mask_outros = df_cls["CATEGORIA_NLP"] == "Outros / Diversos"
+        if mask_outros.sum() > 10:
+            vectorizer = TfidfVectorizer(max_features=500, stop_words=['de', 'a', 'o', 'que', 'e', 'do', 'da', 'em', 'um', 'para', 'com', 'na', 'um', 'por'])
+            X = vectorizer.fit_transform(textos[mask_outros])
+            
+            n_clusters = min(3, max(1, int(mask_outros.sum() / 10)))
+            if n_clusters > 1:
+                kmeans = KMeans(n_clusters=n_clusters, random_state=42, n_init=10)
+                clusters = kmeans.fit_predict(X)
+                
+                # Mapeia clusters residuais
+                cluster_map = {0: "Geral / Manutenção Corretiva", 1: "Solicitação / Atendimento", 2: "Inspeção / Chamado Técnico"}
+                df_cls.loc[mask_outros, "CATEGORIA_NLP"] = [cluster_map.get(c, "Outros / Diversos") for c in clusters]
+    except Exception:
+        pass
+
+    return df_cls
 
 # ==========================================
 # CONFIGURAÇÃO DA IA (GROQ)
@@ -82,11 +136,10 @@ def responder_pergunta_livre_com_todo_arquivo(pergunta_usuario: str, df: pd.Data
     modelo_ativo = obter_modelo_ativo(client, api_key)
     total_linhas = len(df)
     
-    # 1. ANÁLISE COMPLETA 100% DOS DADOS (Agregações estatísticas globais de todo o arquivo)
     resumo_status = df["STATUS"].value_counts().to_dict() if "STATUS" in df.columns else "Não disponível"
     resumo_setor = df["SETOR"].value_counts().to_dict() if "SETOR" in df.columns else (df["TIPO"].value_counts().to_dict() if "TIPO" in df.columns else "Não disponível")
+    resumo_nlp = df["CATEGORIA_NLP"].value_counts().to_dict() if "CATEGORIA_NLP" in df.columns else "Não disponível"
     
-    # Adicionando visão geral de datas se houver
     periodo_dados = "Não disponível"
     if "DATA" in df.columns:
         try:
@@ -96,7 +149,6 @@ def responder_pergunta_livre_com_todo_arquivo(pergunta_usuario: str, df: pd.Data
         except Exception:
             pass
 
-    # 2. BUSCA INTELIGENTE POR TERMOS NA BASE COMPLETA
     pergunta_lower = pergunta_usuario.lower()
     palavras_chave = [p for p in pergunta_lower.split() if len(p) > 3]
     
@@ -107,20 +159,19 @@ def responder_pergunta_livre_com_todo_arquivo(pergunta_usuario: str, df: pd.Data
         if len(df_filtrado_ia) > 0:
             df_relevante = df_filtrado_ia
 
-    # Seleciona até 12 registros mais representativos e compacta o texto para poupar tokens
     df_amostra = df_relevante.head(12).copy()
     if "OBSERVAÇÃO ABERTURA" in df_amostra.columns:
         df_amostra["OBSERVAÇÃO ABERTURA"] = df_amostra["OBSERVAÇÃO ABERTURA"].astype(str).str.slice(0, 90)
 
-    colunas_visiveis = [c for c in ["OS", "DATA", "STATUS", "SETOR", "OBSERVAÇÃO ABERTURA"] if c in df_amostra.columns]
+    colunas_visiveis = [c for c in ["OS", "DATA", "STATUS", "SETOR", "CATEGORIA_NLP", "OBSERVAÇÃO ABERTURA"] if c in df_amostra.columns]
     amostra_relevante = df_amostra[colunas_visiveis].to_string(index=False)
 
-    # 3. PROMPT ESTRUTURADO COM TODAS AS ESTATÍSTICAS DA PLANILHA
-    prompt = f"""Você é um analista especialista em gestão de manutenção. A planilha completa foi 100% processada e possui os seguintes dados consolidados:
+    prompt = f"""Você é um analista especialista em gestão de manutenção. A planilha completa foi 100% processada com NLP e possui os seguintes dados consolidados:
 
 --- ESTATÍSTICAS GLOBAIS DA PLANILHA INTEIRA ({total_linhas} registros analisados) ---
 - Total de registros: {total_linhas}
 - Período coberto: {periodo_dados}
+- Distribuição Completa por Categoria NLP: {resumo_nlp}
 - Distribuição Completa por Status: {resumo_status}
 - Distribuição Completa por Setor/Tipo: {resumo_setor}
 -------------------------------------------------------------------------------------
@@ -184,7 +235,7 @@ arquivo_carregado = st.sidebar.file_uploader("Envie sua planilha Excel (.xls, .x
 # CORPO PRINCIPAL DO APLICATIVO
 # ==========================================
 st.title("🛠️ Sistema Inteligente de Ordens de Serviço (OS)")
-st.markdown("Consulte registros, analise todo o arquivo e tire dúvidas via Chat com Inteligência Artificial.")
+st.markdown("Classificação NLP em lote, pesquisa de registros, relatórios e Chat com Inteligência Artificial.")
 
 if 'termo_pesquisa' not in st.session_state:
     st.session_state.termo_pesquisa = ""
@@ -222,11 +273,21 @@ if df is not None:
         st.write(f"📋 **Colunas disponíveis na planilha:** `{list(df.columns)}`")
     else:
         df = df.dropna(subset=[coluna_comentario]).copy()
+        
+        # Aplicação automática do algoritmo NLP nos 16.250 registros com cache/progresso
+        if "CATEGORIA_NLP" not in df.columns:
+            with st.spinner(f"Processando algoritmo de classificação NLP em {len(df):,} registros..."):
+                df = classificar_texto_nlp(df, coluna_comentario)
+
         df["texto_busca"] = df[coluna_comentario].astype(str).str.lower()
 
         st.markdown("---")
         
-        aba_busca, aba_chat = st.tabs(["🔍 Pesquisa & Relatórios por Termo", "💬 Chat Inteligente com a Base Completa"])
+        aba_busca, aba_nlp, aba_chat = st.tabs([
+            "🔍 Pesquisa & Relatórios por Termo", 
+            "🏷️ Classificação Automática (NLP)", 
+            "💬 Chat Inteligente com a Base Completa"
+        ])
 
         with aba_busca:
             col_input, col_btn = st.columns([3, 1])
@@ -248,9 +309,7 @@ if df is not None:
                 st.metric(label="Total de Ocorrências Encontradas", value=total_encontrados)
 
                 if total_encontrados > 0:
-                    colunas_exibicao = [c for c in ["ID", "OS", "DATA", "STATUS", coluna_comentario] if c in df.columns]
-                    if not colunas_exibicao:
-                        colunas_exibicao = [coluna_comentario]
+                    colunas_exibicao = [c for c in ["ID", "OS", "DATA", "STATUS", "CATEGORIA_NLP", coluna_comentario] if c in df.columns]
 
                     st.markdown("---")
                     st.subheader("📈 Análise Gráfica dos Chamados")
@@ -264,23 +323,8 @@ if df is not None:
                             st.info("ℹ️ Coluna 'STATUS' não encontrada.")
 
                     with col_g2:
-                        coluna_cat_alternativa = None
-                        for col in ["SETOR", "LOCAL", "TIPO", "EQUIPAMENTO"]:
-                            if col in df_filtrado.columns:
-                                coluna_cat_alternativa = col
-                                break
-                        
-                        if coluna_cat_alternativa:
-                            st.markdown(f"**Ocorrências por {coluna_cat_alternativa.title()}**")
-                            st.bar_chart(df_filtrado[coluna_cat_alternativa].value_counts().head(10))
-                        else:
-                            if "DATA" in df_filtrado.columns:
-                                st.markdown("**Ocorrências por Data**")
-                                try:
-                                    data_counts = pd.to_datetime(df_filtrado["DATA"]).dt.date.value_counts().sort_index()
-                                    st.line_chart(data_counts)
-                                except Exception:
-                                    pass
+                        st.markdown("**Ocorrências por Categoria NLP**")
+                        st.bar_chart(df_filtrado["CATEGORIA_NLP"].value_counts())
 
                     with st.expander(f"📋 Ver registros detalhados ({total_encontrados:,} encontrados)", expanded=False):
                         st.dataframe(df_filtrado[colunas_exibicao], use_container_width=True)
@@ -306,9 +350,39 @@ if df is not None:
                 else:
                     st.warning("⚠️ Nenhum registro encontrado com esse termo na planilha.")
 
+        with aba_nlp:
+            st.subheader("🏷️ Visão Geral da Classificação NLP (100% dos Registros)")
+            st.markdown(f"O algoritmo de NLP categorizou automaticamente **{len(df):,} registros** com base no conteúdo textual de `{coluna_comentario}`.")
+            
+            contagem_nlp = df["CATEGORIA_NLP"].value_counts()
+            col_met1, col_met2 = st.columns([2, 1])
+            
+            with col_met1:
+                st.markdown("**📊 Distribuição de Frequência por Categoria Detectada**")
+                st.bar_chart(contagem_nlp)
+                
+            with col_met2:
+                st.markdown("**📋 Resumo Numérico**")
+                st.dataframe(contagem_nlp.reset_index().rename(columns={"index": "Categoria", "count": "Quantidade", "CATEGORIA_NLP": "Quantidade"}), use_container_width=True)
+
+            st.markdown("---")
+            st.subheader("📥 Exportar Dados Classificados")
+            buffer = io.BytesIO()
+            with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
+                df.to_excel(writer, index=False, sheet_name='OS Classificadas NLP')
+            buffer.seek(0)
+            
+            st.download_button(
+                label="📥 Baixar Planilha Completa com Coluna 'CATEGORIA_NLP' (.xlsx)",
+                data=buffer,
+                file_name="OS_Classificadas_NLP.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                type="primary"
+            )
+
         with aba_chat:
             st.subheader("💬 Chat Inteligente com a Base Completa de Manutenção")
-            st.markdown(f"Faça perguntas abertas sobre os **{len(df):,} registros** da planilha (ex: *'Quantas OS estão pendentes no total?'*, *'Qual setor tem mais problemas?'*).")
+            st.markdown(f"Faça perguntas abertas sobre os **{len(df):,} registros** da planilha (ex: *'Quantas OS foram classificadas como Elétrica?'*, *'Qual setor tem mais problemas?'*).")
 
             for mensagem in st.session_state.mensagens_chat:
                 with st.chat_message(mensagem["role"]):
