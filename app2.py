@@ -41,8 +41,8 @@ def classificar_texto_nlp(df: pd.DataFrame, coluna_texto: str) -> pd.DataFrame:
             return "Mecânica / Equipamentos"
         elif any(w in texto for w in ["limpeza", "lixo", "entulho", "higienizacao"]):
             return "Limpeza / Conservação"
-        elif any(w in texto for w in ["hospede", "clientes", "reparo", "apoio"]):
-            return "Atendimento / Chamados"
+        elif any(w in texto for w in ["hospede", "hospedes", "quarto", "suite", "hospedagem", "cliente"]):
+            return "Atendimento ao Hóspede / Quartos"
         else:
             return "Outros / Diversos"
 
