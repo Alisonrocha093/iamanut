@@ -17,14 +17,13 @@ st.set_page_config(
 # CONFIGURAÇÃO DA IA (GROQ)
 # ==========================================
 def obter_modelo_ativo(client, api_key: str) -> str:
-    """Busca dinamicamente na API da Groq um modelo leve e adequado para evitar limites de token."""
+    """Busca dinamicamente na API da Groq um modelo leve e adequado."""
     if not api_key:
         return "llama-3.1-8b-instant"
     try:
         modelos_disponiveis = client.models.list()
         for m in modelos_disponiveis.data:
             m_id = m.id.lower()
-            # Prioriza modelos Llama menores e mais rápidos que estouram menos o TPM
             if "llama-3.1-8b" in m_id or "8b" in m_id:
                 return m.id
         for m in modelos_disponiveis.data:
@@ -36,7 +35,7 @@ def obter_modelo_ativo(client, api_key: str) -> str:
     return "llama-3.1-8b-instant"
 
 def gerar_relatorio_ia(termo: str, lista_observacoes: list, api_key: str) -> str:
-    """Gera o relatório executivo baseado em um termo específico."""
+    """Gera o relatório executivo baseado nas ocorrências encontradas."""
     if not api_key:
         return "⚠️ Chave da Groq não configurada! Insira sua chave na barra lateral."
 
@@ -47,14 +46,14 @@ def gerar_relatorio_ia(termo: str, lista_observacoes: list, api_key: str) -> str
 
     modelo_ativo = obter_modelo_ativo(client, api_key)
 
-    amostra = [str(obs)[:150] for obs in lista_observacoes[:15]]
+    amostra = [str(obs)[:150] for obs in lista_observacoes[:30]]
     texto_observacoes = "\n".join([f"- {obs}" for obs in amostra])
 
     prompt = f"""Você é um especialista em manutenção de Ordens de Serviço (OS).
-Chamados para '{termo.upper()}':
+Foram encontrados {len(lista_observacoes)} registros no total para o termo '{termo.upper()}'. Abaixo estão alguns exemplos representativos:
 {texto_observacoes}
 
-Escreva um relatório executivo em português contendo:
+Escreva um relatório executivo detalhado em português contendo:
 1. Resumo dos Principais Problemas Relatados (Inclua obrigatoriamente uma tabela em Markdown com colunas 'Área/Problema' e 'Frequência' ex: | Área | Frequência | / | --- | --- | / | Hidráulica | 5 ocorrências |)
 2. Padrões ou Causas Recorrentes
 3. Recomendações e Ações Preventivas"""
@@ -70,8 +69,8 @@ Escreva um relatório executivo em português contendo:
     except Exception as e:
         return f"❌ Erro ao gerar relatório com a IA: {e}"
 
-def responder_pergunta_livre(pergunta_usuario: str, df: pd.DataFrame, api_key: str) -> str:
-    """Permite que a IA responda perguntas resumindo os dados de forma compacta para não estourar tokens."""
+def responder_pergunta_livre_com_todo_arquivo(pergunta_usuario: str, df: pd.DataFrame, api_key: str) -> str:
+    """Analisa todo o arquivo processando estatísticas completas e buscando linhas relevantes."""
     if not api_key:
         return "⚠️ Chave da Groq não configurada! Insira sua chave na barra lateral."
 
@@ -84,25 +83,46 @@ def responder_pergunta_livre(pergunta_usuario: str, df: pd.DataFrame, api_key: s
 
     total_linhas = len(df)
     
-    # Reduzimos drasticamente a amostra e pegamos colunas essenciais para caber no limite de tokens
-    colunas_chave = [c for c in ["OS", "DATA", "STATUS", "SETOR", "LOCAL", "OBSERVAÇÃO ABERTURA"] if c in df.columns]
-    if not colunas_chave:
-        colunas_chave = list(df.columns[:4])
-        
-    amostra_df = df[colunas_chave].head(15).to_string(index=False)
+    # 1. Agregações estatísticas globais de todo o arquivo
+    resumo_status = df["STATUS"].value_counts().to_dict() if "STATUS" in df.columns else "Não disponível"
+    resumo_setor = df["SETOR"].value_counts().head(5).to_dict() if "SETOR" in df.columns else (df["TIPO"].value_counts().head(5).to_dict() if "TIPO" in df.columns else "Não disponível")
 
-    prompt = f"""Você é um assistente de manutenção. A planilha possui {total_linhas} registros. 
-Aqui está uma amostra recente dos dados:
-{amostra_df}
+    # 2. Busca inteligente por termos mencionados na pergunta do usuário em todo o DataFrame
+    pergunta_lower = pergunta_usuario.lower()
+    palavras_chave = [palavra for palavra in pergunta_lower.split() if len(palavra) > 3]
+    
+    df_relevante = df
+    if palavras_chave:
+        # Filtra linhas que contenham alguma palavra-chave da pergunta do usuário nas observações
+        filtro = df["OBSERVAÇÃO ABERTURA"].astype(str).str.lower().apply(lambda x: any(p in x for p in palavras_chave))
+        df_filtrado_ia = df[filtro]
+        if len(df_filtrado_ia) > 0:
+            df_relevante = df_filtrado_ia
 
-Responda de forma direta e concisa em português à pergunta: {pergunta_usuario}"""
+    # Pega uma amostra focada dos registros mais relevantes encontrados na base completa (até 25 linhas)
+    amostra_relevante = df_relevante[["OS", "DATA", "STATUS", "SETOR", "OBSERVAÇÃO ABERTURA"]].head(25).to_string(index=False) if "SETOR" in df.columns else df_relevante.head(25).to_string(index=False)
+
+    prompt = f"""Você é um analista especialista em gestão de manutenção. A planilha completa possui {total_linhas} registros analisados.
+
+--- ESTATÍSTICAS GLOBAIS DA PLANILHA COMPLETA ---
+- Total de registros: {total_linhas}
+- Distribuição por Status: {resumo_status}
+- Principais Setores/Tipos: {resumo_setor}
+--------------------------------------------------
+
+--- REGISTROS MAIS RELEVANTES ENCONTRADOS PARA A SUA PERGUNTA ---
+{amostra_relevante}
+-----------------------------------------------------------------
+
+Com base em **todos os dados da planilha completa** e nas estatísticas acima, responda de forma clara, técnica e objetiva em português à seguinte pergunta do usuário:
+Pergunta: {pergunta_usuario}"""
 
     try:
         response = client.chat.completions.create(
             messages=[{"role": "user", "content": prompt}],
             model=modelo_ativo,
             temperature=0.3,
-            max_tokens=800,
+            max_tokens=1000,
         )
         return response.choices[0].message.content
     except Exception as e:
@@ -149,7 +169,7 @@ arquivo_carregado = st.sidebar.file_uploader("Envie sua planilha Excel (.xls, .x
 # CORPO PRINCIPAL DO APLICATIVO
 # ==========================================
 st.title("🛠️ Sistema Inteligente de Ordens de Serviço (OS)")
-st.markdown("Consulte registros, gere relatórios e tire dúvidas livres sobre a sua planilha com Inteligência Artificial.")
+st.markdown("Consulte registros, analise todo o arquivo e tire dúvidas via Chat com Inteligência Artificial.")
 
 if 'termo_pesquisa' not in st.session_state:
     st.session_state.termo_pesquisa = ""
@@ -169,13 +189,13 @@ coluna_comentario = "OBSERVAÇÃO ABERTURA"
 if arquivo_carregado is not None:
     try:
         df = pd.read_excel(arquivo_carregado)
-        st.success(f"✅ Arquivo `{arquivo_carregado.name}` carregado com sucesso via upload!")
+        st.success(f"✅ Arquivo `{arquivo_carregado.name}` carregado com sucesso ({len(df):,} registros)!")
     except Exception as e:
         st.error(f"❌ Erro ao ler o arquivo enviado: {e}")
 elif os.path.exists("OS Geral.xls"):
     try:
         df = pd.read_excel("OS Geral.xls")
-        st.info("ℹ️ Usando o arquivo padrão local: `OS Geral.xls`")
+        st.info(f"ℹ️ Usando o arquivo padrão local: `OS Geral.xls` ({len(df):,} registros)")
     except Exception as e:
         st.error(f"❌ Erro ao ler o arquivo local `OS Geral.xls`: {e}")
 else:
@@ -191,7 +211,7 @@ if df is not None:
 
         st.markdown("---")
         
-        aba_busca, aba_chat = st.tabs(["🔍 Pesquisa & Relatórios por Termo", "💬 Chat Livre com a Planilha (IA)"])
+        aba_busca, aba_chat = st.tabs(["🔍 Pesquisa & Relatórios por Termo", "💬 Chat Inteligente com a Base Completa"])
 
         with aba_busca:
             col_input, col_btn = st.columns([3, 1])
@@ -209,7 +229,7 @@ if df is not None:
                 df_filtrado = df[df["texto_busca"].str.contains(termo_usuario, na=False)]
                 total_encontrados = len(df_filtrado)
 
-                st.markdown(f"### 📊 Resultados para: `{termo_usuario.upper()}`")
+                st.markdown(f"### 📊 Resultados para: `{termo_usuario.upper()}` (Base Completa: {total_encontrados:,} ocorrências)")
                 st.metric(label="Total de Ocorrências Encontradas", value=total_encontrados)
 
                 if total_encontrados > 0:
@@ -247,12 +267,12 @@ if df is not None:
                                 except Exception:
                                     pass
 
-                    with st.expander("📋 Ver registros detalhados encontrados", expanded=False):
+                    with st.expander(f"📋 Ver registros detalhados ({total_encontrados:,} encontrados)", expanded=False):
                         st.dataframe(df_filtrado[colunas_exibicao], use_container_width=True)
 
                     st.markdown("---")
                     if st.button("🤖 Gerar Relatório Executivo com IA", type="primary"):
-                        with st.spinner("Analisando dados e gerando relatório executivo..."):
+                        with st.spinner("Analisando todos os registros e gerando relatório executivo..."):
                             lista_obs = df_filtrado[coluna_comentario].astype(str).tolist()
                             relatorio = gerar_relatorio_ia(termo_usuario, lista_obs, groq_api_key_input)
                             st.session_state.relatorio_gerado = relatorio
@@ -272,21 +292,21 @@ if df is not None:
                     st.warning("⚠️ Nenhum registro encontrado com esse termo na planilha.")
 
         with aba_chat:
-            st.subheader("💬 Tire qualquer dúvida sobre a planilha de manutenção")
-            st.markdown("Faça perguntas abertas sobre os dados carregados (ex: *'Quais os principais equipamentos com falha?'*, *'Resuma o status geral dos chamados'*).")
+            st.subheader("💬 Chat Inteligente com a Base Completa de Manutenção")
+            st.markdown(f"Faça perguntas abertas sobre os **{len(df):,} registros** da planilha (ex: *'Quantas OS estão pendentes?'*, *'Quais os problemas mais comuns no setor hidráulico?'*).")
 
             for mensagem in st.session_state.mensagens_chat:
                 with st.chat_message(mensagem["role"]):
                     st.markdown(mensagem["content"])
 
-            if prompt_usuario := st.chat_input("Digite sua pergunta sobre a planilha..."):
+            if prompt_usuario := st.chat_input("Digite sua pergunta sobre a planilha inteira..."):
                 st.session_state.mensagens_chat.append({"role": "user", "content": prompt_usuario})
                 with st.chat_message("user"):
                     st.markdown(prompt_usuario)
 
                 with st.chat_message("assistant"):
-                    with st.spinner("Analisando a planilha para responder..."):
-                        resposta_ia = responder_pergunta_livre(prompt_usuario, df, groq_api_key_input)
+                    with st.spinner(f"Varrendo os {len(df):,} registros da planilha para responder..."):
+                        resposta_ia = responder_pergunta_livre_com_todo_arquivo(prompt_usuario, df, groq_api_key_input)
                         st.markdown(resposta_ia)
                 
                 st.session_state.mensagens_chat.append({"role": "assistant", "content": resposta_ia})
