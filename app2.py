@@ -1,5 +1,6 @@
 import os
 import io
+import re
 import pandas as pd
 import streamlit as st
 import plotly.express as px
@@ -46,13 +47,34 @@ st.markdown("""
 # FUNÇÕES DE AUXÍLIO PARA TRATAMENTO DE DADOS
 # ==========================================
 def limpar_coluna_monetaria(serie):
-    """Converte colunas de formato monetário (ex: 'R$ 1.234,56') para float."""
+    """Converte com segurança colunas de formato monetário (ex: 'R$ 1.234,56') para float."""
+    if serie is None:
+        return pd.Series([0.0])
+    
     if serie.dtype in ['float64', 'int64']:
-        return serie.fillna(0)
-    return serie.astype(str).str.replace('R$', '', regex=True)\
-                .str.replace('.', '', regex=True)\
-                .str.replace(',', '.', regex=True)\
-                .str.strip().astype(float).fillna(0)
+        return serie.fillna(0.0)
+    
+    def converter_valor(val):
+        if pd.isna(val):
+            return 0.0
+        val_str = str(val).strip()
+        # Remove tudo exceto dígitos, vírgula e ponto
+        val_limpo = re.sub(r'[^\d,.-]', '', val_str)
+        if not val_limpo or val_limpo in ['-', '.', ',']:
+            return 0.0
+        
+        try:
+            # Se houver ponto e vírgula (ex: 1.234,56)
+            if '.' in val_limpo and ',' in val_limpo:
+                val_limpo = val_limpo.replace('.', '').replace(',', '.')
+            elif ',' in val_limpo:
+                # Se houver apenas vírgula, assume que é separador decimal (ex: 1234,56)
+                val_limpo = val_limpo.replace(',', '.')
+            return float(val_limpo)
+        except Exception:
+            return 0.0
+
+    return serie.apply(converter_valor).astype(float).fillna(0.0)
 
 # ==========================================
 # MÓDULO DE NLP & CLASSIFICAÇÃO DE TEXTO
@@ -348,26 +370,19 @@ if df is not None:
             
             total_os = len(df_filtrado_dashboard)
             
-            # Cálculo de Custo com Materiais real
+            # Cálculo de Custo com Materiais real com segurança
             if "CUSTO COM MATERIAIS" in df_filtrado_dashboard.columns:
                 val_mat = limpar_coluna_monetaria(df_filtrado_dashboard["CUSTO COM MATERIAIS"]).sum()
                 custo_materiais = f"R$ {val_mat:,.2f}"
             else:
                 custo_materiais = "R$ 0,00"
 
-            # Cálculo de Mão de Obra Externa real
+            # Cálculo de Mão de Obra Externa real com segurança
             if "MÃO DE OBRA EXTERNA" in df_filtrado_dashboard.columns:
                 val_moe = limpar_coluna_monetaria(df_filtrado_dashboard["MÃO DE OBRA EXTERNA"]).sum()
                 mao_de_obra = f"R$ {val_moe:,.2f}"
             else:
                 mao_de_obra = "R$ 0,00"
-
-            # Tempo médio de espera / Total Horas
-            if "TOTAL HORAS" in df_filtrado_dashboard.columns:
-                # Exemplo simples convertendo string de tempo ou média se for numérica
-                tempo_espera = f"{len(df_filtrado_dashboard)} OS"
-            else:
-                tempo_espera = "N/D"
             
             with col_kpi1:
                 st.markdown(f"""
@@ -576,6 +591,9 @@ if df is not None:
                 with st.chat_message("assistant"):
                     with st.spinner(f"Varrendo os {len(df):,} registros da planilha para responder..."):
                         resposta_ia = responder_pergunta_livre_com_todo_arquivo(prompt_usuario, df, groq_api_key_input)
+                        st.markdown(resposta_ia)
+                
+                st.session_state.mensagens_chat.append({"role": "assistant", "content": resposta_ia})
                         st.markdown(resposta_ia)
                 
                 st.session_state.mensagens_chat.append({"role": "assistant", "content": resposta_ia})
