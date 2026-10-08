@@ -87,320 +87,320 @@ def classificar_texto_nlp(df: pd.DataFrame, coluna_texto: str) -> pd.DataFrame:
     
     textos = df_cls[coluna_texto].fillna("").astype(str).str.lower()
     
-  def categorizar_por_regras(texto):
-    """
-    Classificação automática de solicitações de manutenção.
-    As categorias são independentes e utilizam palavras-chave
-    específicas para reduzir sobreposição entre índices.
-    """
+    def categorizar_por_regras(texto):
+        """
+        Classificação automática de solicitações de manutenção.
+        As categorias são independentes e utilizam palavras-chave
+        específicas para reduzir sobreposição entre índices.
+        """
 
-    texto = str(texto).lower().strip()
+        texto = str(texto).lower().strip()
 
-    # ==========================================================
-    # 1. HIDRÁULICA / SANEAMENTO
-    # ==========================================================
-    if any(w in texto for w in [
-        "vazamento", "vazando", "vaza", "água", "agua",
-        "cano", "tubulação", "tubulacao", "tubo",
-        "esgoto", "ralo", "torneira", "registro",
-        "válvula", "valvula", "hydra", "descarga",
-        "bacia sanitária", "vaso sanitário", "vaso sanitario",
-        "pia", "chuveiro", "bebedouro", "caixa d'água",
-        "caixa dagua", "reservatório", "reservatorio",
-        "bomba d'água", "bomba dagua", "boia", "boia de nível",
-        "pressão da água", "pressao da agua", "entupimento",
-        "entupido", "infiltração hidráulica", "infiltracao hidraulica"
-    ]):
-        return "Hidráulica / Saneamento"
+        # ==========================================================
+        # 1. HIDRÁULICA / SANEAMENTO
+        # ==========================================================
+        if any(w in texto for w in [
+            "vazamento", "vazando", "vaza", "água", "agua",
+            "cano", "tubulação", "tubulacao", "tubo",
+            "esgoto", "ralo", "torneira", "registro",
+            "válvula", "valvula", "hydra", "descarga",
+            "bacia sanitária", "vaso sanitário", "vaso sanitario",
+            "pia", "chuveiro", "bebedouro", "caixa d'água",
+            "caixa dagua", "reservatório", "reservatorio",
+            "bomba d'água", "bomba dagua", "boia", "boia de nível",
+            "pressão da água", "pressao da agua", "entupimento",
+            "entupido", "infiltração hidráulica", "infiltracao hidraulica"
+        ]):
+            return "Hidráulica / Saneamento"
 
-    # ==========================================================
-    # 2. ELÉTRICA
-    # ==========================================================
-    elif any(w in texto for w in [
-        "lâmpada", "lampada", "iluminação", "iluminacao",
-        "luminária", "luminaria", "tomada", "interruptor",
-        "disjuntor", "quadro elétrico", "quadro eletrico",
-        "painel elétrico", "painel eletrico",
-        "fio", "cabo elétrico", "cabo eletrico",
-        "curto circuito", "curto-circuito",
-        "falta de energia", "sem energia",
-        "queda de energia", "energia elétrica",
-        "energia eletrica", "contator", "relé", "rele",
-        "fusível", "fusivel", "barramento",
-        "aterramento", "dr", "dps", "inversor",
-        "distribuição elétrica", "distribuicao eletrica"
-    ]):
-        return "Elétrica"
+        # ==========================================================
+        # 2. ELÉTRICA
+        # ==========================================================
+        elif any(w in texto for w in [
+            "lâmpada", "lampada", "iluminação", "iluminacao",
+            "luminária", "luminaria", "tomada", "interruptor",
+            "disjuntor", "quadro elétrico", "quadro eletrico",
+            "painel elétrico", "painel eletrico",
+            "fio", "cabo elétrico", "cabo eletrico",
+            "curto circuito", "curto-circuito",
+            "falta de energia", "sem energia",
+            "queda de energia", "energia elétrica",
+            "energia eletrica", "contator", "relé", "rele",
+            "fusível", "fusivel", "barramento",
+            "aterramento", "dr", "dps", "inversor",
+            "distribuição elétrica", "distribuicao eletrica"
+        ]):
+            return "Elétrica"
 
-    # ==========================================================
-    # 3. CLIMATIZAÇÃO / REFRIGERAÇÃO
-    # ==========================================================
-    elif any(w in texto for w in [
-        "ar condicionado", "ar-condicionado",
-        "split", "cassete", "vrf", "vrv",
-        "climatização", "climatizacao",
-        "refrigeração", "refrigeracao",
-        "evaporadora", "condensadora",
-        "compressor", "gás refrigerante", "gas refrigerante",
-        "fluido refrigerante", "serpentina",
-        "filtro do ar", "filtro de ar",
-        "temperatura do ambiente", "não gela", "nao gela",
-        "não refrigera", "nao refrigera",
-        "geladeira", "freezer", "frigobar",
-        "bebedouro refrigerado", "ventilador",
-        "exaustor", "exaustão", "exaustao"
-    ]):
-        return "Climatização / Refrigeração"
+        # ==========================================================
+        # 3. CLIMATIZAÇÃO / REFRIGERAÇÃO
+        # ==========================================================
+        elif any(w in texto for w in [
+            "ar condicionado", "ar-condicionado",
+            "split", "cassete", "vrf", "vrv",
+            "climatização", "climatizacao",
+            "refrigeração", "refrigeracao",
+            "evaporadora", "condensadora",
+            "compressor", "gás refrigerante", "gas refrigerante",
+            "fluido refrigerante", "serpentina",
+            "filtro do ar", "filtro de ar",
+            "temperatura do ambiente", "não gela", "nao gela",
+            "não refrigera", "nao refrigera",
+            "geladeira", "freezer", "frigobar",
+            "bebedouro refrigerado", "ventilador",
+            "exaustor", "exaustão", "exaustao"
+        ]):
+            return "Climatização / Refrigeração"
 
-    # ==========================================================
-    # 4. CIVIL / EDIFICAÇÕES
-    # ==========================================================
-    elif any(w in texto for w in [
-        "parede", "reboco", "alvenaria", "argamassa",
-        "cimento", "concreto", "piso", "revestimento",
-        "cerâmica", "ceramica", "azulejo",
-        "forro", "teto", "telhado", "cobertura",
-        "calha", "rufo", "fachada", "pintura",
-        "infiltração", "infiltracao", "umidade",
-        "mofo", "trinca", "rachadura", "fissura",
-        "porta", "janela", "batente", "fechadura",
-        "dobradiça", "dobradica", "vidro",
-        "espelho", "divisória", "divisoria",
-        "drywall", "gesso", "granito", "mármore",
-        "marcenaria", "carpintaria", "serralheria"
-    ]):
-        return "Civil / Edificações"
+        # ==========================================================
+        # 4. CIVIL / EDIFICAÇÕES
+        # ==========================================================
+        elif any(w in texto for w in [
+            "parede", "reboco", "alvenaria", "argamassa",
+            "cimento", "concreto", "piso", "revestimento",
+            "cerâmica", "ceramica", "azulejo",
+            "forro", "teto", "telhado", "cobertura",
+            "calha", "rufo", "fachada", "pintura",
+            "infiltração", "infiltracao", "umidade",
+            "mofo", "trinca", "rachadura", "fissura",
+            "porta", "janela", "batente", "fechadura",
+            "dobradiça", "dobradica", "vidro",
+            "espelho", "divisória", "divisoria",
+            "drywall", "gesso", "granito", "mármore",
+            "marcenaria", "carpintaria", "serralheria"
+        ]):
+            return "Civil / Edificações"
 
-    # ==========================================================
-    # 5. MECÂNICA
-    # ==========================================================
-    elif any(w in texto for w in [
-        "motor", "redutor", "engrenagem", "rolamento",
-        "correia", "polia", "eixo", "acoplamento",
-        "bucha", "mancal", "corrente mecânica",
-        "lubrificação", "lubrificante",
-        "graxa", "óleo", "oleo",
-        "vibração mecânica", "vibracao mecanica",
-        "desgaste mecânico", "desgaste mecanico",
-        "mecânica", "mecanica",
-        "pneumática", "pneumatica",
-        "compressor de ar", "cilindro pneumático",
-        "atuador", "válvula pneumática", "valvula pneumatica"
-    ]):
-        return "Mecânica"
+        # ==========================================================
+        # 5. MECÂNICA
+        # ==========================================================
+        elif any(w in texto for w in [
+            "motor", "redutor", "engrenagem", "rolamento",
+            "correia", "polia", "eixo", "acoplamento",
+            "bucha", "mancal", "corrente mecânica",
+            "lubrificação", "lubrificante",
+            "graxa", "óleo", "oleo",
+            "vibração mecânica", "vibracao mecanica",
+            "desgaste mecânico", "desgaste mecanico",
+            "mecânica", "mecanica",
+            "pneumática", "pneumatica",
+            "compressor de ar", "cilindro pneumático",
+            "atuador", "válvula pneumática", "valvula pneumatica"
+        ]):
+            return "Mecânica"
 
-    # ==========================================================
-    # 6. EQUIPAMENTOS
-    # ==========================================================
-    elif any(w in texto for w in [
-        "equipamento", "máquina", "maquina",
-        "forno", "microondas", "micro-ondas",
-        "cafeteira", "liquidificador",
-        "televisão", "televisao", "tv",
-        "projetor", "datashow",
-        "impressora", "scanner",
-        "computador", "monitor",
-        "notebook", "desktop",
-        "equipamento de cozinha",
-        "equipamento industrial",
-        "equipamento técnico", "equipamento tecnico"
-    ]):
-        return "Equipamentos"
+        # ==========================================================
+        # 6. EQUIPAMENTOS
+        # ==========================================================
+        elif any(w in texto for w in [
+            "equipamento", "máquina", "maquina",
+            "forno", "microondas", "micro-ondas",
+            "cafeteira", "liquidificador",
+            "televisão", "televisao", "tv",
+            "projetor", "datashow",
+            "impressora", "scanner",
+            "computador", "monitor",
+            "notebook", "desktop",
+            "equipamento de cozinha",
+            "equipamento industrial",
+            "equipamento técnico", "equipamento tecnico"
+        ]):
+            return "Equipamentos"
 
-    # ==========================================================
-    # 7. ELEVADORES / TRANSPORTE VERTICAL
-    # ==========================================================
-    elif any(w in texto for w in [
-        "elevador", "elevadores",
-        "cabina", "cabine do elevador",
-        "porta do elevador",
-        "comando do elevador",
-        "painel do elevador",
-        "nivelamento do elevador",
-        "ascensor",
-        "plataforma elevatória",
-        "plataforma elevatoria"
-    ]):
-        return "Elevadores / Transporte Vertical"
+        # ==========================================================
+        # 7. ELEVADORES / TRANSPORTE VERTICAL
+        # ==========================================================
+        elif any(w in texto for w in [
+            "elevador", "elevadores",
+            "cabina", "cabine do elevador",
+            "porta do elevador",
+            "comando do elevador",
+            "painel do elevador",
+            "nivelamento do elevador",
+            "ascensor",
+            "plataforma elevatória",
+            "plataforma elevatoria"
+        ]):
+            return "Elevadores / Transporte Vertical"
 
-    # ==========================================================
-    # 8. INCÊNDIO / SEGURANÇA
-    # ==========================================================
-    elif any(w in texto for w in [
-        "extintor", "hidrante", "sprinkler",
-        "sprinklers", "alarme de incêndio",
-        "alarme de incendio", "detector de fumaça",
-        "detector de fumaca", "central de incêndio",
-        "central de incendio", "mangueira de incêndio",
-        "mangueira de incendio", "brigada",
-        "bomba de incêndio", "bomba de incendio",
-        "sistema de incêndio", "sistema de incendio",
-        "porta corta-fogo", "porta corta fogo",
-        "iluminação de emergência",
-        "iluminacao de emergencia",
-        "saída de emergência", "saida de emergencia"
-    ]):
-        return "Prevenção e Combate a Incêndio"
+        # ==========================================================
+        # 8. INCÊNDIO / SEGURANÇA
+        # ==========================================================
+        elif any(w in texto for w in [
+            "extintor", "hidrante", "sprinkler",
+            "sprinklers", "alarme de incêndio",
+            "alarme de incendio", "detector de fumaça",
+            "detector de fumaca", "central de incêndio",
+            "central de incendio", "mangueira de incêndio",
+            "mangueira de incendio", "brigada",
+            "bomba de incêndio", "bomba de incendio",
+            "sistema de incêndio", "sistema de incendio",
+            "porta corta-fogo", "porta corta fogo",
+            "iluminação de emergência",
+            "iluminacao de emergencia",
+            "saída de emergência", "saida de emergencia"
+        ]):
+            return "Prevenção e Combate a Incêndio"
 
-    # ==========================================================
-    # 9. SPDA / ATERRAMENTO
-    # ==========================================================
-    elif any(w in texto for w in [
-        "spda", "para-raios", "para raios",
-        "pára-raios", "captor", "descida do spda",
-        "malha de aterramento", "malha de terra",
-        "haste de aterramento", "aterramento predial",
-        "equipotencialização", "equipotencializacao",
-        "DPS", "proteção contra descargas",
-        "descarga atmosférica", "descarga atmosferica"
-    ]):
-        return "SPDA / Aterramento"
+        # ==========================================================
+        # 9. SPDA / ATERRAMENTO
+        # ==========================================================
+        elif any(w in texto for w in [
+            "spda", "para-raios", "para raios",
+            "pára-raios", "captor", "descida do spda",
+            "malha de aterramento", "malha de terra",
+            "haste de aterramento", "aterramento predial",
+            "equipotencialização", "equipotencializacao",
+            "DPS", "proteção contra descargas",
+            "descarga atmosférica", "descarga atmosferica"
+        ]):
+            return "SPDA / Aterramento"
 
-    # ==========================================================
-    # 10. TELECOM / DADOS
-    # ==========================================================
-    elif any(w in texto for w in [
-        "internet", "wi-fi", "wifi", "rede",
-        "cabeamento estruturado", "cabo de rede",
-        "ponto de rede", "rack", "switch",
-        "roteador", "access point", "ap",
-        "fibra óptica", "fibra optica",
-        "conector rj45", "patch panel",
-        "telefonia", "telefone", "ramal",
-        "cftv", "câmera", "camera",
-        "controle de acesso", "catraca",
-        "interfone"
-    ]):
-        return "Telecomunicações / TI"
+        # ==========================================================
+        # 10. TELECOM / DADOS
+        # ==========================================================
+        elif any(w in texto for w in [
+            "internet", "wi-fi", "wifi", "rede",
+            "cabeamento estruturado", "cabo de rede",
+            "ponto de rede", "rack", "switch",
+            "roteador", "access point", "ap",
+            "fibra óptica", "fibra optica",
+            "conector rj45", "patch panel",
+            "telefonia", "telefone", "ramal",
+            "cftv", "câmera", "camera",
+            "controle de acesso", "catraca",
+            "interfone"
+        ]):
+            return "Telecomunicações / TI"
 
-    # ==========================================================
-    # 11. GÁS
-    # ==========================================================
-    elif any(w in texto for w in [
-        "gás", "gas", "glp", "gn",
-        "botijão", "botijao",
-        "central de gás", "central de gas",
-        "tubulação de gás", "tubulacao de gas",
-        "vazamento de gás", "vazamento de gas",
-        "regulador de gás", "regulador de gas"
-    ]):
-        return "Gás / GLP"
+        # ==========================================================
+        # 11. GÁS
+        # ==========================================================
+        elif any(w in texto for w in [
+            "gás", "gas", "glp", "gn",
+            "botijão", "botijao",
+            "central de gás", "central de gas",
+            "tubulação de gás", "tubulacao de gas",
+            "vazamento de gás", "vazamento de gas",
+            "regulador de gás", "regulador de gas"
+        ]):
+            return "Gás / GLP"
 
-    # ==========================================================
-    # 12. COZINHA / EQUIPAMENTOS GASTRONÔMICOS
-    # ==========================================================
-    elif any(w in texto for w in [
-        "cozinha industrial", "fogão industrial",
-        "fogao industrial", "forno industrial",
-        "coifa", "exaustão de cozinha",
-        "exaustao de cozinha", "fritadeira",
-        "chapa", "caldeirão", "caldeirao",
-        "câmara fria", "camara fria",
-        "bancada refrigerada", "processador de alimentos",
-        "lavadora de louças", "lavadora de loucas"
-    ]):
-        return "Cozinha / Gastronomia"
+        # ==========================================================
+        # 12. COZINHA / EQUIPAMENTOS GASTRONÔMICOS
+        # ==========================================================
+        elif any(w in texto for w in [
+            "cozinha industrial", "fogão industrial",
+            "fogao industrial", "forno industrial",
+            "coifa", "exaustão de cozinha",
+            "exaustao de cozinha", "fritadeira",
+            "chapa", "caldeirão", "caldeirao",
+            "câmara fria", "camara fria",
+            "bancada refrigerada", "processador de alimentos",
+            "lavadora de louças", "lavadora de loucas"
+        ]):
+            return "Cozinha / Gastronomia"
 
-    # ==========================================================
-    # 13. PISCINA
-    # ==========================================================
-    elif any(w in texto for w in [
-        "piscina", "casa de máquinas da piscina",
-        "casa de maquinas da piscina",
-        "filtro da piscina", "bomba da piscina",
-        "clorador", "dosador de cloro",
-        "tratamento da piscina",
-        "aspiração da piscina", "aspiracao da piscina"
-    ]):
-        return "Piscina / Tratamento de Água"
+        # ==========================================================
+        # 13. PISCINA
+        # ==========================================================
+        elif any(w in texto for w in [
+            "piscina", "casa de máquinas da piscina",
+            "casa de maquinas da piscina",
+            "filtro da piscina", "bomba da piscina",
+            "clorador", "dosador de cloro",
+            "tratamento da piscina",
+            "aspiração da piscina", "aspiracao da piscina"
+        ]):
+            return "Piscina / Tratamento de Água"
 
-    # ==========================================================
-    # 14. PAISAGISMO / ÁREAS EXTERNAS
-    # ==========================================================
-    elif any(w in texto for w in [
-        "jardim", "jardinagem", "grama",
-        "gramado", "árvore", "arvore",
-        "poda", "paisagismo", "canteiro",
-        "irrigação", "irrigacao",
-        "plantio", "mato", "vegetação", "vegetacao"
-    ]):
-        return "Paisagismo / Áreas Externas"
+        # ==========================================================
+        # 14. PAISAGISMO / ÁREAS EXTERNAS
+        # ==========================================================
+        elif any(w in texto for w in [
+            "jardim", "jardinagem", "grama",
+            "gramado", "árvore", "arvore",
+            "poda", "paisagismo", "canteiro",
+            "irrigação", "irrigacao",
+            "plantio", "mato", "vegetação", "vegetacao"
+        ]):
+            return "Paisagismo / Áreas Externas"
 
-    # ==========================================================
-    # 15. LIMPEZA / CONSERVAÇÃO
-    # ==========================================================
-    elif any(w in texto for w in [
-        "limpeza", "higienização", "higienizacao",
-        "lavagem", "desinfecção", "desinfeccao",
-        "sanitização", "sanitizacao",
-        "lixo", "resíduo", "residuo",
-        "entulho", "sujeira", "conservação",
-        "conservacao", "dedetização", "dedetizacao",
-        "pragas", "insetos", "baratas", "cupins"
-    ]):
-        return "Limpeza / Conservação"
+        # ==========================================================
+        # 15. LIMPEZA / CONSERVAÇÃO
+        # ==========================================================
+        elif any(w in texto for w in [
+            "limpeza", "higienização", "higienizacao",
+            "lavagem", "desinfecção", "desinfeccao",
+            "sanitização", "sanitizacao",
+            "lixo", "resíduo", "residuo",
+            "entulho", "sujeira", "conservação",
+            "conservacao", "dedetização", "dedetizacao",
+            "pragas", "insetos", "baratas", "cupins"
+        ]):
+            return "Limpeza / Conservação"
 
-    # ==========================================================
-    # 16. HOTELARIA / HOSPEDAGEM
-    # ==========================================================
-    elif any(w in texto for w in [
-        "hóspede", "hospede",
-        "hóspedes", "hospedes",
-        "quarto", "quartos",
-        "suíte", "suite",
-        "apartamento", "hospedagem",
-        "hotel", "hotelaria",
-        "frigobar do quarto",
-        "tv do quarto",
-        "cama", "colchão", "colchao",
-        "enxoval", "rouparia"
-    ]):
-        return "Hotelaria / Hospedagem"
+        # ==========================================================
+        # 16. HOTELARIA / HOSPEDAGEM
+        # ==========================================================
+        elif any(w in texto for w in [
+            "hóspede", "hospede",
+            "hóspedes", "hospedes",
+            "quarto", "quartos",
+            "suíte", "suite",
+            "apartamento", "hospedagem",
+            "hotel", "hotelaria",
+            "frigobar do quarto",
+            "tv do quarto",
+            "cama", "colchão", "colchao",
+            "enxoval", "rouparia"
+        ]):
+            return "Hotelaria / Hospedagem"
 
-    # ==========================================================
-    # 17. ACESSIBILIDADE
-    # ==========================================================
-    elif any(w in texto for w in [
-        "acessibilidade", "pessoa com deficiência",
-        "pessoa com deficiencia", "pcd",
-        "rampa", "corrimão", "corrimao",
-        "piso tátil", "piso tatil",
-        "banheiro acessível", "banheiro acessivel",
-        "barra de apoio", "plataforma acessível",
-        "plataforma acessivel"
-    ]):
-        return "Acessibilidade"
+        # ==========================================================
+        # 17. ACESSIBILIDADE
+        # ==========================================================
+        elif any(w in texto for w in [
+            "acessibilidade", "pessoa com deficiência",
+            "pessoa com deficiencia", "pcd",
+            "rampa", "corrimão", "corrimao",
+            "piso tátil", "piso tatil",
+            "banheiro acessível", "banheiro acessivel",
+            "barra de apoio", "plataforma acessível",
+            "plataforma acessivel"
+        ]):
+            return "Acessibilidade"
 
-    # ==========================================================
-    # 18. MOBILIÁRIO
-    # ==========================================================
-    elif any(w in texto for w in [
-        "cadeira", "mesa", "armário", "armario",
-        "gaveta", "estante", "balcão", "balcao",
-        "banco", "mobiliário", "mobiliario",
-        "móvel", "movel", "escrivaninha",
-        "arquivo", "prateleira"
-    ]):
-        return "Mobiliário"
+        # ==========================================================
+        # 18. MOBILIÁRIO
+        # ==========================================================
+        elif any(w in texto for w in [
+            "cadeira", "mesa", "armário", "armario",
+            "gaveta", "estante", "balcão", "balcao",
+            "banco", "mobiliário", "mobiliario",
+            "móvel", "movel", "escrivaninha",
+            "arquivo", "prateleira"
+        ]):
+            return "Mobiliário"
 
-    # ==========================================================
-    # 19. SEGURANÇA PATRIMONIAL
-    # ==========================================================
-    elif any(w in texto for w in [
-        "segurança patrimonial", "seguranca patrimonial",
-        "alarme", "sensor de presença",
-        "sensor de presenca", "cerca elétrica",
-        "cerca eletrica", "portão eletrônico",
-        "portao eletronico", "fechamento eletrônico",
-        "fechamento eletronico"
-    ]):
-        return "Segurança Patrimonial"
+        # ==========================================================
+        # 19. SEGURANÇA PATRIMONIAL
+        # ==========================================================
+        elif any(w in texto for w in [
+            "segurança patrimonial", "seguranca patrimonial",
+            "alarme", "sensor de presença",
+            "sensor de presenca", "cerca elétrica",
+            "cerca eletrica", "portão eletrônico",
+            "portao eletronico", "fechamento eletrônico",
+            "fechamento eletronico"
+        ]):
+            return "Segurança Patrimonial"
 
-    # ==========================================================
-    # 20. OUTROS
-    # ==========================================================
-    else:
-        return "Outros / Diversos"
+        # ==========================================================
+        # 20. OUTROS
+        # ==========================================================
+        else:
+            return "Outros / Diversos"
 
     df_cls["CATEGORIA_NLP"] = textos.apply(categorizar_por_regras)
     
@@ -483,7 +483,7 @@ def responder_pergunta_livre_com_todo_arquivo(pergunta_usuario: str, df: pd.Data
     modelo_ativo = obter_modelo_ativo(client, api_key)
     total_linhas = len(df)
     
-    # 1. Limita o número de itens nos resumos para economizar tokens
+    # Limita os itens nos resumos para economizar tokens
     resumo_status = dict(df["STATUS"].value_counts().head(5)) if "STATUS" in df.columns else "Não disponível"
     col_setor = "SETOR" if "SETOR" in df.columns else ("MÁQUINA" if "MÁQUINA" in df.columns else None)
     resumo_setor = dict(df[col_setor].value_counts().head(5)) if col_setor else "Não disponível"
@@ -510,7 +510,7 @@ def responder_pergunta_livre_com_todo_arquivo(pergunta_usuario: str, df: pd.Data
         if len(df_filtrado_ia) > 0:
             df_relevante = df_filtrado_ia
 
-    # 2. Reduz o número de linhas da amostra de 12 para 5 e trunca o texto de observação para 60 caracteres
+    # Seleciona amostra curta (5 itens, observações truncadas em 60 caracteres)
     df_amostra = df_relevante.head(5).copy()
     if col_obs in df_amostra.columns:
         df_amostra[col_obs] = df_amostra[col_obs].astype(str).str.slice(0, 60)
@@ -618,7 +618,7 @@ else:
     st.warning("⚠️ Por favor, envie uma planilha na barra lateral para começar.")
 
 if df is not None:
-    # Normalizar nomes das colunas para maiúsculas para evitar erros de case-sensitive
+    # Normalizar nomes das colunas para maiúsculas
     df.columns = [str(c).strip().upper() for c in df.columns]
     
     if coluna_comentario not in df.columns:
@@ -662,22 +662,23 @@ if df is not None:
             "💬 Chat Inteligente com a Base Completa"
         ])
 
+        # ==========================================
+        # ABA 1: DASHBOARD GERAL
+        # ==========================================
         with aba_dash:
             st.subheader("📈 Visão Executiva Completa da Manutenção")
             
-            # 1. Métricas Principais (KPI Cards Calculadas Dinamicamente)
+            # 1. Métricas Principais
             col_kpi1, col_kpi2, col_kpi3, col_kpi4 = st.columns(4)
             
             total_os = len(df_filtrado_dashboard)
             
-            # Cálculo de Custo com Materiais real com segurança
             if "CUSTO COM MATERIAIS" in df_filtrado_dashboard.columns:
                 val_mat = limpar_coluna_monetaria(df_filtrado_dashboard["CUSTO COM MATERIAIS"]).sum()
                 custo_materiais = f"R$ {val_mat:,.2f}"
             else:
                 custo_materiais = "R$ 0,00"
 
-            # Cálculo de Mão de Obra Externa real com segurança
             if "MÃO DE OBRA EXTERNA" in df_filtrado_dashboard.columns:
                 val_moe = limpar_coluna_monetaria(df_filtrado_dashboard["MÃO DE OBRA EXTERNA"]).sum()
                 mao_de_obra = f"R$ {val_moe:,.2f}"
@@ -753,144 +754,123 @@ if df is not None:
                         df_temp = df_filtrado_dashboard.copy()
                         df_temp["DATA_FORMATADA"] = pd.to_datetime(df_temp[col_data], errors='coerce').dt.to_period("M").astype(str)
                         df_line = df_temp["DATA_FORMATADA"].value_counts().sort_index().reset_index()
-                        df_line.columns = ["Mês", "Chamados"]
-                        fig_line = px.line(df_line, x="Mês", y="Chamados", markers=True, line_shape="spline", color_discrete_sequence=["#1E3A8A"])
+                        df_line.columns = ["Mês/Ano", "Total OS"]
+                        fig_line = px.line(df_line, x="Mês/Ano", y="Total OS", markers=True, line_shape="linear")
                         fig_line.update_layout(margin=dict(t=10, b=10, l=10, r=10), height=350)
                         st.plotly_chart(fig_line, use_container_width=True)
                     except Exception:
-                        st.info("Formato de data inválido para gráfico temporal.")
+                        st.info("Formato de data inválido para montagem do gráfico temporal.")
                 else:
-                    st.info("Coluna de data ('ABERTO EM') não encontrada.")
+                    st.info("Coluna de data não encontrada na base.")
 
             with col_g4:
-                st.markdown("### ⚙️ Solicitações por Máquina / Local (Barras Horizontais)")
-                coluna_agrupamento = "MÁQUINA" if "MÁQUINA" in df_filtrado_dashboard.columns else ("SETOR" if "SETOR" in df_filtrado_dashboard.columns else "CATEGORIA_NLP")
-                df_hbar = df_filtrado_dashboard[coluna_agrupamento].value_counts().reset_index().head(8)
-                df_hbar.columns = ["Máquina", "Quantidade"]
-                fig_hbar = px.bar(df_hbar, x="Quantidade", y="Máquina", orientation="h", text="Quantidade", color_discrete_sequence=["#059669"])
-                fig_hbar.update_layout(margin=dict(t=10, b=10, l=10, r=10), height=350, yaxis={'categoryorder':'total ascending'})
-                st.plotly_chart(fig_hbar, use_container_width=True)
-
-        with aba_busca:
-            col_input, col_btn = st.columns([3, 1])
-            with col_input:
-                termo_usuario = st.text_input(
-                    "🔍 Digite o termo de busca (ex: vazamento, ralo, civil, elétrica):", 
-                    key="termo_pesquisa",
-                    on_change=limpar_pesquisa
-                ).strip().lower()
-                
-            with col_btn:
-                st.markdown("<br>", unsafe_allow_html=True) 
-                st.button("🔄 Reiniciar Pesquisa", on_click=limpar_pesquisa, use_container_width=True)
-
-            if termo_usuario:
-                df_filtrado = df[df["TEXTO_BUSCA"].str.contains(termo_usuario, na=False)]
-                total_encontrados = len(df_filtrado)
-
-                st.markdown(f"### 📊 Resultados para: `{termo_usuario.upper()}` (Base Completa: {total_encontrados:,} ocorrências)")
-                st.metric(label="Total de Ocorrências Encontradas", value=total_encontrados)
-
-                if total_encontrados > 0:
-                    colunas_exibicao = [c for c in ["CÓDIGO", "ABERTO EM", "STATUS", "MÁQUINA", "CATEGORIA_NLP", coluna_comentario] if c in df.columns]
-
-                    st.markdown("---")
-                    st.subheader("📈 Análise Gráfica dos Chamados Filtrados")
-                    col_sub1, col_sub2 = st.columns(2)
-                    
-                    with col_sub1:
-                        if "STATUS" in df_filtrado.columns:
-                            st.markdown("**Ocorrências por Status (Pizza)**")
-                            df_p_sub = df_filtrado["STATUS"].value_counts().reset_index()
-                            df_p_sub.columns = ["Status", "Qtd"]
-                            fig_p_sub = px.pie(df_p_sub, names="Status", values="Qtd", hole=0.3)
-                            fig_p_sub.update_layout(margin=dict(t=10, b=10, l=10, r=10), height=300)
-                            st.plotly_chart(fig_p_sub, use_container_width=True)
-
-                    with col_sub2:
-                        st.markdown("**Ocorrências por Categoria NLP (Barras)**")
-                        df_b_sub = df_filtrado["CATEGORIA_NLP"].value_counts().reset_index()
-                        df_b_sub.columns = ["Categoria", "Qtd"]
-                        fig_b_sub = px.bar(df_b_sub, x="Categoria", y="Qtd", text="Qtd", color_discrete_sequence=["#3B82F6"])
-                        fig_b_sub.update_layout(margin=dict(t=10, b=10, l=10, r=10), height=300)
-                        st.plotly_chart(fig_b_sub, use_container_width=True)
-
-                    with st.expander(f"📋 Ver registros detalhados ({total_encontrados:,} encontrados)", expanded=False):
-                        st.dataframe(df_filtrado[colunas_exibicao], use_container_width=True)
-
-                    st.markdown("---")
-                    if st.button("🤖 Gerar Relatório Executivo com IA", type="primary"):
-                        with st.spinner("Analisando todos os registros e gerando relatório executivo..."):
-                            lista_obs = df_filtrado[coluna_comentario].astype(str).tolist()
-                            relatorio = gerar_relatorio_ia(termo_usuario, lista_obs, groq_api_key_input)
-                            st.session_state.relatorio_gerado = relatorio
-                            st.session_state.termo_relatorio = termo_usuario
-
-                    if "relatorio_gerado" in st.session_state and st.session_state.get("termo_relatorio") == termo_usuario:
-                        st.markdown("---")
-                        st.subheader("📋 Resumo dos Principais Problemas Relatados & Relatório IA")
-                        st.markdown(st.session_state.relatorio_gerado)
-
-                        dados_grafico = extrair_dados_tabela_markdown(st.session_state.relatorio_gerado)
-                        if dados_grafico is not None and not dados_grafico.empty:
-                            st.markdown("---")
-                            st.subheader("📊 Gráficos a partir do Resumo dos Principais Problemas Relatados")
-                            fig_rel = px.bar(dados_grafico.reset_index(), x="Categoria", y="Frequência", text="Frequência", color_discrete_sequence=["#10B981"])
-                            fig_rel.update_layout(margin=dict(t=10, b=10, l=10, r=10), height=350)
-                            st.plotly_chart(fig_rel, use_container_width=True)
+                st.markdown("### 🏢 Top Setores / Máquinas com Mais Demandas")
+                col_setor = "SETOR" if "SETOR" in df_filtrado_dashboard.columns else ("MÁQUINA" if "MÁQUINA" in df_filtrado_dashboard.columns else None)
+                if col_setor:
+                    df_setor = df_filtrado_dashboard[col_setor].value_counts().head(10).reset_index()
+                    df_setor.columns = ["Setor/Máquina", "Quantidade"]
+                    fig_horiz = px.bar(df_setor, y="Setor/Máquina", x="Quantidade", orientation="h", text="Quantidade", color="Quantidade", color_continuous_scale="Blues")
+                    fig_horiz.update_layout(margin=dict(t=10, b=10, l=10, r=10), height=350, yaxis={'categoryorder':'total ascending'})
+                    st.plotly_chart(fig_horiz, use_container_width=True)
                 else:
-                    st.warning("⚠️ Nenhum registro encontrado com esse termo na planilha.")
+                    st.info("Coluna de Setor ou Máquina não encontrada.")
 
+        # ==========================================
+        # ABA 2: PESQUISA & RELATÓRIOS POR TERMO
+        # ==========================================
+        with aba_busca:
+            st.subheader("🔍 Pesquisa Textual & Geração de Relatórios por IA")
+            
+            col_search, col_btn = st.columns([4, 1])
+            with col_search:
+                termo = st.text_input("Digite um termo para pesquisar nas observações (ex: ar condicionado, vazamento, bomba):", value=st.session_state.termo_pesquisa)
+            with col_btn:
+                st.write("")
+                st.write("")
+                if st.button("🔎 Buscar"):
+                    st.session_state.termo_pesquisa = termo
+                    limpar_pesquisa()
+
+            if st.session_state.termo_pesquisa:
+                termo_busca = st.session_state.termo_pesquisa.lower().strip()
+                df_resultado = df[df["TEXTO_BUSCA"].str.contains(termo_busca, na=False)]
+                
+                st.markdown(f"**Registros encontrados:** {len(df_resultado):,} de {len(df):,}")
+                
+                if len(df_resultado) > 0:
+                    col_r1, col_r2 = st.columns([1, 2])
+                    
+                    with col_r1:
+                        st.markdown("#### 📄 Ações com a Seleção")
+                        if st.button("🤖 Gerar Relatório Executivo com IA"):
+                            with st.spinner("Analisando dados e gerando relatório executivo via Groq..."):
+                                relatorio = gerar_relatorio_ia(termo_busca, df_resultado[coluna_comentario].tolist(), groq_api_key_input)
+                                st.session_state.relatorio_gerado = relatorio
+                                st.session_state.termo_relatorio = termo_busca
+
+                    if "relatorio_gerado" in st.session_state and st.session_state.get("termo_relatorio") == termo_busca:
+                        st.markdown("---")
+                        st.markdown(f"### 📋 Relatório IA para '{termo_busca.upper()}'")
+                        st.markdown(st.session_state.relatorio_gerado)
+                        
+                        # Tentar extrair gráfico do relatório se houver tabela markdown
+                        serie_tabela = extrair_dados_tabela_markdown(st.session_state.relatorio_gerado)
+                        if serie_tabela is not None and not serie_tabela.empty:
+                            st.markdown("#### 📊 Gráfico extraído do Relatório")
+                            fig_rel = px.bar(x=serie_tabela.index, y=serie_tabela.values, labels={'x': 'Área/Problema', 'y': 'Frequência'})
+                            st.plotly_chart(fig_rel, use_container_width=True)
+
+                    st.markdown("---")
+                    st.markdown("#### 📋 Listagem das OS Encontradas")
+                    cols_exibir = [c for c in ["CÓDIGO", "ABERTO EM", "STATUS", "SETOR", "MÁQUINA", "CATEGORIA_NLP", coluna_comentario] if c in df_resultado.columns]
+                    st.dataframe(df_resultado[cols_exibir], use_container_width=True)
+                else:
+                    st.warning("Nenhuma Ordem de Serviço encontrada com o termo informado.")
+
+        # ==========================================
+        # ABA 3: CLASSIFICAÇÃO AUTOMÁTICA (NLP)
+        # ==========================================
         with aba_nlp:
-            st.subheader("🏷️ Visão Geral da Classificação NLP (100% dos Registros)")
-            st.markdown(f"O algoritmo de NLP categorizou automaticamente **{len(df):,} registros** com base no conteúdo textual de `{coluna_comentario}`.")
+            st.subheader("🏷️ Detalhes da Classificação Automática NLP")
+            st.write("Abaixo estão os dados categorizados automaticamente pelo algoritmo.")
             
-            contagem_nlp = df["CATEGORIA_NLP"].value_counts()
-            col_met1, col_met2 = st.columns([2, 1])
-            
-            with col_met1:
-                st.markdown("**📊 Distribuição por Categoria (Barras)**")
-                df_nlp_bar = contagem_nlp.reset_index()
-                df_nlp_bar.columns = ["Categoria", "Quantidade"]
-                fig_nlp_bar = px.bar(df_nlp_bar, x="Quantidade", y="Categoria", orientation="h", text="Quantidade", color_discrete_sequence=["#6366F1"])
-                fig_nlp_bar.update_layout(margin=dict(t=10, b=10, l=10, r=10), height=350, yaxis={'categoryorder':'total ascending'})
-                st.plotly_chart(fig_nlp_bar, use_container_width=True)
+            if "CATEGORIA_NLP" in df.columns:
+                df_cat_count = df["CATEGORIA_NLP"].value_counts().reset_index()
+                df_cat_count.columns = ["Categoria NLP", "Total de OS"]
                 
-            with col_met2:
-                st.markdown("**📋 Resumo Numérico**")
-                st.dataframe(contagem_nlp.reset_index(name="Quantidade"), use_container_width=True)
-
+                col_nlp1, col_nlp2 = st.columns([1, 2])
+                with col_nlp1:
+                    st.dataframe(df_cat_count, use_container_width=True)
+                with col_nlp2:
+                    fig_nlp = px.bar(df_cat_count, x="Total de OS", y="Categoria NLP", orientation="h", text="Total de OS", color="Total de OS", color_continuous_scale="Viridis")
+                    fig_nlp.update_layout(yaxis={'categoryorder':'total ascending'}, height=450)
+                    st.plotly_chart(fig_nlp, use_container_width=True)
+            
             st.markdown("---")
-            st.subheader("📥 Exportar Dados Classificados")
-            buffer = io.BytesIO()
-            with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
-                df.to_excel(writer, index=False, sheet_name='OS Classificadas NLP')
-            buffer.seek(0)
-            
-            st.download_button(
-                label="📥 Baixar Planilha Completa com Coluna 'CATEGORIA_NLP' (.xlsx)",
-                data=buffer,
-                file_name="OS_Classificadas_NLP.xlsx",
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                type="primary"
-            )
+            st.markdown("#### 🔍 Explorar Registros Categorizados")
+            cols_exibir_nlp = [c for c in ["CÓDIGO", "ABERTO EM", "CATEGORIA_NLP", coluna_comentario] if c in df.columns]
+            st.dataframe(df[cols_exibir_nlp], use_container_width=True)
 
+        # ==========================================
+        # ABA 4: CHAT INTELIGENTE COM A BASE COMPLETA
+        # ==========================================
         with aba_chat:
-            st.subheader("💬 Chat Inteligente com a Base Completa de Manutenção")
-            st.markdown(f"Faça perguntas abertas sobre os **{len(df):,} registros** da planilha.")
+            st.subheader("💬 Chat Inteligente sobre a Base de Dados")
+            st.write("Faça perguntas diretas em linguagem natural sobre qualquer informação da planilha.")
+            
+            for msg in st.session_state.mensagens_chat:
+                with st.chat_message(msg["role"]):
+                    st.write(msg["content"])
 
-            for mensagem in st.session_state.mensagens_chat:
-                with st.chat_message(mensagem["role"]):
-                    st.markdown(mensagem["content"])
-
-            if prompt_usuario := st.chat_input("Digite sua pergunta sobre a planilha inteira..."):
-                st.session_state.mensagens_chat.append({"role": "user", "content": prompt_usuario})
+            pergunta = st.chat_input("Ex: Qual o setor com mais chamados abertos? Quantos vazamentos tivemos?")
+            
+            if pergunta:
+                st.session_state.mensagens_chat.append({"role": "user", "content": pergunta})
                 with st.chat_message("user"):
-                    st.markdown(prompt_usuario)
-
-                with st.chat_message("assistant"):
-                    with st.spinner(f"Varrendo os {len(df):,} registros da planilha para responder..."):
-                        resposta_ia = responder_pergunta_livre_com_todo_arquivo(prompt_usuario, df, groq_api_key_input)
-                        st.markdown(resposta_ia)
+                    st.write(pergunta)
                 
-                st.session_state.mensagens_chat.append({"role": "assistant", "content": resposta_ia})
+                with st.chat_message("assistant"):
+                    with st.spinner("Consultando dados da planilha via Groq..."):
+                        resposta = responder_pergunta_livre_com_todo_arquivo(pergunta, df, groq_api_key_input)
+                        st.write(resposta)
+                        st.session_state.mensagens_chat.append({"role": "assistant", "content": resposta})
