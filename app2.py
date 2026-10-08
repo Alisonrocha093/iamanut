@@ -186,9 +186,11 @@ def responder_pergunta_livre_com_todo_arquivo(pergunta_usuario: str, df: pd.Data
     modelo_ativo = obter_modelo_ativo(client, api_key)
     total_linhas = len(df)
     
-    resumo_status = df["STATUS"].value_counts().to_dict() if "STATUS" in df.columns else "Não disponível"
-    resumo_setor = df["SETOR"].value_counts().to_dict() if "SETOR" in df.columns else (df["MÁQUINA"].value_counts().to_dict() if "MÁQUINA" in df.columns else "Não disponível")
-    resumo_nlp = df["CATEGORIA_NLP"].value_counts().to_dict() if "CATEGORIA_NLP" in df.columns else "Não disponível"
+    # 1. Limita o número de itens nos resumos para economizar tokens
+    resumo_status = dict(df["STATUS"].value_counts().head(5)) if "STATUS" in df.columns else "Não disponível"
+    col_setor = "SETOR" if "SETOR" in df.columns else ("MÁQUINA" if "MÁQUINA" in df.columns else None)
+    resumo_setor = dict(df[col_setor].value_counts().head(5)) if col_setor else "Não disponível"
+    resumo_nlp = dict(df["CATEGORIA_NLP"].value_counts().head(5)) if "CATEGORIA_NLP" in df.columns else "Não disponível"
     
     periodo_dados = "Não disponível"
     col_data_ref = "ABERTO EM" if "ABERTO EM" in df.columns else ("DATA" if "DATA" in df.columns else None)
@@ -211,28 +213,29 @@ def responder_pergunta_livre_com_todo_arquivo(pergunta_usuario: str, df: pd.Data
         if len(df_filtrado_ia) > 0:
             df_relevante = df_filtrado_ia
 
-    df_amostra = df_relevante.head(12).copy()
+    # 2. Reduz o número de linhas da amostra de 12 para 5 e trunca o texto de observação para 60 caracteres
+    df_amostra = df_relevante.head(5).copy()
     if col_obs in df_amostra.columns:
-        df_amostra[col_obs] = df_amostra[col_obs].astype(str).str.slice(0, 90)
+        df_amostra[col_obs] = df_amostra[col_obs].astype(str).str.slice(0, 60)
 
     colunas_visiveis = [c for c in ["CÓDIGO", "ABERTO EM", "STATUS", "MÁQUINA", "CATEGORIA_NLP", col_obs] if c in df_amostra.columns]
     amostra_relevante = df_amostra[colunas_visiveis].to_string(index=False)
 
-    prompt = f"""Você é um analista especialista em gestão de manutenção. A planilha completa foi 100% processada com NLP e possui os seguintes dados consolidados:
+    prompt = f"""Você é um analista especialista em gestão de manutenção. A planilha foi processada com NLP e possui os seguintes dados consolidados:
 
---- ESTATÍSTICAS GLOBAIS DA PLANILHA INTEIRA ({total_linhas} registros analisados) ---
+--- ESTATÍSTICAS GLOBAIS DA PLANILHA ({total_linhas} registros) ---
 - Total de registros: {total_linhas}
 - Período coberto: {periodo_dados}
-- Distribuição Completa por Categoria NLP: {resumo_nlp}
-- Distribuição Completa por Status: {resumo_status}
-- Distribuição Completa por Setor/Máquina: {resumo_setor}
--------------------------------------------------------------------------------------
+- Top Categorias NLP: {resumo_nlp}
+- Distribuição por Status: {resumo_status}
+- Top Setores/Máquinas: {resumo_setor}
+------------------------------------------------------------
 
---- AMOSTRA DOS REGISTROS MAIS DIRETAMENTE RELACIONADOS À PERGUNTA ({len(df_relevante)} encontrados no total) ---
+--- AMOSTRA RELEVANTE ({len(df_relevante)} correspondências) ---
 {amostra_relevante}
----------------------------------------------------------------------------------------------------------------
+------------------------------------------------------------
 
-Com base em **todos os dados consolidados da planilha completa** e nas estatísticas analíticas acima, responda de forma precisa, técnica, com números exatos e em português à pergunta abaixo:
+Responda objetivamente e de forma precisa em português:
 Pergunta: {pergunta_usuario}"""
 
     try:
@@ -240,7 +243,7 @@ Pergunta: {pergunta_usuario}"""
             messages=[{"role": "user", "content": prompt}],
             model=modelo_ativo,
             temperature=0.2,
-            max_tokens=800,
+            max_tokens=600,
         )
         return response.choices[0].message.content
     except Exception as e:
