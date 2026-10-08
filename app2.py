@@ -594,6 +594,3 @@ if df is not None:
                         st.markdown(resposta_ia)
                 
                 st.session_state.mensagens_chat.append({"role": "assistant", "content": resposta_ia})
-                        st.markdown(resposta_ia)
-                
-                st.session_state.mensagens_chat.append({"role": "assistant", "content": resposta_ia})
