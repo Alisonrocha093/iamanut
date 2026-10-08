@@ -4,4 +4,4 @@ openpyxl
 groq
 scikit-learn
 xlrd
-
+plotly
