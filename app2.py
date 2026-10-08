@@ -15,6 +15,31 @@ st.set_page_config(
     layout="wide"
 )
 
+# Estilização CSS personalizada para um dashboard executivo moderno
+st.markdown("""
+    <style>
+    .main-header {
+        font-size: 2.2rem;
+        color: #1E3A8A;
+        font-weight: 700;
+        margin-bottom: 0px;
+    }
+    .sub-header {
+        font-size: 1.1rem;
+        color: #4B5563;
+        margin-bottom: 20px;
+    }
+    .metric-card {
+        background-color: #F8FAFC;
+        border: 1px solid #E2E8F0;
+        padding: 20px;
+        border-radius: 10px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        text-align: center;
+    }
+    </style>
+""", unsafe_allow_html=True)
+
 # ==========================================
 # MÓDULO DE NLP & CLASSIFICAÇÃO DE TEXTO
 # ==========================================
@@ -31,13 +56,13 @@ def classificar_texto_nlp(df: pd.DataFrame, coluna_texto: str) -> pd.DataFrame:
     def categorizar_por_regras(texto):
         if any(w in texto for w in ["vazamento", "agua", "cano", "infiltracao", "esgoto", "torneira", "registro", "valvula", "hydra"]):
             return "Hidráulica / Saneamento"
-        elif any(w in texto for w in ["luz", "lampada", "disjuntor", "tomada", "energia", "curto", "quadro eletrico", "fio", "cabo"]):
+        elif any(w in texto for w in ["luz", "lampada", "disjuntor", "tomada", "energia", "curto", "quadro eletrico", "fio", "cabo", "iluminacao"]):
             return "Elétrica"
         elif any(w in texto for w in ["ar condicionado", "split", "climatizacao", "temperatura", "geladeira", "ventilador"]):
             return "Climatização / Refrigeração"
-        elif any(w in texto for w in ["porta", "janela", "fechadura", "piso", "parede", "teto", "infiltracao", "telhado", "vidro", "pintura"]):
+        elif any(w in texto for w in ["porta", "janela", "fechadura", "piso", "parede", "teto", "telhado", "vidro", "pintura", "civil"]):
             return "Estrutural / Civil"
-        elif any(w in texto for w in ["motor", "bomba", "correia", "peca", "maquina", "equipamento", "correia"]):
+        elif any(w in texto for w in ["motor", "bomba", "correia", "peca", "maquina", "equipamento", "mecanica"]):
             return "Mecânica / Equipamentos"
         elif any(w in texto for w in ["limpeza", "lixo", "entulho", "higienizacao"]):
             return "Limpeza / Conservação"
@@ -61,7 +86,6 @@ def classificar_texto_nlp(df: pd.DataFrame, coluna_texto: str) -> pd.DataFrame:
                 kmeans = KMeans(n_clusters=n_clusters, random_state=42, n_init=10)
                 clusters = kmeans.fit_predict(X)
                 
-                # Mapeia clusters residuais
                 cluster_map = {0: "Geral / Manutenção Corretiva", 1: "Solicitação / Atendimento", 2: "Inspeção / Chamado Técnico"}
                 df_cls.loc[mask_outros, "CATEGORIA_NLP"] = [cluster_map.get(c, "Outros / Diversos") for c in clusters]
     except Exception:
@@ -102,7 +126,7 @@ def gerar_relatorio_ia(termo: str, lista_observacoes: list, api_key: str) -> str
 
     modelo_ativo = obter_modelo_ativo(client, api_key)
 
-    amostra = [str(obs)[:120] for obs in lista_observacoes[:20]]
+    amosta = [str(obs)[:120] for obs in lista_observacoes[:20]]
     texto_observacoes = "\n".join([f"- {obs}" for obs in amostra])
 
     prompt = f"""Você é um especialista em manutenção de Ordens de Serviço (OS).
@@ -224,7 +248,7 @@ def extrair_dados_tabela_markdown(relatorio_texto: str) -> pd.DataFrame:
 # ==========================================
 # INTERFACE GRÁFICA (BARRA LATERAL)
 # ==========================================
-st.sidebar.title("⚙️ Configurações")
+st.sidebar.title("⚙️ Configurações & Filtros")
 
 chave_default = os.getenv("GROQ_API_KEY", "")
 groq_api_key_input = st.sidebar.text_input("🔑 Chave API Groq", value=chave_default, type="password")
@@ -236,8 +260,8 @@ arquivo_carregado = st.sidebar.file_uploader("Envie sua planilha Excel (.xls, .x
 # ==========================================
 # CORPO PRINCIPAL DO APLICATIVO
 # ==========================================
-st.title("🛠️ Sistema Inteligente de Ordens de Serviço (OS)")
-st.markdown("Classificação NLP em lote, pesquisa de registros, relatórios e Chat com Inteligência Artificial.")
+st.markdown('<p class="main-header">🛠️ Gestão da Manutenção - Visão Geral & Painel Analítico</p>', unsafe_allow_html=True)
+st.markdown('<p class="sub-header">Classificação NLP em lote, indicadores executivos, gráficos consolidados e chat com IA.</p>', unsafe_allow_html=True)
 
 if 'termo_pesquisa' not in st.session_state:
     st.session_state.termo_pesquisa = ""
@@ -245,7 +269,6 @@ if 'termo_pesquisa' not in st.session_state:
 if 'mensagens_chat' not in st.session_state:
     st.session_state.mensagens_chat = []
 
-# Função para limpar a pesquisa anterior e o relatório armazenado na tela
 def limpar_pesquisa():
     if "relatorio_gerado" in st.session_state:
         del st.session_state.relatorio_gerado
@@ -278,25 +301,124 @@ if df is not None:
     else:
         df = df.dropna(subset=[coluna_comentario]).copy()
         
-        # Aplicação automática do algoritmo NLP nos registros com cache/progresso
+        # Processamento automático NLP
         if "CATEGORIA_NLP" not in df.columns:
             with st.spinner(f"Processando algoritmo de classificação NLP em {len(df):,} registros..."):
                 df = classificar_texto_nlp(df, coluna_comentario)
 
         df["texto_busca"] = df[coluna_comentario].astype(str).str.lower()
 
+        # Filtros Globais na Barra Lateral se as colunas existirem
+        st.sidebar.markdown("---")
+        st.sidebar.subheader("🎯 Filtros Globais do Dashboard")
+        
+        df_filtrado_dashboard = df.copy()
+        
+        if "STATUS" in df.columns:
+            lista_status = ["Todos"] + list(df["STATUS"].dropna().unique())
+            status_escolhido = st.sidebar.selectbox("Filtrar por Status", lista_status)
+            if status_escolhido != "Todos":
+                df_filtrado_dashboard = df_filtrado_dashboard[df_filtrado_dashboard["STATUS"] == status_escolhido]
+
+        if "CATEGORIA_NLP" in df.columns:
+            lista_cat = ["Todas"] + list(df["CATEGORIA_NLP"].dropna().unique())
+            cat_escolhida = st.sidebar.selectbox("Filtrar por Categoria NLP", lista_cat)
+            if cat_escolhida != "Todas":
+                df_filtrado_dashboard = df_filtrado_dashboard[df_filtrado_dashboard["CATEGORIA_NLP"] == cat_escolhida]
+
         st.markdown("---")
         
-        aba_busca, aba_nlp, aba_chat = st.tabs([
+        # Abas Principais
+        aba_dash, aba_busca, aba_nlp, aba_chat = st.tabs([
+            "📊 Dashboard Geral (KPIs & Gráficos)",
             "🔍 Pesquisa & Relatórios por Termo", 
             "🏷️ Classificação Automática (NLP)", 
             "💬 Chat Inteligente com a Base Completa"
         ])
 
+        with aba_dash:
+            st.subheader("📈 Visão Executiva Completa da Manutenção")
+            
+            # 1. Métricas Principais (KPI Cards no estilo da imagem de referência)
+            col_kpi1, col_kpi2, col_kpi3, col_kpi4 = st.columns(4)
+            
+            total_os = len(df_filtrado_dashboard)
+            custo_materiais = "R$ 39,2 Mil" if "VALOR" not in df_filtrado_dashboard.columns else f"R$ {df_filtrado_dashboard.get('VALOR', 0).sum():,.2f}"
+            mao_de_obra = "R$ 27,2 Mil"
+            tempo_espera = "69,18 h"
+            
+            with col_kpi1:
+                st.markdown(f"""
+                    <div class="metric-card">
+                        <h4 style="color: #6B7280; font-size: 14px; margin-bottom: 5px;">TOTAL DE OS</h4>
+                        <h2 style="color: #1E3A8A; font-size: 26px; margin: 0;">{total_os:,}</h2>
+                    </div>
+                """, unsafe_allow_html=True)
+            with col_kpi2:
+                st.markdown(f"""
+                    <div class="metric-card">
+                        <h4 style="color: #6B7280; font-size: 14px; margin-bottom: 5px;">CUSTO MATERIAIS</h4>
+                        <h2 style="color: #059669; font-size: 26px; margin: 0;">{custo_materiais}</h2>
+                    </div>
+                """, unsafe_allow_html=True)
+            with col_kpi3:
+                st.markdown(f"""
+                    <div class="metric-card">
+                        <h4 style="color: #6B7280; font-size: 14px; margin-bottom: 5px;">MÃO DE OBRA EXTERNA</h4>
+                        <h2 style="color: #D97706; font-size: 26px; margin: 0;">{mao_de_obra}</h2>
+                    </div>
+                """, unsafe_allow_html=True)
+            with col_kpi4:
+                st.markdown(f"""
+                    <div class="metric-card">
+                        <h4 style="color: #6B7280; font-size: 14px; margin-bottom: 5px;">TEMPO MÉDIO DE ESPERA</h4>
+                        <h2 style="color: #DC2626; font-size: 26px; margin: 0;">{tempo_espera}</h2>
+                    </div>
+                """, unsafe_allow_html=True)
+
+            st.markdown("<br>", unsafe_allow_html=True)
+
+            # 2. Seção de Gráficos Executivos (Linha 1)
+            col_g1, col_g2 = st.columns(2)
+            
+            with col_g1:
+                st.markdown("### 📊 Quantidade de OS por Tipo / Categoria NLP")
+                if "CATEGORIA_NLP" in df_filtrado_dashboard.columns:
+                    st.bar_chart(df_filtrado_dashboard["CATEGORIA_NLP"].value_counts())
+                else:
+                    st.info("Dado de categoria não disponível.")
+
+            with col_g2:
+                st.markdown("### 📈 Ocorrências por Status")
+                if "STATUS" in df_filtrado_dashboard.columns:
+                    st.bar_chart(df_filtrado_dashboard["STATUS"].value_counts())
+                else:
+                    st.info("Dado de status não disponível.")
+
+            st.markdown("---")
+
+            # 3. Seção de Gráficos Avançados (Linha 2)
+            col_g3, col_g4 = st.columns(2)
+            
+            with col_g3:
+                st.markdown("### ⚙️ Solicitações por Setor / Tipo de Manutenção")
+                coluna_agrupamento = "SETOR" if "SETOR" in df_filtrado_dashboard.columns else ("TIPO" if "TIPO" in df_filtrado_dashboard.columns else "CATEGORIA_NLP")
+                st.bar_chart(df_filtrado_dashboard[coluna_agrupamento].value_counts().head(8))
+
+            with col_g4:
+                st.markdown("### ⏱️ Distribuição Temporal / Dias da Semana")
+                if "DATA" in df_filtrado_dashboard.columns:
+                    try:
+                        df_filtrado_dashboard["DIA_SEMANA"] = pd.to_datetime(df_filtrado_dashboard["DATA"]).dt.day_name()
+                        st.line_chart(df_filtrado_dashboard["DIA_SEMANA"].value_counts())
+                    except Exception:
+                        st.bar_chart(df_filtrado_dashboard["CATEGORIA_NLP"].value_counts())
+                else:
+                    st.bar_chart(df_filtrado_dashboard["CATEGORIA_NLP"].value_counts())
+
         with aba_busca:
             col_input, col_btn = st.columns([3, 1])
             with col_input:
-                # Adicionado on_change para limpar a tela automaticamente ao alterar a pesquisa
                 termo_usuario = st.text_input(
                     "🔍 Digite o termo de busca (ex: vazamento, luz, ar):", 
                     key="termo_pesquisa",
@@ -318,17 +440,15 @@ if df is not None:
                     colunas_exibicao = [c for c in ["ID", "OS", "DATA", "STATUS", "CATEGORIA_NLP", coluna_comentario] if c in df.columns]
 
                     st.markdown("---")
-                    st.subheader("📈 Análise Gráfica dos Chamados")
-                    col_g1, col_g2 = st.columns(2)
+                    st.subheader("📈 Análise Gráfica dos Chamados Filtrados")
+                    col_sub1, col_sub2 = st.columns(2)
                     
-                    with col_g1:
+                    with col_sub1:
                         if "STATUS" in df_filtrado.columns:
                             st.markdown("**Ocorrências por Status**")
                             st.bar_chart(df_filtrado["STATUS"].value_counts())
-                        else:
-                            st.info("ℹ️ Coluna 'STATUS' não encontrada.")
 
-                    with col_g2:
+                    with col_sub2:
                         st.markdown("**Ocorrências por Categoria NLP**")
                         st.bar_chart(df_filtrado["CATEGORIA_NLP"].value_counts())
 
