@@ -2,6 +2,8 @@ import os
 import io
 import pandas as pd
 import streamlit as st
+import plotly.express as px
+import plotly.graph_objects as go
 from groq import Groq
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.cluster import KMeans
@@ -261,7 +263,7 @@ arquivo_carregado = st.sidebar.file_uploader("Envie sua planilha Excel (.xls, .x
 # CORPO PRINCIPAL DO APLICATIVO
 # ==========================================
 st.markdown('<p class="main-header">🛠️ Gestão da Manutenção - Visão Geral & Painel Analítico</p>', unsafe_allow_html=True)
-st.markdown('<p class="sub-header">Classificação NLP em lote, indicadores executivos, gráficos consolidados e chat com IA.</p>', unsafe_allow_html=True)
+st.markdown('<p class="sub-header">Classificação NLP em lote, indicadores executivos, gráficos dinâmicos (Pizza, Barras e Linhas) e chat com IA.</p>', unsafe_allow_html=True)
 
 if 'termo_pesquisa' not in st.session_state:
     st.session_state.termo_pesquisa = ""
@@ -308,7 +310,7 @@ if df is not None:
 
         df["texto_busca"] = df[coluna_comentario].astype(str).str.lower()
 
-        # Filtros Globais na Barra Lateral se as colunas existirem
+        # Filtros Globais na Barra Lateral
         st.sidebar.markdown("---")
         st.sidebar.subheader("🎯 Filtros Globais do Dashboard")
         
@@ -339,7 +341,7 @@ if df is not None:
         with aba_dash:
             st.subheader("📈 Visão Executiva Completa da Manutenção")
             
-            # 1. Métricas Principais (KPI Cards no estilo da imagem de referência)
+            # 1. Métricas Principais (KPI Cards)
             col_kpi1, col_kpi2, col_kpi3, col_kpi4 = st.columns(4)
             
             total_os = len(df_filtrado_dashboard)
@@ -378,43 +380,60 @@ if df is not None:
 
             st.markdown("<br>", unsafe_allow_html=True)
 
-            # 2. Seção de Gráficos Executivos (Linha 1)
+            # 2. Gráfico de Pizza (Pie Chart) e Gráfico de Barras (Bar Chart)
             col_g1, col_g2 = st.columns(2)
             
             with col_g1:
-                st.markdown("### 📊 Quantidade de OS por Tipo / Categoria NLP")
+                st.markdown("### 🥧 Proporção de OS por Tipo / Categoria (Pizza)")
                 if "CATEGORIA_NLP" in df_filtrado_dashboard.columns:
-                    st.bar_chart(df_filtrado_dashboard["CATEGORIA_NLP"].value_counts())
+                    df_pie = df_filtrado_dashboard["CATEGORIA_NLP"].value_counts().reset_index()
+                    df_pie.columns = ["Categoria", "Quantidade"]
+                    fig_pie = px.pie(df_pie, names="Categoria", values="Quantidade", hole=0.4, color_discrete_sequence=px.colors.qualitative.Prism)
+                    fig_pie.update_layout(margin=dict(t=10, b=10, l=10, r=10), height=350)
+                    st.plotly_chart(fig_pie, use_container_width=True)
                 else:
                     st.info("Dado de categoria não disponível.")
 
             with col_g2:
-                st.markdown("### 📈 Ocorrências por Status")
+                st.markdown("### 📊 Ocorrências por Status (Barras)")
                 if "STATUS" in df_filtrado_dashboard.columns:
-                    st.bar_chart(df_filtrado_dashboard["STATUS"].value_counts())
+                    df_bar = df_filtrado_dashboard["STATUS"].value_counts().reset_index()
+                    df_bar.columns = ["Status", "Quantidade"]
+                    fig_bar = px.bar(df_bar, x="Status", y="Quantidade", text="Quantidade", color="Status", color_discrete_sequence=px.colors.qualitative.Bold)
+                    fig_bar.update_layout(margin=dict(t=10, b=10, l=10, r=10), height=350, showlegend=False)
+                    st.plotly_chart(fig_bar, use_container_width=True)
                 else:
                     st.info("Dado de status não disponível.")
 
             st.markdown("---")
 
-            # 3. Seção de Gráficos Avançados (Linha 2)
+            # 3. Gráficos de Linha Temporal e Barras Horizontais
             col_g3, col_g4 = st.columns(2)
             
             with col_g3:
-                st.markdown("### ⚙️ Solicitações por Setor / Tipo de Manutenção")
-                coluna_agrupamento = "SETOR" if "SETOR" in df_filtrado_dashboard.columns else ("TIPO" if "TIPO" in df_filtrado_dashboard.columns else "CATEGORIA_NLP")
-                st.bar_chart(df_filtrado_dashboard[coluna_agrupamento].value_counts().head(8))
-
-            with col_g4:
-                st.markdown("### ⏱️ Distribuição Temporal / Dias da Semana")
+                st.markdown("### 📈 Evolução de Ocorrências ao Longo do Tempo (Linhas)")
                 if "DATA" in df_filtrado_dashboard.columns:
                     try:
-                        df_filtrado_dashboard["DIA_SEMANA"] = pd.to_datetime(df_filtrado_dashboard["DATA"]).dt.day_name()
-                        st.line_chart(df_filtrado_dashboard["DIA_SEMANA"].value_counts())
+                        df_temp = df_filtrado_dashboard.copy()
+                        df_temp["DATA_FORMATADA"] = pd.to_datetime(df_temp["DATA"]).dt.to_period("M").astype(str)
+                        df_line = df_temp["DATA_FORMATADA"].value_counts().sort_index().reset_index()
+                        df_line.columns = ["Mês", "Chamados"]
+                        fig_line = px.line(df_line, x="Mês", y="Chamados", markers=True, line_shape="spline", color_discrete_sequence=["#1E3A8A"])
+                        fig_line.update_layout(margin=dict(t=10, b=10, l=10, r=10), height=350)
+                        st.plotly_chart(fig_line, use_container_width=True)
                     except Exception:
-                        st.bar_chart(df_filtrado_dashboard["CATEGORIA_NLP"].value_counts())
+                        st.info("Formato de data inválido para gráfico temporal.")
                 else:
-                    st.bar_chart(df_filtrado_dashboard["CATEGORIA_NLP"].value_counts())
+                    st.info("Coluna 'DATA' não encontrada na planilha.")
+
+            with col_g4:
+                st.markdown("### ⚙️ Solicitações por Setor (Barras Horizontais)")
+                coluna_agrupamento = "SETOR" if "SETOR" in df_filtrado_dashboard.columns else ("TIPO" if "TIPO" in df_filtrado_dashboard.columns else "CATEGORIA_NLP")
+                df_hbar = df_filtrado_dashboard[coluna_agrupamento].value_counts().reset_index().head(8)
+                df_hbar.columns = ["Setor", "Quantidade"]
+                fig_hbar = px.bar(df_hbar, x="Quantidade", y="Setor", orientation="h", text="Quantidade", color_discrete_sequence=["#059669"])
+                fig_hbar.update_layout(margin=dict(t=10, b=10, l=10, r=10), height=350, yaxis={'categoryorder':'total ascending'})
+                st.plotly_chart(fig_hbar, use_container_width=True)
 
         with aba_busca:
             col_input, col_btn = st.columns([3, 1])
@@ -445,12 +464,20 @@ if df is not None:
                     
                     with col_sub1:
                         if "STATUS" in df_filtrado.columns:
-                            st.markdown("**Ocorrências por Status**")
-                            st.bar_chart(df_filtrado["STATUS"].value_counts())
+                            st.markdown("**Ocorrências por Status (Pizza)**")
+                            df_p_sub = df_filtrado["STATUS"].value_counts().reset_index()
+                            df_p_sub.columns = ["Status", "Qtd"]
+                            fig_p_sub = px.pie(df_p_sub, names="Status", values="Qtd", hole=0.3)
+                            fig_p_sub.update_layout(margin=dict(t=10, b=10, l=10, r=10), height=300)
+                            st.plotly_chart(fig_p_sub, use_container_width=True)
 
                     with col_sub2:
-                        st.markdown("**Ocorrências por Categoria NLP**")
-                        st.bar_chart(df_filtrado["CATEGORIA_NLP"].value_counts())
+                        st.markdown("**Ocorrências por Categoria NLP (Barras)**")
+                        df_b_sub = df_filtrado["CATEGORIA_NLP"].value_counts().reset_index()
+                        df_b_sub.columns = ["Categoria", "Qtd"]
+                        fig_b_sub = px.bar(df_b_sub, x="Categoria", y="Qtd", text="Qtd", color_discrete_sequence=["#3B82F6"])
+                        fig_b_sub.update_layout(margin=dict(t=10, b=10, l=10, r=10), height=300)
+                        st.plotly_chart(fig_b_sub, use_container_width=True)
 
                     with st.expander(f"📋 Ver registros detalhados ({total_encontrados:,} encontrados)", expanded=False):
                         st.dataframe(df_filtrado[colunas_exibicao], use_container_width=True)
@@ -472,7 +499,9 @@ if df is not None:
                         if dados_grafico is not None and not dados_grafico.empty:
                             st.markdown("---")
                             st.subheader("📊 Gráficos a partir do Resumo dos Principais Problemas Relatados")
-                            st.bar_chart(dados_grafico)
+                            fig_rel = px.bar(dados_grafico.reset_index(), x="Categoria", y="Frequência", text="Frequência", color_discrete_sequence=["#10B981"])
+                            fig_rel.update_layout(margin=dict(t=10, b=10, l=10, r=10), height=350)
+                            st.plotly_chart(fig_rel, use_container_width=True)
                 else:
                     st.warning("⚠️ Nenhum registro encontrado com esse termo na planilha.")
 
@@ -484,8 +513,12 @@ if df is not None:
             col_met1, col_met2 = st.columns([2, 1])
             
             with col_met1:
-                st.markdown("**📊 Distribuição de Frequência por Categoria Detectada**")
-                st.bar_chart(contagem_nlp)
+                st.markdown("**📊 Distribuição por Categoria (Barras)**")
+                df_nlp_bar = contagem_nlp.reset_index()
+                df_nlp_bar.columns = ["Categoria", "Quantidade"]
+                fig_nlp_bar = px.bar(df_nlp_bar, x="Quantidade", y="Categoria", orientation="h", text="Quantidade", color_discrete_sequence=["#6366F1"])
+                fig_nlp_bar.update_layout(margin=dict(t=10, b=10, l=10, r=10), height=350, yaxis={'categoryorder':'total ascending'})
+                st.plotly_chart(fig_nlp_bar, use_container_width=True)
                 
             with col_met2:
                 st.markdown("**📋 Resumo Numérico**")
