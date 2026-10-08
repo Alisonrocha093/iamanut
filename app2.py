@@ -88,17 +88,9 @@ def classificar_texto_nlp(df: pd.DataFrame, coluna_texto: str) -> pd.DataFrame:
     textos = df_cls[coluna_texto].fillna("").astype(str).str.lower()
     
     def categorizar_por_regras(texto):
-        """
-        Classificação automática de solicitações de manutenção.
-        As categorias são independentes e utilizam palavras-chave
-        específicas para reduzir sobreposição entre índices.
-        """
-
         texto = str(texto).lower().strip()
 
-        # ==========================================================
         # 1. HIDRÁULICA / SANEAMENTO
-        # ==========================================================
         if any(w in texto for w in [
             "vazamento", "vazando", "vaza", "água", "agua",
             "cano", "tubulação", "tubulacao", "tubo",
@@ -113,9 +105,7 @@ def classificar_texto_nlp(df: pd.DataFrame, coluna_texto: str) -> pd.DataFrame:
         ]):
             return "Hidráulica / Saneamento"
 
-        # ==========================================================
         # 2. ELÉTRICA
-        # ==========================================================
         elif any(w in texto for w in [
             "lâmpada", "lampada", "iluminação", "iluminacao",
             "luminária", "luminaria", "tomada", "interruptor",
@@ -132,9 +122,7 @@ def classificar_texto_nlp(df: pd.DataFrame, coluna_texto: str) -> pd.DataFrame:
         ]):
             return "Elétrica"
 
-        # ==========================================================
         # 3. CLIMATIZAÇÃO / REFRIGERAÇÃO
-        # ==========================================================
         elif any(w in texto for w in [
             "ar condicionado", "ar-condicionado",
             "split", "cassete", "vrf", "vrv",
@@ -152,9 +140,7 @@ def classificar_texto_nlp(df: pd.DataFrame, coluna_texto: str) -> pd.DataFrame:
         ]):
             return "Climatização / Refrigeração"
 
-        # ==========================================================
         # 4. CIVIL / EDIFICAÇÕES
-        # ==========================================================
         elif any(w in texto for w in [
             "parede", "reboco", "alvenaria", "argamassa",
             "cimento", "concreto", "piso", "revestimento",
@@ -171,9 +157,7 @@ def classificar_texto_nlp(df: pd.DataFrame, coluna_texto: str) -> pd.DataFrame:
         ]):
             return "Civil / Edificações"
 
-        # ==========================================================
         # 5. MECÂNICA
-        # ==========================================================
         elif any(w in texto for w in [
             "motor", "redutor", "engrenagem", "rolamento",
             "correia", "polia", "eixo", "acoplamento",
@@ -189,9 +173,7 @@ def classificar_texto_nlp(df: pd.DataFrame, coluna_texto: str) -> pd.DataFrame:
         ]):
             return "Mecânica"
 
-        # ==========================================================
         # 6. EQUIPAMENTOS
-        # ==========================================================
         elif any(w in texto for w in [
             "equipamento", "máquina", "maquina",
             "forno", "microondas", "micro-ondas",
@@ -207,9 +189,7 @@ def classificar_texto_nlp(df: pd.DataFrame, coluna_texto: str) -> pd.DataFrame:
         ]):
             return "Equipamentos"
 
-        # ==========================================================
         # 7. ELEVADORES / TRANSPORTE VERTICAL
-        # ==========================================================
         elif any(w in texto for w in [
             "elevador", "elevadores",
             "cabina", "cabine do elevador",
@@ -223,9 +203,7 @@ def classificar_texto_nlp(df: pd.DataFrame, coluna_texto: str) -> pd.DataFrame:
         ]):
             return "Elevadores / Transporte Vertical"
 
-        # ==========================================================
         # 8. INCÊNDIO / SEGURANÇA
-        # ==========================================================
         elif any(w in texto for w in [
             "extintor", "hidrante", "sprinkler",
             "sprinklers", "alarme de incêndio",
@@ -242,23 +220,19 @@ def classificar_texto_nlp(df: pd.DataFrame, coluna_texto: str) -> pd.DataFrame:
         ]):
             return "Prevenção e Combate a Incêndio"
 
-        # ==========================================================
         # 9. SPDA / ATERRAMENTO
-        # ==========================================================
         elif any(w in texto for w in [
             "spda", "para-raios", "para raios",
             "pára-raios", "captor", "descida do spda",
             "malha de aterramento", "malha de terra",
             "haste de aterramento", "aterramento predial",
             "equipotencialização", "equipotencializacao",
-            "DPS", "proteção contra descargas",
+            "dps", "proteção contra descargas",
             "descarga atmosférica", "descarga atmosferica"
         ]):
             return "SPDA / Aterramento"
 
-        # ==========================================================
         # 10. TELECOM / DADOS
-        # ==========================================================
         elif any(w in texto for w in [
             "internet", "wi-fi", "wifi", "rede",
             "cabeamento estruturado", "cabo de rede",
@@ -273,9 +247,7 @@ def classificar_texto_nlp(df: pd.DataFrame, coluna_texto: str) -> pd.DataFrame:
         ]):
             return "Telecomunicações / TI"
 
-        # ==========================================================
         # 11. GÁS
-        # ==========================================================
         elif any(w in texto for w in [
             "gás", "gas", "glp", "gn",
             "botijão", "botijao",
@@ -286,9 +258,7 @@ def classificar_texto_nlp(df: pd.DataFrame, coluna_texto: str) -> pd.DataFrame:
         ]):
             return "Gás / GLP"
 
-        # ==========================================================
         # 12. COZINHA / EQUIPAMENTOS GASTRONÔMICOS
-        # ==========================================================
         elif any(w in texto for w in [
             "cozinha industrial", "fogão industrial",
             "fogao industrial", "forno industrial",
@@ -301,9 +271,7 @@ def classificar_texto_nlp(df: pd.DataFrame, coluna_texto: str) -> pd.DataFrame:
         ]):
             return "Cozinha / Gastronomia"
 
-        # ==========================================================
         # 13. PISCINA
-        # ==========================================================
         elif any(w in texto for w in [
             "piscina", "casa de máquinas da piscina",
             "casa de maquinas da piscina",
@@ -314,9 +282,7 @@ def classificar_texto_nlp(df: pd.DataFrame, coluna_texto: str) -> pd.DataFrame:
         ]):
             return "Piscina / Tratamento de Água"
 
-        # ==========================================================
         # 14. PAISAGISMO / ÁREAS EXTERNAS
-        # ==========================================================
         elif any(w in texto for w in [
             "jardim", "jardinagem", "grama",
             "gramado", "árvore", "arvore",
@@ -326,9 +292,7 @@ def classificar_texto_nlp(df: pd.DataFrame, coluna_texto: str) -> pd.DataFrame:
         ]):
             return "Paisagismo / Áreas Externas"
 
-        # ==========================================================
         # 15. LIMPEZA / CONSERVAÇÃO
-        # ==========================================================
         elif any(w in texto for w in [
             "limpeza", "higienização", "higienizacao",
             "lavagem", "desinfecção", "desinfeccao",
@@ -340,9 +304,7 @@ def classificar_texto_nlp(df: pd.DataFrame, coluna_texto: str) -> pd.DataFrame:
         ]):
             return "Limpeza / Conservação"
 
-        # ==========================================================
         # 16. HOTELARIA / HOSPEDAGEM
-        # ==========================================================
         elif any(w in texto for w in [
             "hóspede", "hospede",
             "hóspedes", "hospedes",
@@ -357,9 +319,7 @@ def classificar_texto_nlp(df: pd.DataFrame, coluna_texto: str) -> pd.DataFrame:
         ]):
             return "Hotelaria / Hospedagem"
 
-        # ==========================================================
         # 17. ACESSIBILIDADE
-        # ==========================================================
         elif any(w in texto for w in [
             "acessibilidade", "pessoa com deficiência",
             "pessoa com deficiencia", "pcd",
@@ -371,9 +331,7 @@ def classificar_texto_nlp(df: pd.DataFrame, coluna_texto: str) -> pd.DataFrame:
         ]):
             return "Acessibilidade"
 
-        # ==========================================================
         # 18. MOBILIÁRIO
-        # ==========================================================
         elif any(w in texto for w in [
             "cadeira", "mesa", "armário", "armario",
             "gaveta", "estante", "balcão", "balcao",
@@ -383,9 +341,7 @@ def classificar_texto_nlp(df: pd.DataFrame, coluna_texto: str) -> pd.DataFrame:
         ]):
             return "Mobiliário"
 
-        # ==========================================================
         # 19. SEGURANÇA PATRIMONIAL
-        # ==========================================================
         elif any(w in texto for w in [
             "segurança patrimonial", "seguranca patrimonial",
             "alarme", "sensor de presença",
@@ -396,9 +352,7 @@ def classificar_texto_nlp(df: pd.DataFrame, coluna_texto: str) -> pd.DataFrame:
         ]):
             return "Segurança Patrimonial"
 
-        # ==========================================================
         # 20. OUTROS
-        # ==========================================================
         else:
             return "Outros / Diversos"
 
@@ -483,7 +437,6 @@ def responder_pergunta_livre_com_todo_arquivo(pergunta_usuario: str, df: pd.Data
     modelo_ativo = obter_modelo_ativo(client, api_key)
     total_linhas = len(df)
     
-    # Limita os itens nos resumos para economizar tokens
     resumo_status = dict(df["STATUS"].value_counts().head(5)) if "STATUS" in df.columns else "Não disponível"
     col_setor = "SETOR" if "SETOR" in df.columns else ("MÁQUINA" if "MÁQUINA" in df.columns else None)
     resumo_setor = dict(df[col_setor].value_counts().head(5)) if col_setor else "Não disponível"
@@ -510,7 +463,6 @@ def responder_pergunta_livre_com_todo_arquivo(pergunta_usuario: str, df: pd.Data
         if len(df_filtrado_ia) > 0:
             df_relevante = df_filtrado_ia
 
-    # Seleciona amostra curta (5 itens, observações truncadas em 60 caracteres)
     df_amostra = df_relevante.head(5).copy()
     if col_obs in df_amostra.columns:
         df_amostra[col_obs] = df_amostra[col_obs].astype(str).str.slice(0, 60)
@@ -618,7 +570,6 @@ else:
     st.warning("⚠️ Por favor, envie uma planilha na barra lateral para começar.")
 
 if df is not None:
-    # Normalizar nomes das colunas para maiúsculas
     df.columns = [str(c).strip().upper() for c in df.columns]
     
     if coluna_comentario not in df.columns:
@@ -627,14 +578,12 @@ if df is not None:
     else:
         df = df.dropna(subset=[coluna_comentario]).copy()
         
-        # Processamento automático NLP
         if "CATEGORIA_NLP" not in df.columns:
             with st.spinner(f"Processando algoritmo de classificação NLP em {len(df):,} registros..."):
                 df = classificar_texto_nlp(df, coluna_comentario)
 
         df["TEXTO_BUSCA"] = df[coluna_comentario].astype(str).str.lower()
 
-        # Filtros Globais na Barra Lateral
         st.sidebar.markdown("---")
         st.sidebar.subheader("🎯 Filtros Globais do Dashboard")
         
@@ -654,7 +603,6 @@ if df is not None:
 
         st.markdown("---")
         
-        # Abas Principais
         aba_dash, aba_busca, aba_nlp, aba_chat = st.tabs([
             "📊 Dashboard Geral (KPIs & Gráficos)",
             "🔍 Pesquisa & Relatórios por Termo", 
@@ -668,7 +616,6 @@ if df is not None:
         with aba_dash:
             st.subheader("📈 Visão Executiva Completa da Manutenção")
             
-            # 1. Métricas Principais
             col_kpi1, col_kpi2, col_kpi3, col_kpi4 = st.columns(4)
             
             total_os = len(df_filtrado_dashboard)
@@ -716,11 +663,10 @@ if df is not None:
 
             st.markdown("<br>", unsafe_allow_html=True)
 
-            # 2. Gráfico de Pizza e Barras
             col_g1, col_g2 = st.columns(2)
             
             with col_g1:
-                st.markdown("### 🥧 Proporção de OS por Categoria NLP (Pizza)")
+                st.markdown("### 🥧 Proporção de OS por Categoria NLP")
                 if "CATEGORIA_NLP" in df_filtrado_dashboard.columns:
                     df_pie = df_filtrado_dashboard["CATEGORIA_NLP"].value_counts().reset_index()
                     df_pie.columns = ["Categoria", "Quantidade"]
@@ -731,146 +677,58 @@ if df is not None:
                     st.info("Dado de categoria não disponível.")
 
             with col_g2:
-                st.markdown("### 📊 Ocorrências por Status (Barras)")
+                st.markdown("### 📊 Ocorrências por Status")
                 if "STATUS" in df_filtrado_dashboard.columns:
                     df_bar = df_filtrado_dashboard["STATUS"].value_counts().reset_index()
                     df_bar.columns = ["Status", "Quantidade"]
-                    fig_bar = px.bar(df_bar, x="Status", y="Quantidade", text="Quantidade", color="Status", color_discrete_sequence=px.colors.qualitative.Bold)
-                    fig_bar.update_layout(margin=dict(t=10, b=10, l=10, r=10), height=350, showlegend=False)
+                    fig_bar = px.bar(df_bar, x="Status", y="Quantidade", text="Quantidade", color="Status")
+                    fig_bar.update_layout(margin=dict(t=10, b=10, l=10, r=10), height=350)
                     st.plotly_chart(fig_bar, use_container_width=True)
                 else:
                     st.info("Dado de status não disponível.")
-
-            st.markdown("---")
-
-            # 3. Gráficos de Linha Temporal e Barras Horizontais (Máquina / Setor)
-            col_g3, col_g4 = st.columns(2)
-            
-            with col_g3:
-                st.markdown("### 📈 Evolução de Ocorrências ao Longo do Tempo (Linhas)")
-                col_data = "ABERTO EM" if "ABERTO EM" in df_filtrado_dashboard.columns else ("DATA" if "DATA" in df_filtrado_dashboard.columns else None)
-                if col_data:
-                    try:
-                        df_temp = df_filtrado_dashboard.copy()
-                        df_temp["DATA_FORMATADA"] = pd.to_datetime(df_temp[col_data], errors='coerce').dt.to_period("M").astype(str)
-                        df_line = df_temp["DATA_FORMATADA"].value_counts().sort_index().reset_index()
-                        df_line.columns = ["Mês/Ano", "Total OS"]
-                        fig_line = px.line(df_line, x="Mês/Ano", y="Total OS", markers=True, line_shape="linear")
-                        fig_line.update_layout(margin=dict(t=10, b=10, l=10, r=10), height=350)
-                        st.plotly_chart(fig_line, use_container_width=True)
-                    except Exception:
-                        st.info("Formato de data inválido para montagem do gráfico temporal.")
-                else:
-                    st.info("Coluna de data não encontrada na base.")
-
-            with col_g4:
-                st.markdown("### 🏢 Top Setores / Máquinas com Mais Demandas")
-                col_setor = "SETOR" if "SETOR" in df_filtrado_dashboard.columns else ("MÁQUINA" if "MÁQUINA" in df_filtrado_dashboard.columns else None)
-                if col_setor:
-                    df_setor = df_filtrado_dashboard[col_setor].value_counts().head(10).reset_index()
-                    df_setor.columns = ["Setor/Máquina", "Quantidade"]
-                    fig_horiz = px.bar(df_setor, y="Setor/Máquina", x="Quantidade", orientation="h", text="Quantidade", color="Quantidade", color_continuous_scale="Blues")
-                    fig_horiz.update_layout(margin=dict(t=10, b=10, l=10, r=10), height=350, yaxis={'categoryorder':'total ascending'})
-                    st.plotly_chart(fig_horiz, use_container_width=True)
-                else:
-                    st.info("Coluna de Setor ou Máquina não encontrada.")
 
         # ==========================================
         # ABA 2: PESQUISA & RELATÓRIOS POR TERMO
         # ==========================================
         with aba_busca:
-            st.subheader("🔍 Pesquisa Textual & Geração de Relatórios por IA")
+            st.subheader("🔍 Filtrar Registros por Palavra-Chave")
+            termo_busca = st.text_input("Digite o termo a pesquisar (ex: 'vazamento', 'ar condicionado', 'elevador'):", key="input_termo")
             
-            col_search, col_btn = st.columns([4, 1])
-            with col_search:
-                termo = st.text_input("Digite um termo para pesquisar nas observações (ex: ar condicionado, vazamento, bomba):", value=st.session_state.termo_pesquisa)
-            with col_btn:
-                st.write("")
-                st.write("")
-                if st.button("🔎 Buscar"):
-                    st.session_state.termo_pesquisa = termo
-                    limpar_pesquisa()
-
-            if st.session_state.termo_pesquisa:
-                termo_busca = st.session_state.termo_pesquisa.lower().strip()
-                df_resultado = df[df["TEXTO_BUSCA"].str.contains(termo_busca, na=False)]
+            if termo_busca:
+                df_busca = df[df["TEXTO_BUSCA"].str.contains(termo_busca.lower(), na=False)]
+                st.write(f"Encontrados **{len(df_busca)}** registros com o termo '{termo_busca}'.")
+                st.dataframe(df_busca[[c for c in ["CÓDIGO", "STATUS", "CATEGORIA_NLP", coluna_comentario] if c in df_busca.columns]], use_container_width=True)
                 
-                st.markdown(f"**Registros encontrados:** {len(df_resultado):,} de {len(df):,}")
-                
-                if len(df_resultado) > 0:
-                    col_r1, col_r2 = st.columns([1, 2])
-                    
-                    with col_r1:
-                        st.markdown("#### 📄 Ações com a Seleção")
-                        if st.button("🤖 Gerar Relatório Executivo com IA"):
-                            with st.spinner("Analisando dados e gerando relatório executivo via Groq..."):
-                                relatorio = gerar_relatorio_ia(termo_busca, df_resultado[coluna_comentario].tolist(), groq_api_key_input)
-                                st.session_state.relatorio_gerado = relatorio
-                                st.session_state.termo_relatorio = termo_busca
-
-                    if "relatorio_gerado" in st.session_state and st.session_state.get("termo_relatorio") == termo_busca:
-                        st.markdown("---")
-                        st.markdown(f"### 📋 Relatório IA para '{termo_busca.upper()}'")
-                        st.markdown(st.session_state.relatorio_gerado)
-                        
-                        # Tentar extrair gráfico do relatório se houver tabela markdown
-                        serie_tabela = extrair_dados_tabela_markdown(st.session_state.relatorio_gerado)
-                        if serie_tabela is not None and not serie_tabela.empty:
-                            st.markdown("#### 📊 Gráfico extraído do Relatório")
-                            fig_rel = px.bar(x=serie_tabela.index, y=serie_tabela.values, labels={'x': 'Área/Problema', 'y': 'Frequência'})
-                            st.plotly_chart(fig_rel, use_container_width=True)
-
-                    st.markdown("---")
-                    st.markdown("#### 📋 Listagem das OS Encontradas")
-                    cols_exibir = [c for c in ["CÓDIGO", "ABERTO EM", "STATUS", "SETOR", "MÁQUINA", "CATEGORIA_NLP", coluna_comentario] if c in df_resultado.columns]
-                    st.dataframe(df_resultado[cols_exibir], use_container_width=True)
-                else:
-                    st.warning("Nenhuma Ordem de Serviço encontrada com o termo informado.")
+                if st.button("🤖 Gerar Relatório IA sobre estas OS"):
+                    with st.spinner("Gerando relatório com IA..."):
+                        observacoes = df_busca[coluna_comentario].tolist()
+                        relatorio = gerar_relatorio_ia(termo_busca, observacoes, groq_api_key_input)
+                        st.markdown(relatorio)
 
         # ==========================================
         # ABA 3: CLASSIFICAÇÃO AUTOMÁTICA (NLP)
         # ==========================================
         with aba_nlp:
-            st.subheader("🏷️ Detalhes da Classificação Automática NLP")
-            st.write("Abaixo estão os dados categorizados automaticamente pelo algoritmo.")
-            
-            if "CATEGORIA_NLP" in df.columns:
-                df_cat_count = df["CATEGORIA_NLP"].value_counts().reset_index()
-                df_cat_count.columns = ["Categoria NLP", "Total de OS"]
-                
-                col_nlp1, col_nlp2 = st.columns([1, 2])
-                with col_nlp1:
-                    st.dataframe(df_cat_count, use_container_width=True)
-                with col_nlp2:
-                    fig_nlp = px.bar(df_cat_count, x="Total de OS", y="Categoria NLP", orientation="h", text="Total de OS", color="Total de OS", color_continuous_scale="Viridis")
-                    fig_nlp.update_layout(yaxis={'categoryorder':'total ascending'}, height=450)
-                    st.plotly_chart(fig_nlp, use_container_width=True)
-            
-            st.markdown("---")
-            st.markdown("#### 🔍 Explorar Registros Categorizados")
-            cols_exibir_nlp = [c for c in ["CÓDIGO", "ABERTO EM", "CATEGORIA_NLP", coluna_comentario] if c in df.columns]
-            st.dataframe(df[cols_exibir_nlp], use_container_width=True)
+            st.subheader("🏷️ Detalhes da Classificação Automática")
+            st.dataframe(df[["CATEGORIA_NLP", coluna_comentario]], use_container_width=True)
 
         # ==========================================
         # ABA 4: CHAT INTELIGENTE COM A BASE COMPLETA
         # ==========================================
         with aba_chat:
-            st.subheader("💬 Chat Inteligente sobre a Base de Dados")
-            st.write("Faça perguntas diretas em linguagem natural sobre qualquer informação da planilha.")
+            st.subheader("💬 Chat com IA sobre toda a base de Ordens de Serviço")
             
             for msg in st.session_state.mensagens_chat:
                 with st.chat_message(msg["role"]):
-                    st.write(msg["content"])
-
-            pergunta = st.chat_input("Ex: Qual o setor com mais chamados abertos? Quantos vazamentos tivemos?")
+                    st.markdown(msg["content"])
             
-            if pergunta:
-                st.session_state.mensagens_chat.append({"role": "user", "content": pergunta})
+            if prompt_usuario := st.chat_input("Faça uma pergunta sobre as OS (ex: 'Qual a categoria com mais problemas?'):"):
+                st.session_state.mensagens_chat.append({"role": "user", "content": prompt_usuario})
                 with st.chat_message("user"):
-                    st.write(pergunta)
+                    st.markdown(prompt_usuario)
                 
                 with st.chat_message("assistant"):
-                    with st.spinner("Consultando dados da planilha via Groq..."):
-                        resposta = responder_pergunta_livre_com_todo_arquivo(pergunta, df, groq_api_key_input)
-                        st.write(resposta)
+                    with st.spinner("Analisando dados..."):
+                        resposta = responder_pergunta_livre_com_todo_arquivo(prompt_usuario, df, groq_api_key_input)
+                        st.markdown(resposta)
                         st.session_state.mensagens_chat.append({"role": "assistant", "content": resposta})
