@@ -87,23 +87,320 @@ def classificar_texto_nlp(df: pd.DataFrame, coluna_texto: str) -> pd.DataFrame:
     
     textos = df_cls[coluna_texto].fillna("").astype(str).str.lower()
     
-    def categorizar_por_regras(texto):
-        if any(w in texto for w in ["vazamento", "agua", "cano", "infiltracao", "esgoto", "torneira", "registro", "valvula", "hydra", "ralo", "bebedouro"]):
-            return "Hidráulica / Saneamento"
-        elif any(w in texto for w in ["luz", "lampada", "disjuntor", "tomada", "energia", "curto", "quadro eletrico", "fio", "cabo", "iluminacao"]):
-            return "Elétrica"
-        elif any(w in texto for w in ["ar condicionado", "split", "climatizacao", "temperatura", "geladeira", "ventilador"]):
-            return "Climatização / Refrigeração"
-        elif any(w in texto for w in ["porta", "janela", "fechadura", "piso", "parede", "teto", "telhado", "vidro", "pintura", "civil"]):
-            return "Estrutural / Civil"
-        elif any(w in texto for w in ["motor", "bomba", "correia", "peca", "maquina", "equipamento", "mecanica"]):
-            return "Mecânica / Equipamentos"
-        elif any(w in texto for w in ["limpeza", "lixo", "entulho", "higienizacao"]):
-            return "Limpeza / Conservação"
-        elif any(w in texto for w in ["hospede", "hospedes", "quarto", "suite", "hospedagem", "cliente"]):
-            return "Atendimento ao Hóspede / Quartos"
-        else:
-            return "Outros / Diversos"
+  def categorizar_por_regras(texto):
+    """
+    Classificação automática de solicitações de manutenção.
+    As categorias são independentes e utilizam palavras-chave
+    específicas para reduzir sobreposição entre índices.
+    """
+
+    texto = str(texto).lower().strip()
+
+    # ==========================================================
+    # 1. HIDRÁULICA / SANEAMENTO
+    # ==========================================================
+    if any(w in texto for w in [
+        "vazamento", "vazando", "vaza", "água", "agua",
+        "cano", "tubulação", "tubulacao", "tubo",
+        "esgoto", "ralo", "torneira", "registro",
+        "válvula", "valvula", "hydra", "descarga",
+        "bacia sanitária", "vaso sanitário", "vaso sanitario",
+        "pia", "chuveiro", "bebedouro", "caixa d'água",
+        "caixa dagua", "reservatório", "reservatorio",
+        "bomba d'água", "bomba dagua", "boia", "boia de nível",
+        "pressão da água", "pressao da agua", "entupimento",
+        "entupido", "infiltração hidráulica", "infiltracao hidraulica"
+    ]):
+        return "Hidráulica / Saneamento"
+
+    # ==========================================================
+    # 2. ELÉTRICA
+    # ==========================================================
+    elif any(w in texto for w in [
+        "lâmpada", "lampada", "iluminação", "iluminacao",
+        "luminária", "luminaria", "tomada", "interruptor",
+        "disjuntor", "quadro elétrico", "quadro eletrico",
+        "painel elétrico", "painel eletrico",
+        "fio", "cabo elétrico", "cabo eletrico",
+        "curto circuito", "curto-circuito",
+        "falta de energia", "sem energia",
+        "queda de energia", "energia elétrica",
+        "energia eletrica", "contator", "relé", "rele",
+        "fusível", "fusivel", "barramento",
+        "aterramento", "dr", "dps", "inversor",
+        "distribuição elétrica", "distribuicao eletrica"
+    ]):
+        return "Elétrica"
+
+    # ==========================================================
+    # 3. CLIMATIZAÇÃO / REFRIGERAÇÃO
+    # ==========================================================
+    elif any(w in texto for w in [
+        "ar condicionado", "ar-condicionado",
+        "split", "cassete", "vrf", "vrv",
+        "climatização", "climatizacao",
+        "refrigeração", "refrigeracao",
+        "evaporadora", "condensadora",
+        "compressor", "gás refrigerante", "gas refrigerante",
+        "fluido refrigerante", "serpentina",
+        "filtro do ar", "filtro de ar",
+        "temperatura do ambiente", "não gela", "nao gela",
+        "não refrigera", "nao refrigera",
+        "geladeira", "freezer", "frigobar",
+        "bebedouro refrigerado", "ventilador",
+        "exaustor", "exaustão", "exaustao"
+    ]):
+        return "Climatização / Refrigeração"
+
+    # ==========================================================
+    # 4. CIVIL / EDIFICAÇÕES
+    # ==========================================================
+    elif any(w in texto for w in [
+        "parede", "reboco", "alvenaria", "argamassa",
+        "cimento", "concreto", "piso", "revestimento",
+        "cerâmica", "ceramica", "azulejo",
+        "forro", "teto", "telhado", "cobertura",
+        "calha", "rufo", "fachada", "pintura",
+        "infiltração", "infiltracao", "umidade",
+        "mofo", "trinca", "rachadura", "fissura",
+        "porta", "janela", "batente", "fechadura",
+        "dobradiça", "dobradica", "vidro",
+        "espelho", "divisória", "divisoria",
+        "drywall", "gesso", "granito", "mármore",
+        "marcenaria", "carpintaria", "serralheria"
+    ]):
+        return "Civil / Edificações"
+
+    # ==========================================================
+    # 5. MECÂNICA
+    # ==========================================================
+    elif any(w in texto for w in [
+        "motor", "redutor", "engrenagem", "rolamento",
+        "correia", "polia", "eixo", "acoplamento",
+        "bucha", "mancal", "corrente mecânica",
+        "lubrificação", "lubrificante",
+        "graxa", "óleo", "oleo",
+        "vibração mecânica", "vibracao mecanica",
+        "desgaste mecânico", "desgaste mecanico",
+        "mecânica", "mecanica",
+        "pneumática", "pneumatica",
+        "compressor de ar", "cilindro pneumático",
+        "atuador", "válvula pneumática", "valvula pneumatica"
+    ]):
+        return "Mecânica"
+
+    # ==========================================================
+    # 6. EQUIPAMENTOS
+    # ==========================================================
+    elif any(w in texto for w in [
+        "equipamento", "máquina", "maquina",
+        "forno", "microondas", "micro-ondas",
+        "cafeteira", "liquidificador",
+        "televisão", "televisao", "tv",
+        "projetor", "datashow",
+        "impressora", "scanner",
+        "computador", "monitor",
+        "notebook", "desktop",
+        "equipamento de cozinha",
+        "equipamento industrial",
+        "equipamento técnico", "equipamento tecnico"
+    ]):
+        return "Equipamentos"
+
+    # ==========================================================
+    # 7. ELEVADORES / TRANSPORTE VERTICAL
+    # ==========================================================
+    elif any(w in texto for w in [
+        "elevador", "elevadores",
+        "cabina", "cabine do elevador",
+        "porta do elevador",
+        "comando do elevador",
+        "painel do elevador",
+        "nivelamento do elevador",
+        "ascensor",
+        "plataforma elevatória",
+        "plataforma elevatoria"
+    ]):
+        return "Elevadores / Transporte Vertical"
+
+    # ==========================================================
+    # 8. INCÊNDIO / SEGURANÇA
+    # ==========================================================
+    elif any(w in texto for w in [
+        "extintor", "hidrante", "sprinkler",
+        "sprinklers", "alarme de incêndio",
+        "alarme de incendio", "detector de fumaça",
+        "detector de fumaca", "central de incêndio",
+        "central de incendio", "mangueira de incêndio",
+        "mangueira de incendio", "brigada",
+        "bomba de incêndio", "bomba de incendio",
+        "sistema de incêndio", "sistema de incendio",
+        "porta corta-fogo", "porta corta fogo",
+        "iluminação de emergência",
+        "iluminacao de emergencia",
+        "saída de emergência", "saida de emergencia"
+    ]):
+        return "Prevenção e Combate a Incêndio"
+
+    # ==========================================================
+    # 9. SPDA / ATERRAMENTO
+    # ==========================================================
+    elif any(w in texto for w in [
+        "spda", "para-raios", "para raios",
+        "pára-raios", "captor", "descida do spda",
+        "malha de aterramento", "malha de terra",
+        "haste de aterramento", "aterramento predial",
+        "equipotencialização", "equipotencializacao",
+        "DPS", "proteção contra descargas",
+        "descarga atmosférica", "descarga atmosferica"
+    ]):
+        return "SPDA / Aterramento"
+
+    # ==========================================================
+    # 10. TELECOM / DADOS
+    # ==========================================================
+    elif any(w in texto for w in [
+        "internet", "wi-fi", "wifi", "rede",
+        "cabeamento estruturado", "cabo de rede",
+        "ponto de rede", "rack", "switch",
+        "roteador", "access point", "ap",
+        "fibra óptica", "fibra optica",
+        "conector rj45", "patch panel",
+        "telefonia", "telefone", "ramal",
+        "cftv", "câmera", "camera",
+        "controle de acesso", "catraca",
+        "interfone"
+    ]):
+        return "Telecomunicações / TI"
+
+    # ==========================================================
+    # 11. GÁS
+    # ==========================================================
+    elif any(w in texto for w in [
+        "gás", "gas", "glp", "gn",
+        "botijão", "botijao",
+        "central de gás", "central de gas",
+        "tubulação de gás", "tubulacao de gas",
+        "vazamento de gás", "vazamento de gas",
+        "regulador de gás", "regulador de gas"
+    ]):
+        return "Gás / GLP"
+
+    # ==========================================================
+    # 12. COZINHA / EQUIPAMENTOS GASTRONÔMICOS
+    # ==========================================================
+    elif any(w in texto for w in [
+        "cozinha industrial", "fogão industrial",
+        "fogao industrial", "forno industrial",
+        "coifa", "exaustão de cozinha",
+        "exaustao de cozinha", "fritadeira",
+        "chapa", "caldeirão", "caldeirao",
+        "câmara fria", "camara fria",
+        "bancada refrigerada", "processador de alimentos",
+        "lavadora de louças", "lavadora de loucas"
+    ]):
+        return "Cozinha / Gastronomia"
+
+    # ==========================================================
+    # 13. PISCINA
+    # ==========================================================
+    elif any(w in texto for w in [
+        "piscina", "casa de máquinas da piscina",
+        "casa de maquinas da piscina",
+        "filtro da piscina", "bomba da piscina",
+        "clorador", "dosador de cloro",
+        "tratamento da piscina",
+        "aspiração da piscina", "aspiracao da piscina"
+    ]):
+        return "Piscina / Tratamento de Água"
+
+    # ==========================================================
+    # 14. PAISAGISMO / ÁREAS EXTERNAS
+    # ==========================================================
+    elif any(w in texto for w in [
+        "jardim", "jardinagem", "grama",
+        "gramado", "árvore", "arvore",
+        "poda", "paisagismo", "canteiro",
+        "irrigação", "irrigacao",
+        "plantio", "mato", "vegetação", "vegetacao"
+    ]):
+        return "Paisagismo / Áreas Externas"
+
+    # ==========================================================
+    # 15. LIMPEZA / CONSERVAÇÃO
+    # ==========================================================
+    elif any(w in texto for w in [
+        "limpeza", "higienização", "higienizacao",
+        "lavagem", "desinfecção", "desinfeccao",
+        "sanitização", "sanitizacao",
+        "lixo", "resíduo", "residuo",
+        "entulho", "sujeira", "conservação",
+        "conservacao", "dedetização", "dedetizacao",
+        "pragas", "insetos", "baratas", "cupins"
+    ]):
+        return "Limpeza / Conservação"
+
+    # ==========================================================
+    # 16. HOTELARIA / HOSPEDAGEM
+    # ==========================================================
+    elif any(w in texto for w in [
+        "hóspede", "hospede",
+        "hóspedes", "hospedes",
+        "quarto", "quartos",
+        "suíte", "suite",
+        "apartamento", "hospedagem",
+        "hotel", "hotelaria",
+        "frigobar do quarto",
+        "tv do quarto",
+        "cama", "colchão", "colchao",
+        "enxoval", "rouparia"
+    ]):
+        return "Hotelaria / Hospedagem"
+
+    # ==========================================================
+    # 17. ACESSIBILIDADE
+    # ==========================================================
+    elif any(w in texto for w in [
+        "acessibilidade", "pessoa com deficiência",
+        "pessoa com deficiencia", "pcd",
+        "rampa", "corrimão", "corrimao",
+        "piso tátil", "piso tatil",
+        "banheiro acessível", "banheiro acessivel",
+        "barra de apoio", "plataforma acessível",
+        "plataforma acessivel"
+    ]):
+        return "Acessibilidade"
+
+    # ==========================================================
+    # 18. MOBILIÁRIO
+    # ==========================================================
+    elif any(w in texto for w in [
+        "cadeira", "mesa", "armário", "armario",
+        "gaveta", "estante", "balcão", "balcao",
+        "banco", "mobiliário", "mobiliario",
+        "móvel", "movel", "escrivaninha",
+        "arquivo", "prateleira"
+    ]):
+        return "Mobiliário"
+
+    # ==========================================================
+    # 19. SEGURANÇA PATRIMONIAL
+    # ==========================================================
+    elif any(w in texto for w in [
+        "segurança patrimonial", "seguranca patrimonial",
+        "alarme", "sensor de presença",
+        "sensor de presenca", "cerca elétrica",
+        "cerca eletrica", "portão eletrônico",
+        "portao eletronico", "fechamento eletrônico",
+        "fechamento eletronico"
+    ]):
+        return "Segurança Patrimonial"
+
+    # ==========================================================
+    # 20. OUTROS
+    # ==========================================================
+    else:
+        return "Outros / Diversos"
 
     df_cls["CATEGORIA_NLP"] = textos.apply(categorizar_por_regras)
     
