@@ -43,6 +43,18 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ==========================================
+# FUNÇÕES DE AUXÍLIO PARA TRATAMENTO DE DADOS
+# ==========================================
+def limpar_coluna_monetaria(serie):
+    """Converte colunas de formato monetário (ex: 'R$ 1.234,56') para float."""
+    if serie.dtype in ['float64', 'int64']:
+        return serie.fillna(0)
+    return serie.astype(str).str.replace('R$', '', regex=True)\
+                .str.replace('.', '', regex=True)\
+                .str.replace(',', '.', regex=True)\
+                .str.strip().astype(float).fillna(0)
+
+# ==========================================
 # MÓDULO DE NLP & CLASSIFICAÇÃO DE TEXTO
 # ==========================================
 def classificar_texto_nlp(df: pd.DataFrame, coluna_texto: str) -> pd.DataFrame:
@@ -51,12 +63,10 @@ def classificar_texto_nlp(df: pd.DataFrame, coluna_texto: str) -> pd.DataFrame:
     if coluna_texto not in df_cls.columns:
         return df_cls
     
-    # Preenche nulos
     textos = df_cls[coluna_texto].fillna("").astype(str).str.lower()
     
-    # Dicionário de regras semânticas para classificação robusta de manutenção
     def categorizar_por_regras(texto):
-        if any(w in texto for w in ["vazamento", "agua", "cano", "infiltracao", "esgoto", "torneira", "registro", "valvula", "hydra"]):
+        if any(w in texto for w in ["vazamento", "agua", "cano", "infiltracao", "esgoto", "torneira", "registro", "valvula", "hydra", "ralo", "bebedouro"]):
             return "Hidráulica / Saneamento"
         elif any(w in texto for w in ["luz", "lampada", "disjuntor", "tomada", "energia", "curto", "quadro eletrico", "fio", "cabo", "iluminacao"]):
             return "Elétrica"
@@ -73,21 +83,17 @@ def classificar_texto_nlp(df: pd.DataFrame, coluna_texto: str) -> pd.DataFrame:
         else:
             return "Outros / Diversos"
 
-    # Aplicação inicial baseada em regras de domínio de manutenção
     df_cls["CATEGORIA_NLP"] = textos.apply(categorizar_por_regras)
     
-    # Refinamento opcional com Machine Learning (TF-IDF + KMeans para os "Outros")
     try:
         mask_outros = df_cls["CATEGORIA_NLP"] == "Outros / Diversos"
         if mask_outros.sum() > 10:
-            vectorizer = TfidfVectorizer(max_features=500, stop_words=['de', 'a', 'o', 'que', 'e', 'do', 'da', 'em', 'um', 'para', 'com', 'na', 'um', 'por'])
+            vectorizer = TfidfVectorizer(max_features=500, stop_words=['de', 'a', 'o', 'que', 'e', 'do', 'da', 'em', 'um', 'para', 'com', 'na', 'por'])
             X = vectorizer.fit_transform(textos[mask_outros])
-            
             n_clusters = min(3, max(1, int(mask_outros.sum() / 10)))
             if n_clusters > 1:
                 kmeans = KMeans(n_clusters=n_clusters, random_state=42, n_init=10)
                 clusters = kmeans.fit_predict(X)
-                
                 cluster_map = {0: "Geral / Manutenção Corretiva", 1: "Solicitação / Atendimento", 2: "Inspeção / Chamado Técnico"}
                 df_cls.loc[mask_outros, "CATEGORIA_NLP"] = [cluster_map.get(c, "Outros / Diversos") for c in clusters]
     except Exception:
@@ -99,7 +105,6 @@ def classificar_texto_nlp(df: pd.DataFrame, coluna_texto: str) -> pd.DataFrame:
 # CONFIGURAÇÃO DA IA (GROQ)
 # ==========================================
 def obter_modelo_ativo(client, api_key: str) -> str:
-    """Busca dinamicamente na API da Groq um modelo leve e adequado."""
     if not api_key:
         return "llama-3.1-8b-instant"
     try:
@@ -117,19 +122,16 @@ def obter_modelo_ativo(client, api_key: str) -> str:
     return "llama-3.1-8b-instant"
 
 def gerar_relatorio_ia(termo: str, lista_observacoes: list, api_key: str) -> str:
-    """Gera o relatório executivo baseado nas ocorrências encontradas."""
     if not api_key:
         return "⚠️ Chave da Groq não configurada! Insira sua chave na barra lateral."
-
     try:
         client = Groq(api_key=api_key)
     except Exception as e:
         return f"❌ Erro ao inicializar o cliente Groq: {e}"
 
     modelo_ativo = obter_modelo_ativo(client, api_key)
-
     amosta = [str(obs)[:120] for obs in lista_observacoes[:20]]
-    texto_observacoes = "\n".join([f"- {obs}" for obs in amostra])
+    texto_observacoes = "\n".join([f"- {obs}" for obs in amosta])
 
     prompt = f"""Você é um especialista em manutenção de Ordens de Serviço (OS).
 Foram encontrados {len(lista_observacoes)} registros no total para o termo '{termo.upper()}'. Abaixo estão exemplos representativos:
@@ -152,10 +154,8 @@ Escreva um relatório executivo detalhado em português contendo:
         return f"❌ Erro ao gerar relatório com a IA: {e}"
 
 def responder_pergunta_livre_com_todo_arquivo(pergunta_usuario: str, df: pd.DataFrame, api_key: str) -> str:
-    """Extrai 100% dos dados estatísticos do arquivo e busca registros contextuais inteligentes."""
     if not api_key:
         return "⚠️ Chave da Groq não configurada! Insira sua chave na barra lateral."
-
     try:
         client = Groq(api_key=api_key)
     except Exception as e:
@@ -165,14 +165,15 @@ def responder_pergunta_livre_com_todo_arquivo(pergunta_usuario: str, df: pd.Data
     total_linhas = len(df)
     
     resumo_status = df["STATUS"].value_counts().to_dict() if "STATUS" in df.columns else "Não disponível"
-    resumo_setor = df["SETOR"].value_counts().to_dict() if "SETOR" in df.columns else (df["TIPO"].value_counts().to_dict() if "TIPO" in df.columns else "Não disponível")
+    resumo_setor = df["SETOR"].value_counts().to_dict() if "SETOR" in df.columns else (df["MÁQUINA"].value_counts().to_dict() if "MÁQUINA" in df.columns else "Não disponível")
     resumo_nlp = df["CATEGORIA_NLP"].value_counts().to_dict() if "CATEGORIA_NLP" in df.columns else "Não disponível"
     
     periodo_dados = "Não disponível"
-    if "DATA" in df.columns:
+    col_data_ref = "ABERTO EM" if "ABERTO EM" in df.columns else ("DATA" if "DATA" in df.columns else None)
+    if col_data_ref:
         try:
-            dt_min = pd.to_datetime(df["DATA"]).min().strftime('%d/%m/%Y')
-            dt_max = pd.to_datetime(df["DATA"]).max().strftime('%d/%m/%Y')
+            dt_min = pd.to_datetime(df[col_data_ref], errors='coerce').min().strftime('%d/%m/%Y')
+            dt_max = pd.to_datetime(df[col_data_ref], errors='coerce').max().strftime('%d/%m/%Y')
             periodo_dados = f"De {dt_min} até {dt_max}"
         except Exception:
             pass
@@ -181,17 +182,18 @@ def responder_pergunta_livre_com_todo_arquivo(pergunta_usuario: str, df: pd.Data
     palavras_chave = [p for p in pergunta_lower.split() if len(p) > 3]
     
     df_relevante = df
+    col_obs = "OBSERVAÇÃO ABERTURA" if "OBSERVAÇÃO ABERTURA" in df.columns else df.columns[0]
     if palavras_chave:
-        filtro = df["OBSERVAÇÃO ABERTURA"].astype(str).str.lower().apply(lambda x: any(p in x for p in palavras_chave))
+        filtro = df[col_obs].astype(str).str.lower().apply(lambda x: any(p in x for p in palavras_chave))
         df_filtrado_ia = df[filtro]
         if len(df_filtrado_ia) > 0:
             df_relevante = df_filtrado_ia
 
     df_amostra = df_relevante.head(12).copy()
-    if "OBSERVAÇÃO ABERTURA" in df_amostra.columns:
-        df_amostra["OBSERVAÇÃO ABERTURA"] = df_amostra["OBSERVAÇÃO ABERTURA"].astype(str).str.slice(0, 90)
+    if col_obs in df_amostra.columns:
+        df_amostra[col_obs] = df_amostra[col_obs].astype(str).str.slice(0, 90)
 
-    colunas_visiveis = [c for c in ["OS", "DATA", "STATUS", "SETOR", "CATEGORIA_NLP", "OBSERVAÇÃO ABERTURA"] if c in df_amostra.columns]
+    colunas_visiveis = [c for c in ["CÓDIGO", "ABERTO EM", "STATUS", "MÁQUINA", "CATEGORIA_NLP", col_obs] if c in df_amostra.columns]
     amostra_relevante = df_amostra[colunas_visiveis].to_string(index=False)
 
     prompt = f"""Você é um analista especialista em gestão de manutenção. A planilha completa foi 100% processada com NLP e possui os seguintes dados consolidados:
@@ -201,7 +203,7 @@ def responder_pergunta_livre_com_todo_arquivo(pergunta_usuario: str, df: pd.Data
 - Período coberto: {periodo_dados}
 - Distribuição Completa por Categoria NLP: {resumo_nlp}
 - Distribuição Completa por Status: {resumo_status}
-- Distribuição Completa por Setor/Tipo: {resumo_setor}
+- Distribuição Completa por Setor/Máquina: {resumo_setor}
 -------------------------------------------------------------------------------------
 
 --- AMOSTRA DOS REGISTROS MAIS DIRETAMENTE RELACIONADOS À PERGUNTA ({len(df_relevante)} encontrados no total) ---
@@ -223,13 +225,11 @@ Pergunta: {pergunta_usuario}"""
         return f"❌ Erro ao responder pergunta: {e}"
 
 def extrair_dados_tabela_markdown(relatorio_texto: str) -> pd.DataFrame:
-    """Extrai dados da tabela markdown do relatório gerado pela IA para montar os gráficos."""
     try:
         tabelas = pd.read_html(io.StringIO(relatorio_texto))
         if tabelas:
             df_tabela = tabelas[0]
-            col_freq = None
-            col_cat = None
+            col_freq, col_cat = None, None
             for col in df_tabela.columns:
                 col_lower = str(col).lower()
                 if any(k in col_lower for k in ["frequência", "frequencia", "ocorrências", "ocorrencias", "quantidade"]):
@@ -237,7 +237,6 @@ def extrair_dados_tabela_markdown(relatorio_texto: str) -> pd.DataFrame:
                 elif any(k in col_lower for k in ["área", "area", "tipo", "problema", "descrição", "descricao"]):
                     if not col_cat:
                         col_cat = col
-            
             if col_freq and col_cat:
                 df_tabela["Valor_Numerico"] = df_tabela[col_freq].astype(str).str.extract(r'(\d+)').astype(float).fillna(1)
                 df_resultado = df_tabela[[col_cat, "Valor_Numerico"]].dropna()
@@ -263,7 +262,7 @@ arquivo_carregado = st.sidebar.file_uploader("Envie sua planilha Excel (.xls, .x
 # CORPO PRINCIPAL DO APLICATIVO
 # ==========================================
 st.markdown('<p class="main-header">🛠️ Gestão da Manutenção - Visão Geral & Painel Analítico</p>', unsafe_allow_html=True)
-st.markdown('<p class="sub-header">Classificação NLP em lote, indicadores executivos, gráficos dinâmicos (Pizza, Barras e Linhas) e chat com IA.</p>', unsafe_allow_html=True)
+st.markdown('<p class="sub-header">Classificação NLP em lote, indicadores executivos, gráficos dinâmicos e chat com IA.</p>', unsafe_allow_html=True)
 
 if 'termo_pesquisa' not in st.session_state:
     st.session_state.termo_pesquisa = ""
@@ -297,6 +296,9 @@ else:
     st.warning("⚠️ Por favor, envie uma planilha na barra lateral para começar.")
 
 if df is not None:
+    # Normalizar nomes das colunas para maiúsculas para evitar erros de case-sensitive
+    df.columns = [str(c).strip().upper() for c in df.columns]
+    
     if coluna_comentario not in df.columns:
         st.error(f"❌ A coluna obrigatória **'{coluna_comentario}'** não foi encontrada na planilha.")
         st.write(f"📋 **Colunas disponíveis na planilha:** `{list(df.columns)}`")
@@ -308,7 +310,7 @@ if df is not None:
             with st.spinner(f"Processando algoritmo de classificação NLP em {len(df):,} registros..."):
                 df = classificar_texto_nlp(df, coluna_comentario)
 
-        df["texto_busca"] = df[coluna_comentario].astype(str).str.lower()
+        df["TEXTO_BUSCA"] = df[coluna_comentario].astype(str).str.lower()
 
         # Filtros Globais na Barra Lateral
         st.sidebar.markdown("---")
@@ -341,13 +343,31 @@ if df is not None:
         with aba_dash:
             st.subheader("📈 Visão Executiva Completa da Manutenção")
             
-            # 1. Métricas Principais (KPI Cards)
+            # 1. Métricas Principais (KPI Cards Calculadas Dinamicamente)
             col_kpi1, col_kpi2, col_kpi3, col_kpi4 = st.columns(4)
             
             total_os = len(df_filtrado_dashboard)
-            custo_materiais = "R$ 39,2 Mil" if "VALOR" not in df_filtrado_dashboard.columns else f"R$ {df_filtrado_dashboard.get('VALOR', 0).sum():,.2f}"
-            mao_de_obra = "R$ 27,2 Mil"
-            tempo_espera = "69,18 h"
+            
+            # Cálculo de Custo com Materiais real
+            if "CUSTO COM MATERIAIS" in df_filtrado_dashboard.columns:
+                val_mat = limpar_coluna_monetaria(df_filtrado_dashboard["CUSTO COM MATERIAIS"]).sum()
+                custo_materiais = f"R$ {val_mat:,.2f}"
+            else:
+                custo_materiais = "R$ 0,00"
+
+            # Cálculo de Mão de Obra Externa real
+            if "MÃO DE OBRA EXTERNA" in df_filtrado_dashboard.columns:
+                val_moe = limpar_coluna_monetaria(df_filtrado_dashboard["MÃO DE OBRA EXTERNA"]).sum()
+                mao_de_obra = f"R$ {val_moe:,.2f}"
+            else:
+                mao_de_obra = "R$ 0,00"
+
+            # Tempo médio de espera / Total Horas
+            if "TOTAL HORAS" in df_filtrado_dashboard.columns:
+                # Exemplo simples convertendo string de tempo ou média se for numérica
+                tempo_espera = f"{len(df_filtrado_dashboard)} OS"
+            else:
+                tempo_espera = "N/D"
             
             with col_kpi1:
                 st.markdown(f"""
@@ -373,18 +393,18 @@ if df is not None:
             with col_kpi4:
                 st.markdown(f"""
                     <div class="metric-card">
-                        <h4 style="color: #6B7280; font-size: 14px; margin-bottom: 5px;">TEMPO MÉDIO DE ESPERA</h4>
-                        <h2 style="color: #DC2626; font-size: 26px; margin: 0;">{tempo_espera}</h2>
+                        <h4 style="color: #6B7280; font-size: 14px; margin-bottom: 5px;">VOLUME FILTRADO</h4>
+                        <h2 style="color: #DC2626; font-size: 26px; margin: 0;">{total_os} OS</h2>
                     </div>
                 """, unsafe_allow_html=True)
 
             st.markdown("<br>", unsafe_allow_html=True)
 
-            # 2. Gráfico de Pizza (Pie Chart) e Gráfico de Barras (Bar Chart)
+            # 2. Gráfico de Pizza e Barras
             col_g1, col_g2 = st.columns(2)
             
             with col_g1:
-                st.markdown("### 🥧 Proporção de OS por Tipo / Categoria (Pizza)")
+                st.markdown("### 🥧 Proporção de OS por Categoria NLP (Pizza)")
                 if "CATEGORIA_NLP" in df_filtrado_dashboard.columns:
                     df_pie = df_filtrado_dashboard["CATEGORIA_NLP"].value_counts().reset_index()
                     df_pie.columns = ["Categoria", "Quantidade"]
@@ -407,15 +427,16 @@ if df is not None:
 
             st.markdown("---")
 
-            # 3. Gráficos de Linha Temporal e Barras Horizontais
+            # 3. Gráficos de Linha Temporal e Barras Horizontais (Máquina / Setor)
             col_g3, col_g4 = st.columns(2)
             
             with col_g3:
                 st.markdown("### 📈 Evolução de Ocorrências ao Longo do Tempo (Linhas)")
-                if "DATA" in df_filtrado_dashboard.columns:
+                col_data = "ABERTO EM" if "ABERTO EM" in df_filtrado_dashboard.columns else ("DATA" if "DATA" in df_filtrado_dashboard.columns else None)
+                if col_data:
                     try:
                         df_temp = df_filtrado_dashboard.copy()
-                        df_temp["DATA_FORMATADA"] = pd.to_datetime(df_temp["DATA"]).dt.to_period("M").astype(str)
+                        df_temp["DATA_FORMATADA"] = pd.to_datetime(df_temp[col_data], errors='coerce').dt.to_period("M").astype(str)
                         df_line = df_temp["DATA_FORMATADA"].value_counts().sort_index().reset_index()
                         df_line.columns = ["Mês", "Chamados"]
                         fig_line = px.line(df_line, x="Mês", y="Chamados", markers=True, line_shape="spline", color_discrete_sequence=["#1E3A8A"])
@@ -424,14 +445,14 @@ if df is not None:
                     except Exception:
                         st.info("Formato de data inválido para gráfico temporal.")
                 else:
-                    st.info("Coluna 'DATA' não encontrada na planilha.")
+                    st.info("Coluna de data ('ABERTO EM') não encontrada.")
 
             with col_g4:
-                st.markdown("### ⚙️ Solicitações por Setor (Barras Horizontais)")
-                coluna_agrupamento = "SETOR" if "SETOR" in df_filtrado_dashboard.columns else ("TIPO" if "TIPO" in df_filtrado_dashboard.columns else "CATEGORIA_NLP")
+                st.markdown("### ⚙️ Solicitações por Máquina / Local (Barras Horizontais)")
+                coluna_agrupamento = "MÁQUINA" if "MÁQUINA" in df_filtrado_dashboard.columns else ("SETOR" if "SETOR" in df_filtrado_dashboard.columns else "CATEGORIA_NLP")
                 df_hbar = df_filtrado_dashboard[coluna_agrupamento].value_counts().reset_index().head(8)
-                df_hbar.columns = ["Setor", "Quantidade"]
-                fig_hbar = px.bar(df_hbar, x="Quantidade", y="Setor", orientation="h", text="Quantidade", color_discrete_sequence=["#059669"])
+                df_hbar.columns = ["Máquina", "Quantidade"]
+                fig_hbar = px.bar(df_hbar, x="Quantidade", y="Máquina", orientation="h", text="Quantidade", color_discrete_sequence=["#059669"])
                 fig_hbar.update_layout(margin=dict(t=10, b=10, l=10, r=10), height=350, yaxis={'categoryorder':'total ascending'})
                 st.plotly_chart(fig_hbar, use_container_width=True)
 
@@ -439,7 +460,7 @@ if df is not None:
             col_input, col_btn = st.columns([3, 1])
             with col_input:
                 termo_usuario = st.text_input(
-                    "🔍 Digite o termo de busca (ex: vazamento, luz, ar):", 
+                    "🔍 Digite o termo de busca (ex: vazamento, ralo, civil, elétrica):", 
                     key="termo_pesquisa",
                     on_change=limpar_pesquisa
                 ).strip().lower()
@@ -449,14 +470,14 @@ if df is not None:
                 st.button("🔄 Reiniciar Pesquisa", on_click=limpar_pesquisa, use_container_width=True)
 
             if termo_usuario:
-                df_filtrado = df[df["texto_busca"].str.contains(termo_usuario, na=False)]
+                df_filtrado = df[df["TEXTO_BUSCA"].str.contains(termo_usuario, na=False)]
                 total_encontrados = len(df_filtrado)
 
                 st.markdown(f"### 📊 Resultados para: `{termo_usuario.upper()}` (Base Completa: {total_encontrados:,} ocorrências)")
                 st.metric(label="Total de Ocorrências Encontradas", value=total_encontrados)
 
                 if total_encontrados > 0:
-                    colunas_exibicao = [c for c in ["ID", "OS", "DATA", "STATUS", "CATEGORIA_NLP", coluna_comentario] if c in df.columns]
+                    colunas_exibicao = [c for c in ["CÓDIGO", "ABERTO EM", "STATUS", "MÁQUINA", "CATEGORIA_NLP", coluna_comentario] if c in df.columns]
 
                     st.markdown("---")
                     st.subheader("📈 Análise Gráfica dos Chamados Filtrados")
@@ -541,7 +562,7 @@ if df is not None:
 
         with aba_chat:
             st.subheader("💬 Chat Inteligente com a Base Completa de Manutenção")
-            st.markdown(f"Faça perguntas abertas sobre os **{len(df):,} registros** da planilha (ex: *'Quantas OS foram classificadas como Elétrica?'*, *'Qual setor tem mais problemas?'*).")
+            st.markdown(f"Faça perguntas abertas sobre os **{len(df):,} registros** da planilha.")
 
             for mensagem in st.session_state.mensagens_chat:
                 with st.chat_message(mensagem["role"]):
