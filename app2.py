@@ -916,58 +916,67 @@ if df is not None:
             st.subheader("🔍 Detalhamento por Categoria e Equipamentos")
 
             if "CATEGORIA_NLP" in df.columns:
-                # Cria uma lista de categorias disponíveis
-                categorias_disponiveis = sorted(df["CATEGORIA_NLP"].dropna().unique())
-                cat_selecionada = st.selectbox("Selecione uma Categoria para abrir e ver os itens:", categorias_disponiveis)
+                # Cria a lista de categorias incluindo uma opção vazia/inicial no topo
+                categorias_disponiveis = ["-- Selecione uma categoria --"] + sorted(df["CATEGORIA_NLP"].dropna().unique())
                 
-                if cat_selecionada:
+                # index=0 faz com que comece vazio/neutro
+                cat_selecionada = st.selectbox(
+                    "Selecione uma Categoria para abrir e ver os itens:", 
+                    options=categorias_disponiveis, 
+                    index=0
+                )
+                
+                # Só executa o detalhamento se o usuário escolher uma categoria real
+                if cat_selecionada and cat_selecionada != "-- Selecione uma categoria --":
                     # Filtra o dataframe para a categoria escolhida
                     df_cat = df[df["CATEGORIA_NLP"] == cat_selecionada]
                     
                     st.write(f"Total de registros na categoria **{cat_selecionada}**: **{len(df_cat):,}**")
                     
                     # Identifica qual coluna de máquina/equipamento existe no arquivo
-                col_maq = None
-                for c in ["MÁQUINAS", "MAQUINAS", "MÁQUINA", "MAQUINA"]:
-                    if c in df.columns:
-                        col_maq = c
-                        break
-                
-                if col_maq:
-                    st.markdown(f"##### ⚙️ Equipamentos / Ativos relacionados (Coluna: `{col_maq}`)")
+                    col_maq = None
+                    for c in ["MÁQUINAS", "MAQUINAS", "MÁQUINA", "MAQUINA"]:
+                        if c in df.columns:
+                            col_maq = c
+                            break
                     
-                    # Agrupa e conta os quantitativos por máquina na categoria selecionada
-                    df_ranking_maq = df_cat[col_maq].value_counts().reset_index()
-                    df_ranking_maq.columns = ["Equipamento / Máquina", "Quantidade"]
-                    
-                    # Exibe a tabela resumo
-                    st.dataframe(df_ranking_maq, use_container_width=True, hide_index=True)
-                    
-                    st.markdown("---")
-                    st.markdown("#### 📋 Ordens de Serviço Específicas por Máquina/Equipamento")
-                    
-                    # Lista de máquinas disponíveis na categoria selecionada
-                    lista_maquinas_cat = sorted(df_cat[col_maq].dropna().unique().astype(str))
-                    
-                    if lista_maquinas_cat:
-                        maquina_selecionada = st.selectbox(
-                            "Selecione uma Máquina/Equipamento para ver as Ordens de Serviço detalhadas:", 
-                            lista_maquinas_cat,
-                            key=f"select_maq_{cat_selecionada}"
-                        )
+                    if col_maq:
+                        st.markdown(f"##### ⚙️ Equipamentos / Ativos relacionados (Coluna: `{col_maq}`)")
                         
-                        if maquina_selecionada:
-                            # Filtra as OS específicas da máquina escolhida
-                            df_os_maquina = df_cat[df_cat[col_maq].astype(str) == maquina_selecionada]
+                        # Agrupa e conta os quantitativos por máquina na categoria selecionada
+                        df_ranking_maq = df_cat[col_maq].value_counts().reset_index()
+                        df_ranking_maq.columns = ["Equipamento / Máquina", "Quantidade"]
+                        
+                        # Exibe a tabela resumo
+                        st.dataframe(df_ranking_maq, use_container_width=True, hide_index=True)
+                        
+                        st.markdown("---")
+                        st.markdown("#### 📋 Ordens de Serviço Específicas por Máquina/Equipamento")
+                        
+                        # Lista de máquinas disponíveis na categoria selecionada
+                        lista_maquinas_cat = sorted(df_cat[col_maq].dropna().unique().astype(str))
+                        
+                        if lista_maquinas_cat:
+                            maquina_selecionada = st.selectbox(
+                                "Selecione uma Máquina/Equipamento para ver as Ordens de Serviço detalhadas:", 
+                                lista_maquinas_cat,
+                                key=f"select_maq_{cat_selecionada}"
+                            )
                             
-                            st.info(pesquisa_info := f"Exibindo **{len(df_os_maquina)}** Ordem(ns) de Serviço para o equipamento: **{maquina_selecionada}**")
-                            
-                            # Seleciona colunas úteis para exibir as OS (ex: Código, Data, Status, Observação)
-                            cols_mostrar = [c for c in ["CÓDIGO", "ABERTO EM", "STATUS", "SETOR", col_maq, coluna_comentario, "CUSTO COM MATERIAIS"] if c in df_os_maquina.columns]
-                            
-                            st.dataframe(df_os_maquina[cols_mostrar], use_container_width=True, hide_index=True)
+                            if maquina_selecionada:
+                                # Filtra as OS específicas da máquina escolhida
+                                df_os_maquina = df_cat[df_cat[col_maq].astype(str) == maquina_selecionada]
+                                
+                                st.info(f"Exibindo **{len(df_os_maquina)}** Ordem(ns) de Serviço para o equipamento: **{maquina_selecionada}**")
+                                
+                                # Seleciona colunas úteis para exibir as OS
+                                cols_mostrar = [c for c in ["CÓDIGO", "ABERTO EM", "STATUS", "SETOR", col_maq, coluna_comentario, "CUSTO COM MATERIAIS"] if c in df_os_maquina.columns]
+                                
+                                st.dataframe(df_os_maquina[cols_mostrar], use_container_width=True, hide_index=True)
+                    else:
+                        st.info("A coluna de máquinas/equipamentos não foi identificada para exibir o ranking detalhado.")
                 else:
-                    st.info("A coluna de máquinas/equipamentos não foi identificada para exibir o ranking detalhado.")
+                    st.info("👈 Por favor, selecione uma categoria acima para visualizar os itens e equipamentos.")
         # ==========================================
         # ABA 4: CHAT INTELIGENTE COM A BASE COMPLETA
         # ==========================================
