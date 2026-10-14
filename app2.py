@@ -1,4 +1,4 @@
-import os
+            import os
 import io
 import re
 import pandas as pd
@@ -54,6 +54,7 @@ def formatar_moeda_br(valor):
         return f"R$ {val_str}"
     except Exception:
         return "R$ 0,00"
+
 def limpar_coluna_monetaria(serie):
     """Converte com segurança colunas de formato monetário (ex: 'R$ 1.234,56') para float."""
     if serie is None:
@@ -66,17 +67,14 @@ def limpar_coluna_monetaria(serie):
         if pd.isna(val):
             return 0.0
         val_str = str(val).strip()
-        # Remove tudo exceto dígitos, vírgula e ponto
         val_limpo = re.sub(r'[^\d,.-]', '', val_str)
         if not val_limpo or val_limpo in ['-', '.', ',']:
             return 0.0
         
         try:
-            # Se houver ponto e vírgula (ex: 1.234,56)
             if '.' in val_limpo and ',' in val_limpo:
                 val_limpo = val_limpo.replace('.', '').replace(',', '.')
             elif ',' in val_limpo:
-                # Se houver apenas vírgula, assume que é separador decimal (ex: 1234,56)
                 val_limpo = val_limpo.replace(',', '.')
             return float(val_limpo)
         except Exception:
@@ -96,17 +94,8 @@ def classificar_texto_nlp(df: pd.DataFrame, coluna_texto: str) -> pd.DataFrame:
     textos = df_cls[coluna_texto].fillna("").astype(str).str.lower()
     
     def categorizar_por_regras(texto):
-        """
-        Classificação automática de solicitações de manutenção.
-        As categorias são independentes e utilizam palavras-chave
-        específicas para reduzir sobreposição entre índices.
-        """
-
         texto = str(texto).lower().strip()
 
-        # ==========================================================
-        # 1. HIDRÁULICA / SANEAMENTO
-        # ==========================================================
         if any(w in texto for w in [
             "vazamento", "vazando", "vaza", "água", "agua",
             "cano", "tubulação", "tubulacao", "tubo",
@@ -121,9 +110,6 @@ def classificar_texto_nlp(df: pd.DataFrame, coluna_texto: str) -> pd.DataFrame:
         ]):
             return "Hidráulica / Saneamento"
 
-        # ==========================================================
-        # 2. ELÉTRICA
-        # ==========================================================
         elif any(w in texto for w in [
             "lâmpada", "lampada", "iluminação", "iluminacao",
             "luminária", "luminaria", "tomada", "interruptor",
@@ -140,9 +126,6 @@ def classificar_texto_nlp(df: pd.DataFrame, coluna_texto: str) -> pd.DataFrame:
         ]):
             return "Elétrica"
 
-        # ==========================================================
-        # 3. CLIMATIZAÇÃO / REFRIGERAÇÃO
-        # ==========================================================
         elif any(w in texto for w in [
             "ar condicionado", "ar-condicionado",
             "split", "cassete", "vrf", "vrv",
@@ -160,9 +143,6 @@ def classificar_texto_nlp(df: pd.DataFrame, coluna_texto: str) -> pd.DataFrame:
         ]):
             return "Climatização / Refrigeração"
 
-        # ==========================================================
-        # 4. CIVIL / EDIFICAÇÕES
-        # ==========================================================
         elif any(w in texto for w in [
             "parede", "reboco", "alvenaria", "argamassa",
             "cimento", "concreto", "piso", "revestimento",
@@ -179,9 +159,6 @@ def classificar_texto_nlp(df: pd.DataFrame, coluna_texto: str) -> pd.DataFrame:
         ]):
             return "Civil / Edificações"
 
-        # ==========================================================
-        # 5. MECÂNICA
-        # ==========================================================
         elif any(w in texto for w in [
             "motor", "redutor", "engrenagem", "rolamento",
             "correia", "polia", "eixo", "acoplamento",
@@ -197,9 +174,6 @@ def classificar_texto_nlp(df: pd.DataFrame, coluna_texto: str) -> pd.DataFrame:
         ]):
             return "Mecânica"
 
-        # ==========================================================
-        # 6. EQUIPAMENTOS
-        # ==========================================================
         elif any(w in texto for w in [
             "equipamento", "máquina", "maquina",
             "forno", "microondas", "micro-ondas",
@@ -215,9 +189,6 @@ def classificar_texto_nlp(df: pd.DataFrame, coluna_texto: str) -> pd.DataFrame:
         ]):
             return "Equipamentos"
 
-        # ==========================================================
-        # 7. ELEVADORES / TRANSPORTE VERTICAL
-        # ==========================================================
         elif any(w in texto for w in [
             "elevador", "elevadores",
             "cabina", "cabine do elevador",
@@ -231,9 +202,6 @@ def classificar_texto_nlp(df: pd.DataFrame, coluna_texto: str) -> pd.DataFrame:
         ]):
             return "Elevadores / Transporte Vertical"
 
-        # ==========================================================
-        # 8. INCÊNDIO / SEGURANÇA
-        # ==========================================================
         elif any(w in texto for w in [
             "extintor", "hidrante", "sprinkler",
             "sprinklers", "alarme de incêndio",
@@ -250,9 +218,6 @@ def classificar_texto_nlp(df: pd.DataFrame, coluna_texto: str) -> pd.DataFrame:
         ]):
             return "Prevenção e Combate a Incêndio"
 
-        # ==========================================================
-        # 9. SPDA / ATERRAMENTO
-        # ==========================================================
         elif any(w in texto for w in [
             "spda", "para-raios", "para raios",
             "pára-raios", "captor", "descida do spda",
@@ -264,9 +229,6 @@ def classificar_texto_nlp(df: pd.DataFrame, coluna_texto: str) -> pd.DataFrame:
         ]):
             return "SPDA / Aterramento"
 
-        # ==========================================================
-        # 10. TELECOM / DADOS
-        # ==========================================================
         elif any(w in texto for w in [
             "internet", "wi-fi", "wifi", "rede",
             "cabeamento estruturado", "cabo de rede",
@@ -281,9 +243,6 @@ def classificar_texto_nlp(df: pd.DataFrame, coluna_texto: str) -> pd.DataFrame:
         ]):
             return "Telecomunicações / TI"
 
-        # ==========================================================
-        # 11. GÁS
-        # ==========================================================
         elif any(w in texto for w in [
             "gás", "gas", "glp", "gn",
             "botijão", "botijao",
@@ -294,9 +253,6 @@ def classificar_texto_nlp(df: pd.DataFrame, coluna_texto: str) -> pd.DataFrame:
         ]):
             return "Gás / GLP"
 
-        # ==========================================================
-        # 12. COZINHA / EQUIPAMENTOS GASTRONÔMICOS
-        # ==========================================================
         elif any(w in texto for w in [
             "cozinha industrial", "fogão industrial",
             "fogao industrial", "forno industrial",
@@ -309,9 +265,6 @@ def classificar_texto_nlp(df: pd.DataFrame, coluna_texto: str) -> pd.DataFrame:
         ]):
             return "Cozinha / Gastronomia"
 
-        # ==========================================================
-        # 13. PISCINA
-        # ==========================================================
         elif any(w in texto for w in [
             "piscina", "casa de máquinas da piscina",
             "casa de maquinas da piscina",
@@ -322,9 +275,6 @@ def classificar_texto_nlp(df: pd.DataFrame, coluna_texto: str) -> pd.DataFrame:
         ]):
             return "Piscina / Tratamento de Água"
 
-        # ==========================================================
-        # 14. PAISAGISMO / ÁREAS EXTERNAS
-        # ==========================================================
         elif any(w in texto for w in [
             "jardim", "jardinagem", "grama",
             "gramado", "árvore", "arvore",
@@ -334,9 +284,6 @@ def classificar_texto_nlp(df: pd.DataFrame, coluna_texto: str) -> pd.DataFrame:
         ]):
             return "Paisagismo / Áreas Externas"
 
-        # ==========================================================
-        # 15. LIMPEZA / CONSERVAÇÃO
-        # ==========================================================
         elif any(w in texto for w in [
             "limpeza", "higienização", "higienizacao",
             "lavagem", "desinfecção", "desinfeccao",
@@ -348,9 +295,6 @@ def classificar_texto_nlp(df: pd.DataFrame, coluna_texto: str) -> pd.DataFrame:
         ]):
             return "Limpeza / Conservação"
 
-        # ==========================================================
-        # 16. HOTELARIA / HOSPEDAGEM
-        # ==========================================================
         elif any(w in texto for w in [
             "hóspede", "hospede",
             "hóspedes", "hospedes",
@@ -365,9 +309,6 @@ def classificar_texto_nlp(df: pd.DataFrame, coluna_texto: str) -> pd.DataFrame:
         ]):
             return "Hotelaria / Hospedagem"
 
-        # ==========================================================
-        # 17. ACESSIBILIDADE
-        # ==========================================================
         elif any(w in texto for w in [
             "acessibilidade", "pessoa com deficiência",
             "pessoa com deficiencia", "pcd",
@@ -379,9 +320,6 @@ def classificar_texto_nlp(df: pd.DataFrame, coluna_texto: str) -> pd.DataFrame:
         ]):
             return "Acessibilidade"
 
-        # ==========================================================
-        # 18. MOBILIÁRIO
-        # ==========================================================
         elif any(w in texto for w in [
             "cadeira", "mesa", "armário", "armario",
             "gaveta", "estante", "balcão", "balcao",
@@ -391,9 +329,6 @@ def classificar_texto_nlp(df: pd.DataFrame, coluna_texto: str) -> pd.DataFrame:
         ]):
             return "Mobiliário"
 
-        # ==========================================================
-        # 19. SEGURANÇA PATRIMONIAL
-        # ==========================================================
         elif any(w in texto for w in [
             "segurança patrimonial", "seguranca patrimonial",
             "alarme", "sensor de presença",
@@ -404,9 +339,6 @@ def classificar_texto_nlp(df: pd.DataFrame, coluna_texto: str) -> pd.DataFrame:
         ]):
             return "Segurança Patrimonial"
 
-        # ==========================================================
-        # 20. OUTROS
-        # ==========================================================
         else:
             return "Outros / Diversos"
 
@@ -458,12 +390,10 @@ def gerar_relatorio_ia(termo: str, lista_observacoes: list, api_key: str) -> str
 
     modelo_ativo = obter_modelo_ativo(client, api_key)
     
-    # NOVO: Agrupa e conta as falhas/observações repetidas para enviar o ranking real à IA
     df_obs = pd.DataFrame({"obs": [str(o).strip().lower() for o in lista_observacoes]})
     top_falhas = df_obs["obs"].value_counts().head(15).reset_index()
     top_falhas.columns = ["Descricao_Falha", "Frequencia"]
     
-    # Formata o ranking em texto para o prompt
     ranking_texto = "\n".join([f"- {row['Descricao_Falha']} (Ocorrências: {row['Frequencia']})" for _, row in top_falhas.iterrows()])
 
     prompt = f"""Você é um especialista em manutenção de Ordens de Serviço (OS).
@@ -486,6 +416,7 @@ Escreva um relatório executivo detalhado em português contendo:
         return response.choices[0].message.content
     except Exception as e:
         return f"❌ Erro ao gerar relatório com a IA: {e}"
+
 def responder_pergunta_livre_com_todo_arquivo(pergunta_usuario: str, df: pd.DataFrame, api_key: str) -> str:
     if not api_key:
         return "⚠️ Chave da Groq não configurada! Insira sua chave na barra lateral."
@@ -497,7 +428,6 @@ def responder_pergunta_livre_com_todo_arquivo(pergunta_usuario: str, df: pd.Data
     modelo_ativo = obter_modelo_ativo(client, api_key)
     total_linhas = len(df)
     
-    # Limita os itens nos resumos para economizar tokens
     resumo_status = dict(df["STATUS"].value_counts().head(5)) if "STATUS" in df.columns else "Não disponível"
     col_setor = "SETOR" if "SETOR" in df.columns else ("MÁQUINA" if "MÁQUINA" in df.columns else None)
     resumo_setor = dict(df[col_setor].value_counts().head(5)) if col_setor else "Não disponível"
@@ -524,7 +454,6 @@ def responder_pergunta_livre_com_todo_arquivo(pergunta_usuario: str, df: pd.Data
         if len(df_filtrado_ia) > 0:
             df_relevante = df_filtrado_ia
 
-    # Seleciona amostra curta (5 itens, observações truncadas em 60 caracteres)
     df_amostra = df_relevante.head(5).copy()
     if col_obs in df_amostra.columns:
         df_amostra[col_obs] = df_amostra[col_obs].astype(str).str.slice(0, 60)
@@ -587,7 +516,6 @@ def extrair_dados_tabela_markdown(relatorio_texto: str) -> pd.DataFrame:
 # ==========================================
 st.sidebar.title("⚙️ Configurações & Filtros")
 
-# Carrega a chave API Groq do Streamlit Secrets (se estiver online) ou de um arquivo .txt local (se estiver no PC)
 groq_api_key_input = ""
 try:
     if hasattr(st, "secrets") and "GROQ_API_KEY" in st.secrets:
@@ -601,9 +529,20 @@ if not groq_api_key_input and os.path.exists("groq_api_key.txt"):
             groq_api_key_input = f.read().strip()
     except Exception:
         pass
+
 st.sidebar.markdown("---")
-st.sidebar.subheader("📂 Carregar Dados")
-arquivo_carregado = st.sidebar.file_uploader("Envie sua planilha Excel (.xls, .xlsx)", type=["xls", "xlsx"])
+st.sidebar.subheader("📂 Carregar Dados (OneDrive Automático)")
+
+# Link direto do OneDrive configurado para atualização diária automática
+# Substitua o link abaixo pelo link de compartilhamento direto do seu arquivo CSV no OneDrive
+ONEDRIVE_CSV_URL = st.sidebar.text_input(
+    "URL Direta do CSV no OneDrive", 
+    value="", 
+    placeholder="Cole o link de download direto do OneDrive aqui"
+)
+
+st.sidebar.markdown("---")
+arquivo_carregado = st.sidebar.file_uploader("Ou envie manualmente (.csv, .xls, .xlsx)", type=["csv", "xls", "xlsx"])
 
 # ==========================================
 # CORPO PRINCIPAL DO APLICATIVO
@@ -623,16 +562,32 @@ def limpar_pesquisa():
     if "termo_relatorio" in st.session_state:
         del st.session_state.termo_relatorio
 
-# Carregamento do arquivo
+# Carregamento do arquivo (Prioridade: OneDrive Automático -> Upload Manual -> Arquivo Local)
 df = None
 coluna_comentario = "OBSERVAÇÃO ABERTURA"
 
-if arquivo_carregado is not None:
+if ONEDRIVE_CSV_URL:
     try:
-        df = pd.read_excel(arquivo_carregado)
+        # Lê diretamente do OneDrive com atualização dinâmica a cada acesso
+        df = pd.read_csv(ONEDRIVE_CSV_URL)
+        st.success(f"✅ Dados carregados e atualizados automaticamente via **OneDrive** ({len(df):,} registros)!")
+    except Exception as e:
+        st.error(f"❌ Erro ao carregar do OneDrive. Verifique se o link é público/direto: {e}")
+elif arquivo_carregado is not None:
+    try:
+        if arquivo_carregado.name.endswith('.csv'):
+            df = pd.read_csv(arquivo_carregado)
+        else:
+            df = pd.read_excel(arquivo_carregado)
         st.success(f"✅ Arquivo `{arquivo_carregado.name}` carregado com sucesso ({len(df):,} registros)!")
     except Exception as e:
         st.error(f"❌ Erro ao ler o arquivo enviado: {e}")
+elif os.path.exists("OS Geral.csv"):
+    try:
+        df = pd.read_csv("OS Geral.csv")
+        st.info(f"ℹ️ Usando o arquivo CSV local padrão: `OS Geral.csv` ({len(df):,} registros)")
+    except Exception as e:
+        st.error(f"❌ Erro ao ler o arquivo local `OS Geral.csv`: {e}")
 elif os.path.exists("OS Geral.xls"):
     try:
         df = pd.read_excel("OS Geral.xls")
@@ -640,10 +595,9 @@ elif os.path.exists("OS Geral.xls"):
     except Exception as e:
         st.error(f"❌ Erro ao ler o arquivo local `OS Geral.xls`: {e}")
 else:
-    st.warning("⚠️ Por favor, envie uma planilha na barra lateral para começar.")
+    st.warning("⚠️ Insira o link do OneDrive na barra lateral ou envie uma planilha para começar.")
 
 if df is not None:
-    # Normalizar nomes das colunas para maiúsculas
     df.columns = [str(c).strip().upper() for c in df.columns]
     
     if coluna_comentario not in df.columns:
@@ -652,26 +606,20 @@ if df is not None:
     else:
         df = df.dropna(subset=[coluna_comentario]).copy()
 
-        # Processamento automático NLP
         if "CATEGORIA_NLP" not in df.columns:
             with st.spinner(f"Processando algoritmo de classificação NLP em {len(df):,} registros..."):
                 df = classificar_texto_nlp(df, coluna_comentario)
 
-        # SUBSTITUA POR ESTE BLOCO:
         col_maquinas_ref = "MÁQUINAS" if "MÁQUINAS" in df.columns else ("MAQUINAS" if "MAQUINAS" in df.columns else None)
         
         if col_maquinas_ref:
             df["TEXTO_BUSCA"] = (
                 df[coluna_comentario].astype(str).str.lower().fillna("") + " " + 
-                df[colmaquinas_ref if 'colmaquinas_ref' in locals() else col_maquinas_ref].astype(str).str.lower().fillna("")
+                df[col_maquinas_ref].astype(str).str.lower().fillna("")
             )
         else:
             df["TEXTO_BUSCA"] = df[coluna_comentario].astype(str).str.lower().fillna("")
 
-        # Filtros Globais na Barra Lateral
-        st.sidebar.markdown("---")
-
-        # Filtros Globais na Barra Lateral
         st.sidebar.markdown("---")
         st.sidebar.subheader("🎯 Filtros Globais do Dashboard")
         
@@ -701,13 +649,9 @@ if df is not None:
             "💬 Chat Inteligente com a Base Completa"
         ])
 
-        # ==========================================
-        # ABA 1: DASHBOARD GERAL
-        # ==========================================
         with aba_dash:
             st.subheader("📈 Visão Executiva Completa da Manutenção")
             
-            # 1. Métricas Principais
             col_kpi1, col_kpi2, col_kpi3, col_kpi4 = st.columns(4)
             
             total_os = len(df_filtrado_dashboard)
@@ -748,10 +692,11 @@ if df is not None:
                     </div>
                 """, unsafe_allow_html=True)
             with col_kpi4:
+                custo_total_val = (val_mat if 'val_mat' in locals() else 0.0) + (val_moe if 'val_moe' in locals() else 0.0)
                 st.markdown(f"""
                     <div class="metric-card">
-                        <h4 style="color: #6B7280; font-size: 14px; margin-bottom: 5px;">VOLUME FILTRADO</h4>
-                        <h2 style="color: #DC2626; font-size: 26px; margin: 0;">{total_os_str} OS</h2>
+                        <h4 style="color: #6B7280; font-size: 14px; margin-bottom: 5px;">CUSTO TOTAL</h4>
+                        <h2 style="color: #DC2626; font-size: 26px; margin: 0;">{formatar_moeda_br(custo_total_val)}</h2>
                     </div>
                 """, unsafe_allow_html=True)
 
