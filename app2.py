@@ -1,6 +1,7 @@
 import os
 import io
 import re
+import requests
 import pandas as pd
 import streamlit as st
 import plotly.express as px
@@ -47,7 +48,6 @@ st.markdown("""
 # FUNÇÕES DE AUXÍLIO PARA TRATAMENTO DE DADOS
 # ==========================================
 def formatar_moeda_br(valor):
-    """Formata um float para o padrão monetário brasileiro (ex: R$ 1.234,56)."""
     try:
         val_str = f"{float(valor):,.2f}"
         val_str = val_str.replace(",", "X").replace(".", ",").replace("X", ".")
@@ -56,7 +56,6 @@ def formatar_moeda_br(valor):
         return "R$ 0,00"
 
 def limpar_coluna_monetaria(serie):
-    """Converte com segurança colunas de formato monetário (ex: 'R$ 1.234,56') para float."""
     if serie is None:
         return pd.Series([0.0])
     
@@ -86,7 +85,6 @@ def limpar_coluna_monetaria(serie):
 # MÓDULO DE NLP & CLASSIFICAÇÃO DE TEXTO
 # ==========================================
 def classificar_texto_nlp(df: pd.DataFrame, coluna_texto: str) -> pd.DataFrame:
-    """Aplica algoritmo NLP (TF-IDF + Regras/Clusters) para classificar as observações."""
     df_cls = df.copy()
     if coluna_texto not in df_cls.columns:
         return df_cls
@@ -514,9 +512,6 @@ def extrair_dados_tabela_markdown(relatorio_texto: str) -> pd.DataFrame:
 # ==========================================
 # INTERFACE GRÁFICA (BARRA LATERAL)
 # ==========================================
-# ==========================================
-# INTERFACE GRÁFICA (BARRA LATERAL) & ONEDRIVE
-# ==========================================
 st.sidebar.title("⚙️ Configurações & Filtros")
 
 groq_api_key_input = ""
@@ -536,21 +531,15 @@ if not groq_api_key_input and os.path.exists("groq_api_key.txt"):
 st.sidebar.markdown("---")
 st.sidebar.subheader("📂 Carregar Dados (OneDrive Automático)")
 
-# Busca a URL diretamente do Streamlit Secrets (secrets.toml)
-ONEDRIVE_CSV_URL = ""
+ONEDRIVE_XLS_URL = ""
 try:
     if hasattr(st, "secrets") and "ONEDRIVE_CSV_URL" in st.secrets:
-        ONEDRIVE_CSV_URL = st.secrets["ONEDRIVE_CSV_URL"]
+        ONEDRIVE_XLS_URL = st.secrets["ONEDRIVE_CSV_URL"]
 except Exception:
     pass
 
-if ONEDRIVE_CSV_URL:
-    st.sidebar.success("🔗 URL do OneDrive carregada via Secrets!")
-else:
-    st.sidebar.warning("⚠️ `ONEDRIVE_CSV_URL` não encontrada nos Secrets.")
-
 st.sidebar.markdown("---")
-arquivo_carregado = st.sidebar.file_uploader("Ou envie manualmente (.csv, .xls, .xlsx)", type=["csv", "xls", "xlsx"])
+arquivo_carregado = st.sidebar.file_uploader("Ou envie manualmente (.xls, .xlsx)", type=["xls", "xlsx"])
 
 # ==========================================
 # CORPO PRINCIPAL DO APLICATIVO
@@ -570,32 +559,41 @@ def limpar_pesquisa():
     if "termo_relatorio" in st.session_state:
         del st.session_state.termo_relatorio
 
-# Carregamento do arquivo (Prioridade: OneDrive Automático -> Upload Manual -> Arquivo Local)
+# Carregamento do arquivo (Tratando link do OneDrive via requests)
 df = None
 coluna_comentario = "OBSERVAÇÃO ABERTURA"
 
-if ONEDRIVE_CSV_URL:
+if ONEDRIVE_XLS_URL:
     try:
-        # Lê diretamente do OneDrive com atualização dinâmica a cada acesso
-        df = pd.read_csv(ONEDRIVE_CSV_URL)
-        st.success(f"✅ Dados carregados e atualizados automaticamente via **OneDrive** ({len(df):,} registros)!")
+        # Transforma o link do SharePoint para forçar o download direto
+        link_download = ONEDRIVE_XLS_URL
+        if "?" in link_download and "download=1" not in link_download:
+            link_download += "&download=1"
+        elif "?" not in link_download:
+            link_download += "?download=1"
+
+        headers = {'User-Agent': 'Mozilla/5.0'}
+        response = requests.get(link_download, headers=headers)
+        
+        if response.status_code == 200:
+            df = pd.read_excel(io.BytesIO(response.content))
+            st.success(f"✅ Dados carregados e atualizados via **OneDrive** (`LISTAGEM GERAL.xls` | {len(df):,} registros)!")
+        else:
+            st.error(f"❌ Erro HTTP {response.status_code} ao acessar o OneDrive. Verifique se o link possui permissão pública de visualização.")
     except Exception as e:
-        st.error(f"❌ Erro ao carregar do OneDrive. Verifique se o link é público/direto: {e}")
+        st.error(f"❌ Erro ao processar o arquivo do OneDrive: {e}")
 elif arquivo_carregado is not None:
     try:
-        if arquivo_carregado.name.endswith('.csv'):
-            df = pd.read_csv(arquivo_carregado)
-        else:
-            df = pd.read_excel(arquivo_carregado)
+        df = pd.read_excel(arquivo_carregado)
         st.success(f"✅ Arquivo `{arquivo_carregado.name}` carregado com sucesso ({len(df):,} registros)!")
     except Exception as e:
         st.error(f"❌ Erro ao ler o arquivo enviado: {e}")
-elif os.path.exists("OS Geral.csv"):
+elif os.path.exists("LISTAGEM GERAL.xls"):
     try:
-        df = pd.read_csv("OS Geral.csv")
-        st.info(f"ℹ️ Usando o arquivo CSV local padrão: `OS Geral.csv` ({len(df):,} registros)")
+        df = pd.read_excel("LISTAGEM GERAL.xls")
+        st.info(f"ℹ️ Usando o arquivo padrão local: `LISTAGEM GERAL.xls` ({len(df):,} registros)")
     except Exception as e:
-        st.error(f"❌ Erro ao ler o arquivo local `OS Geral.csv`: {e}")
+        st.error(f"❌ Erro ao ler o arquivo local `LISTAGEM GERAL.xls`: {e}")
 elif os.path.exists("OS Geral.xls"):
     try:
         df = pd.read_excel("OS Geral.xls")
@@ -603,7 +601,7 @@ elif os.path.exists("OS Geral.xls"):
     except Exception as e:
         st.error(f"❌ Erro ao ler o arquivo local `OS Geral.xls`: {e}")
 else:
-    st.warning("⚠️ Insira o link do OneDrive na barra lateral ou envie uma planilha para começar.")
+    st.warning("⚠️ Insira o link do OneDrive nos Secrets ou envie uma planilha na barra lateral para começar.")
 
 if df is not None:
     df.columns = [str(c).strip().upper() for c in df.columns]
