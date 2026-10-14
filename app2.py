@@ -681,10 +681,10 @@ if df is not None:
             "💬 Chat Inteligente com a Base Completa"
         ])
 
-       # ==========================================
+        # ==========================================
 # ABA 1: DASHBOARD GERAL
 # ==========================================
-    with aba_dash:
+with aba_dash:
     st.subheader("📈 Visão Executiva Completa da Manutenção")
     
     # 1. Métricas Principais
@@ -742,21 +742,18 @@ if df is not None:
     # ==========================================
     col_ind1, col_ind2, col_ind3 = st.columns(3)
     
-    # Cálculo da Conformidade / Conclusão Geral (% de OS Concluídas/Fechadas se houver coluna de status)
     if "STATUS" in df_filtrado_dashboard.columns:
         status_txt = df_filtrado_dashboard["STATUS"].astype(str).str.lower()
         concluidas_count = status_txt.str.contains("concluíd|concluid|fechad|encerrad|finalizad").sum()
         conformidade_pct = (concluidas_count / total_os * 100) if total_os > 0 else 0.0
         conf_str = f"{conformidade_pct:.1f}".replace(".", ",") + "%"
         
-        # Backlog (OS pendentes ou abertas)
         backlog_count = total_os - concluidas_count
         backlog_str = f"{backlog_count:,}".replace(",", ".")
     else:
         conf_str = "N/A"
         backlog_str = "N/A"
 
-    # Cálculo do Tempo Médio de Atendimento (se houver datas de abertura e fechamento)
     tempo_medio_str = "N/A"
     col_data_abertura = "ABERTO EM" if "ABERTO EM" in df_filtrado_dashboard.columns else ("DATA" if "DATA" in df_filtrado_dashboard.columns else None)
     col_data_fechamento = "FECHADO EM" if "FECHADO EM" in df_filtrado_dashboard.columns else ("DATA FECHAMENTO" if "DATA FECHAMENTO" in df_filtrado_dashboard.columns else None)
