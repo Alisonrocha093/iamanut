@@ -46,6 +46,14 @@ st.markdown("""
 # ==========================================
 # FUNÇÕES DE AUXÍLIO PARA TRATAMENTO DE DADOS
 # ==========================================
+def formatar_moeda_br(valor):
+    """Formata um float para o padrão monetário brasileiro (ex: R$ 1.234,56)."""
+    try:
+        val_str = f"{float(valor):,.2f}"
+        val_str = val_str.replace(",", "X").replace(".", ",").replace("X", ".")
+        return f"R$ {val_str}"
+    except Exception:
+        return "R$ 0,00"
 def limpar_coluna_monetaria(serie):
     """Converte com segurança colunas de formato monetário (ex: 'R$ 1.234,56') para float."""
     if serie is None:
