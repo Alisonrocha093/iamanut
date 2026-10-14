@@ -529,23 +529,34 @@ if not groq_api_key_input and os.path.exists("groq_api_key.txt"):
         pass
 
 st.sidebar.markdown("---")
-st.sidebar.subheader("📂 Carregar Dados (OneDrive Automático)")
+st.sidebar.subheader("📂 Seleção de Unidade (OneDrive)")
 
-ONEDRIVE_XLS_URL = ""
-try:
-    if hasattr(st, "secrets") and "ONEDRIVE_CSV_URL" in st.secrets:
-        ONEDRIVE_XLS_URL = st.secrets["ONEDRIVE_CSV_URL"]
-except Exception:
-    pass
+# Lista de unidades disponíveis
+lista_unidades = [
+    "SENAC CENTRO", 
+    "SENAC ALECRIM", 
+    "SENAC ZONA NORTE", 
+    "SENAC ZONA SUL", 
+    "SENAC MOSSORÓ", 
+    "SENAC CAICÓ", 
+    "SENAC ASSÚ", 
+    "HOTEL BARREIRA ROXA", 
+    "CEP BARREIRA ROXA", 
+    "CARRETA GASTRONOMIA", 
+    "CARRETA MODA E BELEZA", 
+    "CARRETA INFORMÁTICA"
+]
+
+unidade_escolhida = st.sidebar.selectbox("Escolha a Unidade", lista_unidades)
 
 st.sidebar.markdown("---")
-arquivo_carregado = st.sidebar.file_uploader("Ou envie manualmente (.xls, .xlsx)", type=["xls", "xlsx"])
+arquivo_carregado = st.sidebar.file_uploader("Ou envie manualmente (.csv, .xls, .xlsx)", type=["csv", "xls", "xlsx"])
 
 # ==========================================
 # CORPO PRINCIPAL DO APLICATIVO
 # ==========================================
 st.markdown('<p class="main-header">🛠️ Gestão da Manutenção - Visão Geral & Painel Analítico</p>', unsafe_allow_html=True)
-st.markdown('<p class="sub-header">Classificação NLP em lote, indicadores executivos, gráficos dinâmicos e chat com IA.</p>', unsafe_allow_html=True)
+st.markdown(f'<p class="sub-header">Unidade Selecionada: <b>{unidade_escolhida}</b> | Classificação NLP, KPIs e Chat com IA.</p>', unsafe_allow_html=True)
 
 if 'termo_pesquisa' not in st.session_state:
     st.session_state.termo_pesquisa = ""
@@ -559,14 +570,21 @@ def limpar_pesquisa():
     if "termo_relatorio" in st.session_state:
         del st.session_state.termo_relatorio
 
-# Carregamento do arquivo (Tratando link do OneDrive via requests)
+# Carregamento do arquivo (Via Secrets mapeando por Unidade -> Upload Manual -> Arquivo Local)
 df = None
 coluna_comentario = "OBSERVAÇÃO ABERTURA"
 
-if ONEDRIVE_XLS_URL:
+# Busca a URL específica da unidade nos segredos (ex: st.secrets["UNIDADES"]["SENAC CENTRO"])
+url_unidade = ""
+try:
+    if hasattr(st, "secrets") and "UNIDADES" in st.secrets and unidade_escolhida in st.secrets["UNIDADES"]:
+        url_unidade = st.secrets["UNIDADES"][unidade_escolhida]
+except Exception:
+    pass
+
+if url_unidade:
     try:
-        # Transforma o link do SharePoint para forçar o download direto
-        link_download = ONEDRIVE_XLS_URL
+        link_download = url_unidade
         if "?" in link_download and "download=1" not in link_download:
             link_download += "&download=1"
         elif "?" not in link_download:
@@ -576,32 +594,38 @@ if ONEDRIVE_XLS_URL:
         response = requests.get(link_download, headers=headers)
         
         if response.status_code == 200:
-            df = pd.read_excel(io.BytesIO(response.content))
-            st.success(f"✅ Dados carregados e atualizados via **OneDrive** (`LISTAGEM GERAL.xls` | {len(df):,} registros)!")
+            if ".csv" in link_download.lower():
+                df = pd.read_csv(io.BytesIO(response.content))
+            else:
+                df = pd.read_excel(io.BytesIO(response.content))
+            st.success(f"✅ Dados da unidade **{unidade_escolhida}** carregados com sucesso ({len(df):,} registros)!")
         else:
-            st.error(f"❌ Erro HTTP {response.status_code} ao acessar o OneDrive. Verifique se o link possui permissão pública de visualização.")
+            st.error(f"❌ Erro HTTP {response.status_code} ao acessar o link do OneDrive para `{unidade_escolhida}`.")
     except Exception as e:
-        st.error(f"❌ Erro ao processar o arquivo do OneDrive: {e}")
+        st.error(f"❌ Erro ao baixar dados da unidade: {e}")
 elif arquivo_carregado is not None:
     try:
-        df = pd.read_excel(arquivo_carregado)
+        if arquivo_carregado.name.endswith('.csv'):
+            df = pd.read_csv(arquivo_carregado)
+        else:
+            df = pd.read_excel(arquivo_carregado)
         st.success(f"✅ Arquivo `{arquivo_carregado.name}` carregado com sucesso ({len(df):,} registros)!")
     except Exception as e:
         st.error(f"❌ Erro ao ler o arquivo enviado: {e}")
-elif os.path.exists("LISTAGEM GERAL.xls"):
+elif os.path.exists(f"{unidade_escolhida}.csv"):
     try:
-        df = pd.read_excel("LISTAGEM GERAL.xls")
-        st.info(f"ℹ️ Usando o arquivo padrão local: `LISTAGEM GERAL.xls` ({len(df):,} registros)")
+        df = pd.read_csv(f"{unidade_escolhida}.csv")
+        st.info(f"ℹ️ Usando arquivo local: `{unidade_escolhida}.csv` ({len(df):,} registros)")
     except Exception as e:
-        st.error(f"❌ Erro ao ler o arquivo local `LISTAGEM GERAL.xls`: {e}")
-elif os.path.exists("OS Geral.xls"):
+        st.error(f"❌ Erro ao ler o arquivo local: {e}")
+elif os.path.exists(f"{unidade_escolhida}.xls"):
     try:
-        df = pd.read_excel("OS Geral.xls")
-        st.info(f"ℹ️ Usando o arquivo padrão local: `OS Geral.xls` ({len(df):,} registros)")
+        df = pd.read_excel(f"{unidade_escolhida}.xls")
+        st.info(f"ℹ️ Usando arquivo local: `{unidade_escolhida}.xls` ({len(df):,} registros)")
     except Exception as e:
-        st.error(f"❌ Erro ao ler o arquivo local `OS Geral.xls`: {e}")
+        st.error(f"❌ Erro ao ler o arquivo local: {e}")
 else:
-    st.warning("⚠️ Insira o link do OneDrive nos Secrets ou envie uma planilha na barra lateral para começar.")
+    st.warning(f"⚠️ Configure os links das unidades em `secrets.toml` ou envie uma planilha para a unidade **{unidade_escolhida}**.")
 
 if df is not None:
     df.columns = [str(c).strip().upper() for c in df.columns]
@@ -656,7 +680,7 @@ if df is not None:
         ])
 
         with aba_dash:
-            st.subheader("📈 Visão Executiva Completa da Manutenção")
+            st.subheader(f"📈 Visão Executiva Completa da Manutenção - {unidade_escolhida}")
             
             col_kpi1, col_kpi2, col_kpi3, col_kpi4 = st.columns(4)
             
