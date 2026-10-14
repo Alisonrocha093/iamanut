@@ -514,6 +514,9 @@ def extrair_dados_tabela_markdown(relatorio_texto: str) -> pd.DataFrame:
 # ==========================================
 # INTERFACE GRÁFICA (BARRA LATERAL)
 # ==========================================
+# ==========================================
+# INTERFACE GRÁFICA (BARRA LATERAL) & ONEDRIVE
+# ==========================================
 st.sidebar.title("⚙️ Configurações & Filtros")
 
 groq_api_key_input = ""
@@ -533,13 +536,18 @@ if not groq_api_key_input and os.path.exists("groq_api_key.txt"):
 st.sidebar.markdown("---")
 st.sidebar.subheader("📂 Carregar Dados (OneDrive Automático)")
 
-# Link direto do OneDrive configurado para atualização diária automática
-# Substitua o link abaixo pelo link de compartilhamento direto do seu arquivo CSV no OneDrive
-ONEDRIVE_CSV_URL = st.sidebar.text_input(
-    "URL Direta do CSV no OneDrive", 
-    value="", 
-    placeholder="Cole o link de download direto do OneDrive aqui"
-)
+# Busca a URL diretamente do Streamlit Secrets (secrets.toml)
+ONEDRIVE_CSV_URL = ""
+try:
+    if hasattr(st, "secrets") and "ONEDRIVE_CSV_URL" in st.secrets:
+        ONEDRIVE_CSV_URL = st.secrets["ONEDRIVE_CSV_URL"]
+except Exception:
+    pass
+
+if ONEDRIVE_CSV_URL:
+    st.sidebar.success("🔗 URL do OneDrive carregada via Secrets!")
+else:
+    st.sidebar.warning("⚠️ `ONEDRIVE_CSV_URL` não encontrada nos Secrets.")
 
 st.sidebar.markdown("---")
 arquivo_carregado = st.sidebar.file_uploader("Ou envie manualmente (.csv, .xls, .xlsx)", type=["csv", "xls", "xlsx"])
