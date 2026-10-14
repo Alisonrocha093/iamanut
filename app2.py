@@ -448,7 +448,7 @@ def obter_modelo_ativo(client, api_key: str) -> str:
         pass
     return "llama-3.1-8b-instant"
 
-    def gerar_relatorio_ia(termo: str, lista_observacoes: list, api_key: str) -> str:
+def gerar_relatorio_ia(termo: str, lista_observacoes: list, api_key: str) -> str:
     if not api_key:
         return "⚠️ Chave da Groq não configurada! Insira sua chave na barra lateral."
     try:
@@ -458,15 +458,16 @@ def obter_modelo_ativo(client, api_key: str) -> str:
 
     modelo_ativo = obter_modelo_ativo(client, api_key)
     
-    # Agrupa e conta as falhas/observações repetidas para enviar o ranking real à IA
+    # NOVO: Agrupa e conta as falhas/observações repetidas para enviar o ranking real à IA
     df_obs = pd.DataFrame({"obs": [str(o).strip().lower() for o in lista_observacoes]})
     top_falhas = df_obs["obs"].value_counts().head(15).reset_index()
     top_falhas.columns = ["Descricao_Falha", "Frequencia"]
     
+    # Formata o ranking em texto para o prompt
     ranking_texto = "\n".join([f"- {row['Descricao_Falha']} (Ocorrências: {row['Frequencia']})" for _, row in top_falhas.iterrows()])
 
     prompt = f"""Você é um especialista em manutenção de Ordens de Serviço (OS).
-Foram encontrados {len(lista_observacoes)} registros no total para '{termo}'. 
+Foram encontrados {len(lista_observacoes)} registros no total para o termo '{termo.upper()}'. 
 Abaixo está o ranking real das descrições de falhas mais repetidas na coluna de observação:
 {ranking_texto}
 
@@ -485,6 +486,13 @@ Escreva um relatório executivo detalhado em português contendo:
         return response.choices[0].message.content
     except Exception as e:
         return f"❌ Erro ao gerar relatório com a IA: {e}"
+def responder_pergunta_livre_com_todo_arquivo(pergunta_usuario: str, df: pd.DataFrame, api_key: str) -> str:
+    if not api_key:
+        return "⚠️ Chave da Groq não configurada! Insira sua chave na barra lateral."
+    try:
+        client = Groq(api_key=api_key)
+    except Exception as e:
+        return f"❌ Erro ao inicializar o cliente Groq: {e}"
 
     modelo_ativo = obter_modelo_ativo(client, api_key)
     total_linhas = len(df)
