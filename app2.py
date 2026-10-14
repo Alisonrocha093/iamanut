@@ -941,12 +941,12 @@ if df is not None:
         with aba_nlp:
              st.subheader("🔍 Detalhamento por Categoria e Equipamentos")
 
-        if "CATEGORIA_NLP" in df.columns:
-        # Cria uma lista de categorias disponíveis
-        categorias_disponiveis = sorted(df["CATEGORIA_NLP"].dropna().unique())
-        cat_selecionada = st.selectbox("Selecione uma Categoria para abrir e ver os itens:", categorias_disponiveis)
+if "CATEGORIA_NLP" in df.columns:
+    # Cria uma lista de categorias disponíveis
+    categorias_disponiveis = sorted(df["CATEGORIA_NLP"].dropna().unique())
+    cat_selecionada = st.selectbox("Selecione uma Categoria para abrir e ver os itens:", categorias_disponiveis)
     
-        if cat_selecionada:
+    if cat_selecionada:
         # Filtra o dataframe para a categoria escolhida
         df_cat = df[df["CATEGORIA_NLP"] == cat_selecionada]
         
