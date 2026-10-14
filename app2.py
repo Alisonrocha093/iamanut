@@ -576,7 +576,10 @@ groq_api_key_input = ""
 try:
     if hasattr(st, "secrets") and "GROQ_API_KEY" in st.secrets:
         groq_api_key_input = st.secrets["GROQ_API_KEY"]
-elif os.path.exists("groq_api_key.txt"):
+except Exception:
+    pass
+
+if not groq_api_key_input and os.path.exists("groq_api_key.txt"):
     try:
         with open("groq_api_key.txt", "r", encoding="utf-8") as f:
             groq_api_key_input = f.read().strip()
