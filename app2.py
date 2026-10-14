@@ -665,31 +665,18 @@ if df is not None:
 
         st.markdown("---")
         
-       # Navegação principal por botões (pílulas)
-        menu_selecionado = st.radio(
-            "Navegação Principal",
-            [
-                "📊 Dashboard Geral (KPIs & Gráficos)",
-                "🔍 Pesquisa & Relatórios por Termo", 
-                "🏷️ Classificação Automática (NLP)", 
-                "💬 Chat Inteligente com a Base Completa"
-            ],
-            horizontal=True,
-            label_visibility="collapsed"
-        )
-        
-        st.markdown("---")
-
-        # Mapeamento para manter as variáveis usadas no restante do código
-        aba_dash = (menu_selecionado == "📊 Dashboard Geral (KPIs & Gráficos)")
-        aba_busca = (menu_selecionado == "🔍 Pesquisa & Relatórios por Termo")
-        aba_nlp = (menu_selecionado == "🏷️ Classificação Automática (NLP)")
-        aba_chat = (menu_selecionado == "💬 Chat Inteligente com a Base Completa")
+    # Abas Principais
+        aba_dash, aba_busca, aba_nlp, aba_chat = st.tabs([
+            "📊 Dashboard Geral (KPIs & Gráficos)",
+            "🔍 Pesquisa & Relatórios por Termo", 
+            "🏷️ Classificação Automática (NLP)", 
+            "💬 Chat Inteligente com a Base Completa"
+        ])
 
         # ==========================================
         # ABA 1: DASHBOARD GERAL
         # ==========================================
-        if aba_dash:
+        with aba_dash:
             st.subheader("📈 Visão Executiva Completa da Manutenção")
             
             # 1. Métricas Principais
