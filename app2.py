@@ -651,13 +651,25 @@ if df is not None:
         st.write(f"📋 **Colunas disponíveis na planilha:** `{list(df.columns)}`")
     else:
         df = df.dropna(subset=[coluna_comentario]).copy()
-        
+
         # Processamento automático NLP
         if "CATEGORIA_NLP" not in df.columns:
             with st.spinner(f"Processando algoritmo de classificação NLP em {len(df):,} registros..."):
                 df = classificar_texto_nlp(df, coluna_comentario)
 
-        df["TEXTO_BUSCA"] = df[coluna_comentario].astype(str).str.lower()
+        # SUBSTITUA POR ESTE BLOCO:
+        col_maquinas_ref = "MÁQUINAS" if "MÁQUINAS" in df.columns else ("MAQUINAS" if "MAQUINAS" in df.columns else None)
+        
+        if col_maquinas_ref:
+            df["TEXTO_BUSCA"] = (
+                df[coluna_comentario].astype(str).str.lower().fillna("") + " " + 
+                df[colmaquinas_ref if 'colmaquinas_ref' in locals() else col_maquinas_ref].astype(str).str.lower().fillna("")
+            )
+        else:
+            df["TEXTO_BUSCA"] = df[coluna_comentario].astype(str).str.lower().fillna("")
+
+        # Filtros Globais na Barra Lateral
+        st.sidebar.markdown("---")
 
         # Filtros Globais na Barra Lateral
         st.sidebar.markdown("---")
