@@ -684,7 +684,7 @@ if df is not None:
        # ==========================================
 # ABA 1: DASHBOARD GERAL
 # ==========================================
-with aba_dash:
+    with aba_dash:
     st.subheader("📈 Visão Executiva Completa da Manutenção")
     
     # 1. Métricas Principais
