@@ -681,7 +681,7 @@ if df is not None:
             "💬 Chat Inteligente com a Base Completa"
         ])
 
-  # ==========================================
+# ==========================================
 # ABA 1: DASHBOARD GERAL
 # ==========================================
 with aba_dash:
@@ -738,6 +738,9 @@ with aba_dash:
 
     st.markdown("<br>", unsafe_allow_html=True)
 
+    # Configuração global de separadores pt-BR para os gráficos Plotly
+    config_plotly = {'separators': ',.'}
+
     # 2. Gráfico de Pizza e Barras
     col_g1, col_g2 = st.columns(2)
     
@@ -747,7 +750,7 @@ with aba_dash:
             df_pie = df_filtrado_dashboard["CATEGORIA_NLP"].value_counts().reset_index()
             df_pie.columns = ["Categoria", "Quantidade"]
             fig_pie = px.pie(df_pie, names="Categoria", values="Quantidade", hole=0.4, color_discrete_sequence=px.colors.qualitative.Prism)
-            fig_pie.update_layout(margin=dict(t=10, b=10, l=10, r=10), height=350)
+            fig_pie.update_layout(margin=dict(t=10, b=10, l=10, r=10), height=350, separators=',.')
             st.plotly_chart(fig_pie, use_container_width=True)
         else:
             st.info("Dado de categoria não disponível.")
@@ -757,8 +760,9 @@ with aba_dash:
         if "STATUS" in df_filtrado_dashboard.columns:
             df_bar = df_filtrado_dashboard["STATUS"].value_counts().reset_index()
             df_bar.columns = ["Status", "Quantidade"]
-            fig_bar = px.bar(df_bar, x="Status", y="Quantidade", text="Quantidade", color="Status", color_discrete_sequence=px.colors.qualitative.Bold)
-            fig_bar.update_layout(margin=dict(t=10, b=10, l=10, r=10), height=350, showlegend=False)
+            df_bar["Texto_Fmt"] = df_bar["Quantidade"].apply(lambda x: f"{x:,}".replace(",", "."))
+            fig_bar = px.bar(df_bar, x="Status", y="Quantidade", text="Texto_Fmt", color="Status", color_discrete_sequence=px.colors.qualitative.Bold)
+            fig_bar.update_layout(margin=dict(t=10, b=10, l=10, r=10), height=350, showlegend=False, separators=',.')
             st.plotly_chart(fig_bar, use_container_width=True)
         else:
             st.info("Dado de status não disponível.")
@@ -778,7 +782,7 @@ with aba_dash:
                 df_line = df_temp["DATA_FORMATADA"].value_counts().sort_index().reset_index()
                 df_line.columns = ["Mês/Ano", "Total OS"]
                 fig_line = px.line(df_line, x="Mês/Ano", y="Total OS", markers=True, line_shape="linear")
-                fig_line.update_layout(margin=dict(t=10, b=10, l=10, r=10), height=350)
+                fig_line.update_layout(margin=dict(t=10, b=10, l=10, r=10), height=350, separators=',.')
                 st.plotly_chart(fig_line, use_container_width=True)
             except Exception:
                 st.info("Formato de data inválido para montagem do gráfico temporal.")
@@ -791,8 +795,9 @@ with aba_dash:
         if col_setor:
             df_setor = df_filtrado_dashboard[col_setor].value_counts().head(10).reset_index()
             df_setor.columns = ["Setor/Máquina", "Quantidade"]
-            fig_horiz = px.bar(df_setor, y="Setor/Máquina", x="Quantidade", orientation="h", text="Quantidade", color="Quantidade", color_continuous_scale="Blues")
-            fig_horiz.update_layout(margin=dict(t=10, b=10, l=10, r=10), height=350, yaxis={'categoryorder':'total ascending'})
+            df_setor["Texto_Fmt"] = df_setor["Quantidade"].apply(lambda x: f"{x:,}".replace(",", "."))
+            fig_horiz = px.bar(df_setor, y="Setor/Máquina", x="Quantidade", orientation="h", text="Texto_Fmt", color="Quantidade", color_continuous_scale="Blues")
+            fig_horiz.update_layout(margin=dict(t=10, b=10, l=10, r=10), height=350, yaxis={'categoryorder':'total ascending'}, separators=',.')
             st.plotly_chart(fig_horiz, use_container_width=True)
         else:
             st.info("Coluna de Setor ou Máquina não encontrada.")
