@@ -950,7 +950,7 @@ if df is not None:
                         # Exibe a tabela resumo
                         st.dataframe(df_ranking_maq, use_container_width=True, hide_index=True)
                         
-                       st.markdown("---")
+                        st.markdown("---")
                         st.markdown("#### 📋 Ordens de Serviço Específicas por Máquina/Equipamento")
                         
                         # Adiciona uma opção vazia no topo da lista de máquinas
