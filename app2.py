@@ -571,9 +571,12 @@ def extrair_dados_tabela_markdown(relatorio_texto: str) -> pd.DataFrame:
 # ==========================================
 st.sidebar.title("⚙️ Configurações & Filtros")
 
-# Carrega a chave API Groq a partir de um arquivo .txt local
+# Carrega a chave API Groq do Streamlit Secrets (se estiver online) ou de um arquivo .txt local (se estiver no PC)
 groq_api_key_input = ""
-if os.path.exists("groq_api_key.txt"):
+try:
+    if hasattr(st, "secrets") and "GROQ_API_KEY" in st.secrets:
+        groq_api_key_input = st.secrets["GROQ_API_KEY"]
+elif os.path.exists("groq_api_key.txt"):
     try:
         with open("groq_api_key.txt", "r", encoding="utf-8") as f:
             groq_api_key_input = f.read().strip()
