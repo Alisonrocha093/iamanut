@@ -937,79 +937,48 @@ if df is not None:
         # ==========================================
         # ABA 3: CLASSIFICAÇÃO AUTOMÁTICA (NLP)
         # ==========================================
-        with aba_nlp:
-          st.subheader("🏷️ Detalhamento por Categoria e Equipamentos")
-
-          if "CATEGORIA_NLP" in df.columns:
-            categorias_disponiveis = sorted(df["CATEGORIA_NLP"].dropna().unique())
-            cat_selecionada = st.selectbox(
-                "Selecione uma Categoria para abrir e ver os itens:",
-                categorias_disponiveis,
-            )
-
-            # Filtra o DataFrame pela categoria escolhida
-            df_cat = df[df["CATEGORIA_NLP"] == cat_selecionada]
-            st.write(
-                f"**Total de registros na categoria {cat_selecionada}:**"
-                f" {len(df_cat):,}".replace(",", ".")
-            )
-
-            # Identifica dinamicamente qualquer coluna que represente a máquina/equipamento
-            possiveis_colunas_maquina = [
-                "MÁQUINA",
-                "MAQUINA",
-                "EQUIPAMENTO",
-                "EQUIPAMENTOS",
-                "TAG",
-                "ATIVO",
-                "LOCAL",
-                "SETOR",
-            ]
-            col_maquina_encontrada = None
-            for col in possiveis_colunas_maquina:
-              if col in df_cat.columns:
-                col_maquina_encontrada = col
-                break
-
-            if col_maquina_encontrada:
-              st.markdown(
-                  f"### Equipamentos / Ativos relacionados (Coluna:"
-                  f" `{col_maquina_encontrada}`)"
-              )
-
-              # Agrupa por equipamento para mostrar a frequência e as OSs da categoria
-              resumo_maquinas = (
-                  df_cat.groupby(col_maquina_encontrada)
-                  .size()
-                  .reset_index(name="Quantidade de OS")
-              )
-              resumo_maquinas = resumo_maquinas.sort_values(
-                  by="Quantidade de OS", ascending=False
-              )
-
-              # Exibe tabela limpa com os equipamentos da categoria
-              st.dataframe(
-                  resumo_maquinas, use_container_width=True, hide_index=True
-              )
-
-              # Permite expandir para ver todas as OS completas daquela categoria/equipamento
-              with st.expander(
-                  "📂 Ver todas as Ordens de Serviço detalhadas desta categoria"
-              ):
-                st.dataframe(df_cat, use_container_width=True)
-            else:
-              st.warning(
-                  "⚠️ Não foi encontrada nenhuma coluna padrão de"
-                  " Máquina/Equipamento (como MÁQUINA, EQUIPAMENTO ou TAG)."
-                  " Abaixo estão todos os registros da categoria:"
-              )
-              st.dataframe(df_cat, use_container_width=True)
-          else:
-            st.info(
-                "Aguardando o processamento da classificação NLP para exibir os"
-                " dados."
-            )
-     
+        # Identifica qual coluna de máquina/equipamento existe no arquivo
+                col_maq = None
+                for c in ["MÁQUINAS", "MAQUINAS", "MÁQUINA", "MAQUINA"]:
+                    if c in df.columns:
+                        col_maq = c
+                        break
+                
+                if col_maq:
+                    st.markdown(f"##### ⚙️ Equipamentos / Ativos relacionados (Coluna: `{col_maq}`)")
+                    
+                    # Agrupa e conta os quantitativos por máquina na categoria selecionada
+                    df_ranking_maq = df_cat[col_maq].value_counts().reset_index()
+                    df_ranking_maq.columns = ["Equipamento / Máquina", "Quantidade"]
+                    
+                    # Exibe a tabela resumo
+                    st.dataframe(df_ranking_maq, use_container_width=True, hide_index=True)
+                    
+                    st.markdown("---")
+                    st.markdown("#### 📋 Ordens de Serviço Específicas por Máquina/Equipamento")
+                    
+                    # Lista de máquinas disponíveis na categoria selecionada
+                    lista_maquinas_cat = sorted(df_cat[col_maq].dropna().unique().astype(str))
+                    
+                    if lista_maquinas_cat:
+                        maquina_selecionada = st.selectbox(
+                            "Selecione uma Máquina/Equipamento para ver as Ordens de Serviço detalhadas:", 
+                            lista_maquinas_cat,
+                            key=f"select_maq_{cat_selecionada}"
+                        )
+                        
+                        if maquina_selecionada:
+                            # Filtra as OS específicas da máquina escolhida
+                            df_os_maquina = df_cat[df_cat[col_maq].astype(str) == maquina_selecionada]
+                            
+                            st.info(pesquisa_info := f"Exibindo **{len(df_os_maquina)}** Ordem(ns) de Serviço para o equipamento: **{maquina_selecionada}**")
+                            
+                            # Seleciona colunas úteis para exibir as OS (ex: Código, Data, Status, Observação)
+                            cols_mostrar = [c for c in ["CÓDIGO", "ABERTO EM", "STATUS", "SETOR", col_maq, coluna_comentario, "CUSTO COM MATERIAIS"] if c in df_os_maquina.columns]
+                            
+                            st.dataframe(df_os_maquina[cols_mostrar], use_container_width=True, hide_index=True)
+                else:
+                    st.info("A coluna de máquinas/equipamentos não foi identificada para exibir o ranking detalhado.")
         # ==========================================
         # ABA 4: CHAT INTELIGENTE COM A BASE COMPLETA
         # ==========================================
