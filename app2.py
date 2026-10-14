@@ -937,7 +937,21 @@ if df is not None:
         # ==========================================
         # ABA 3: CLASSIFICAÇÃO AUTOMÁTICA (NLP)
         # ==========================================
-        # Identifica qual coluna de máquina/equipamento existe no arquivo
+        with aba_nlp:
+            st.subheader("🔍 Detalhamento por Categoria e Equipamentos")
+
+            if "CATEGORIA_NLP" in df.columns:
+                # Cria uma lista de categorias disponíveis
+                categorias_disponiveis = sorted(df["CATEGORIA_NLP"].dropna().unique())
+                cat_selecionada = st.selectbox("Selecione uma Categoria para abrir e ver os itens:", categorias_disponiveis)
+                
+                if cat_selecionada:
+                    # Filtra o dataframe para a categoria escolhida
+                    df_cat = df[df["CATEGORIA_NLP"] == cat_selecionada]
+                    
+                    st.write(f"Total de registros na categoria **{cat_selecionada}**: **{len(df_cat):,}**")
+                    
+                    # Identifica qual coluna de máquina/equipamento existe no arquivo
                 col_maq = None
                 for c in ["MÁQUINAS", "MAQUINAS", "MÁQUINA", "MAQUINA"]:
                     if c in df.columns:
