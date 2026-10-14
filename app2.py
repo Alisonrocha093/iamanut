@@ -673,118 +673,121 @@ if df is not None:
             "💬 Chat Inteligente com a Base Completa"
         ])
 
-        # ==========================================
-        # ABA 1: DASHBOARD GERAL
-        # ==========================================
-        with aba_dash:
-            st.subheader("📈 Visão Executiva Completa da Manutenção")
-            
-            # 1. Métricas Principais
-            col_kpi1, col_kpi2, col_kpi3, col_kpi4 = st.columns(4)
-            
-            total_os = len(df_filtrado_dashboard)
-            
-            if "CUSTO COM MATERIAIS" in df_filtrado_dashboard.columns:
-                val_mat = limpar_coluna_monetaria(df_filtrado_dashboard["CUSTO COM MATERIAIS"]).sum()
-                custo_materiais = f"R$ {val_mat:,.2f}"
-            else:
-                custo_materiais = "R$ 0,00"
+  # ==========================================
+# ABA 1: DASHBOARD GERAL
+# ==========================================
+with aba_dash:
+    st.subheader("📈 Visão Executiva Completa da Manutenção")
+    
+    # 1. Métricas Principais
+    col_kpi1, col_kpi2, col_kpi3, col_kpi4 = st.columns(4)
+    
+    total_os = len(df_filtrado_dashboard)
+    
+    if "CUSTO COM MATERIAIS" in df_filtrado_dashboard.columns:
+        val_mat = limpar_coluna_monetaria(df_filtrado_dashboard["CUSTO COM MATERIAIS"]).sum()
+        custo_materiais = formatar_moeda_br(val_mat)
+    else:
+        custo_materiais = "R$ 0,00"
 
-            if "MÃO DE OBRA EXTERNA" in df_filtrado_dashboard.columns:
-                val_moe = limpar_coluna_monetaria(df_filtrado_dashboard["MÃO DE OBRA EXTERNA"]).sum()
-                mao_de_obra = f"R$ {val_moe:,.2f}"
-            else:
-                mao_de_obra = "R$ 0,00"
-            
-            with col_kpi1:
-                st.markdown(f"""
-                    <div class="metric-card">
-                        <h4 style="color: #6B7280; font-size: 14px; margin-bottom: 5px;">TOTAL DE OS</h4>
-                        <h2 style="color: #1E3A8A; font-size: 26px; margin: 0;">{total_os:,}</h2>
-                    </div>
-                """, unsafe_allow_html=True)
-            with col_kpi2:
-                st.markdown(f"""
-                    <div class="metric-card">
-                        <h4 style="color: #6B7280; font-size: 14px; margin-bottom: 5px;">CUSTO MATERIAIS</h4>
-                        <h2 style="color: #059669; font-size: 26px; margin: 0;">{custo_materiais}</h2>
-                    </div>
-                """, unsafe_allow_html=True)
-            with col_kpi3:
-                st.markdown(f"""
-                    <div class="metric-card">
-                        <h4 style="color: #6B7280; font-size: 14px; margin-bottom: 5px;">MÃO DE OBRA EXTERNA</h4>
-                        <h2 style="color: #D97706; font-size: 26px; margin: 0;">{mao_de_obra}</h2>
-                    </div>
-                """, unsafe_allow_html=True)
-            with col_kpi4:
-                st.markdown(f"""
-                    <div class="metric-card">
-                        <h4 style="color: #6B7280; font-size: 14px; margin-bottom: 5px;">VOLUME FILTRADO</h4>
-                        <h2 style="color: #DC2626; font-size: 26px; margin: 0;">{total_os} OS</h2>
-                    </div>
-                """, unsafe_allow_html=True)
+    if "MÃO DE OBRA EXTERNA" in df_filtrado_dashboard.columns:
+        val_moe = limpar_coluna_monetaria(df_filtrado_dashboard["MÃO DE OBRA EXTERNA"]).sum()
+        mao_de_obra = formatar_moeda_br(val_moe)
+    else:
+        mao_de_obra = "R$ 0,00"
+    
+    # Formatação inteira de milhar no padrão brasileiro (ex: 7.706)
+    total_os_str = f"{total_os:,}".replace(",", ".")
+    
+    with col_kpi1:
+        st.markdown(f"""
+            <div class="metric-card">
+                <h4 style="color: #6B7280; font-size: 14px; margin-bottom: 5px;">TOTAL DE OS</h4>
+                <h2 style="color: #1E3A8A; font-size: 26px; margin: 0;">{total_os_str}</h2>
+            </div>
+        """, unsafe_allow_html=True)
+    with col_kpi2:
+        st.markdown(f"""
+            <div class="metric-card">
+                <h4 style="color: #6B7280; font-size: 14px; margin-bottom: 5px;">CUSTO MATERIAIS</h4>
+                <h2 style="color: #059669; font-size: 26px; margin: 0;">{custo_materiais}</h2>
+            </div>
+        """, unsafe_allow_html=True)
+    with col_kpi3:
+        st.markdown(f"""
+            <div class="metric-card">
+                <h4 style="color: #6B7280; font-size: 14px; margin-bottom: 5px;">MÃO DE OBRA EXTERNA</h4>
+                <h2 style="color: #D97706; font-size: 26px; margin: 0;">{mao_de_obra}</h2>
+            </div>
+        """, unsafe_allow_html=True)
+    with col_kpi4:
+        st.markdown(f"""
+            <div class="metric-card">
+                <h4 style="color: #6B7280; font-size: 14px; margin-bottom: 5px;">VOLUME FILTRADO</h4>
+                <h2 style="color: #DC2626; font-size: 26px; margin: 0;">{total_os_str} OS</h2>
+            </div>
+        """, unsafe_allow_html=True)
 
-            st.markdown("<br>", unsafe_allow_html=True)
+    st.markdown("<br>", unsafe_allow_html=True)
 
-            # 2. Gráfico de Pizza e Barras
-            col_g1, col_g2 = st.columns(2)
-            
-            with col_g1:
-                st.markdown("### 🥧 Proporção de OS por Categoria NLP (Pizza)")
-                if "CATEGORIA_NLP" in df_filtrado_dashboard.columns:
-                    df_pie = df_filtrado_dashboard["CATEGORIA_NLP"].value_counts().reset_index()
-                    df_pie.columns = ["Categoria", "Quantidade"]
-                    fig_pie = px.pie(df_pie, names="Categoria", values="Quantidade", hole=0.4, color_discrete_sequence=px.colors.qualitative.Prism)
-                    fig_pie.update_layout(margin=dict(t=10, b=10, l=10, r=10), height=350)
-                    st.plotly_chart(fig_pie, use_container_width=True)
-                else:
-                    st.info("Dado de categoria não disponível.")
+    # 2. Gráfico de Pizza e Barras
+    col_g1, col_g2 = st.columns(2)
+    
+    with col_g1:
+        st.markdown("### 🥧 Proporção de OS por Categoria NLP (Pizza)")
+        if "CATEGORIA_NLP" in df_filtrado_dashboard.columns:
+            df_pie = df_filtrado_dashboard["CATEGORIA_NLP"].value_counts().reset_index()
+            df_pie.columns = ["Categoria", "Quantidade"]
+            fig_pie = px.pie(df_pie, names="Categoria", values="Quantidade", hole=0.4, color_discrete_sequence=px.colors.qualitative.Prism)
+            fig_pie.update_layout(margin=dict(t=10, b=10, l=10, r=10), height=350)
+            st.plotly_chart(fig_pie, use_container_width=True)
+        else:
+            st.info("Dado de categoria não disponível.")
 
-            with col_g2:
-                st.markdown("### 📊 Ocorrências por Status (Barras)")
-                if "STATUS" in df_filtrado_dashboard.columns:
-                    df_bar = df_filtrado_dashboard["STATUS"].value_counts().reset_index()
-                    df_bar.columns = ["Status", "Quantidade"]
-                    fig_bar = px.bar(df_bar, x="Status", y="Quantidade", text="Quantidade", color="Status", color_discrete_sequence=px.colors.qualitative.Bold)
-                    fig_bar.update_layout(margin=dict(t=10, b=10, l=10, r=10), height=350, showlegend=False)
-                    st.plotly_chart(fig_bar, use_container_width=True)
-                else:
-                    st.info("Dado de status não disponível.")
+    with col_g2:
+        st.markdown("### 📊 Ocorrências por Status (Barras)")
+        if "STATUS" in df_filtrado_dashboard.columns:
+            df_bar = df_filtrado_dashboard["STATUS"].value_counts().reset_index()
+            df_bar.columns = ["Status", "Quantidade"]
+            fig_bar = px.bar(df_bar, x="Status", y="Quantidade", text="Quantidade", color="Status", color_discrete_sequence=px.colors.qualitative.Bold)
+            fig_bar.update_layout(margin=dict(t=10, b=10, l=10, r=10), height=350, showlegend=False)
+            st.plotly_chart(fig_bar, use_container_width=True)
+        else:
+            st.info("Dado de status não disponível.")
 
-            st.markdown("---")
+    st.markdown("---")
 
-            # 3. Gráficos de Linha Temporal e Barras Horizontais (Máquina / Setor)
-            col_g3, col_g4 = st.columns(2)
-            
-            with col_g3:
-                st.markdown("### 📈 Evolução de Ocorrências ao Longo do Tempo (Linhas)")
-                col_data = "ABERTO EM" if "ABERTO EM" in df_filtrado_dashboard.columns else ("DATA" if "DATA" in df_filtrado_dashboard.columns else None)
-                if col_data:
-                    try:
-                        df_temp = df_filtrado_dashboard.copy()
-                        df_temp["DATA_FORMATADA"] = pd.to_datetime(df_temp[col_data], errors='coerce').dt.to_period("M").astype(str)
-                        df_line = df_temp["DATA_FORMATADA"].value_counts().sort_index().reset_index()
-                        df_line.columns = ["Mês/Ano", "Total OS"]
-                        fig_line = px.line(df_line, x="Mês/Ano", y="Total OS", markers=True, line_shape="linear")
-                        fig_line.update_layout(margin=dict(t=10, b=10, l=10, r=10), height=350)
-                        st.plotly_chart(fig_line, use_container_width=True)
-                    except Exception:
-                        st.info("Formato de data inválido para montagem do gráfico temporal.")
-                else:
-                    st.info("Coluna de data não encontrada na base.")
+    # 3. Gráficos de Linha Temporal e Barras Horizontais (Máquina / Setor)
+    col_g3, col_g4 = st.columns(2)
+    
+    with col_g3:
+        st.markdown("### 📈 Evolução de Ocorrências ao Longo do Tempo (Linhas)")
+        col_data = "ABERTO EM" if "ABERTO EM" in df_filtrado_dashboard.columns else ("DATA" if "DATA" in df_filtrado_dashboard.columns else None)
+        if col_data:
+            try:
+                df_temp = df_filtrado_dashboard.copy()
+                df_temp["DATA_FORMATADA"] = pd.to_datetime(df_temp[col_data], errors='coerce').dt.to_period("M").astype(str)
+                df_line = df_temp["DATA_FORMATADA"].value_counts().sort_index().reset_index()
+                df_line.columns = ["Mês/Ano", "Total OS"]
+                fig_line = px.line(df_line, x="Mês/Ano", y="Total OS", markers=True, line_shape="linear")
+                fig_line.update_layout(margin=dict(t=10, b=10, l=10, r=10), height=350)
+                st.plotly_chart(fig_line, use_container_width=True)
+            except Exception:
+                st.info("Formato de data inválido para montagem do gráfico temporal.")
+        else:
+            st.info("Coluna de data não encontrada na base.")
 
-            with col_g4:
-                st.markdown("### 🏢 Top Setores / Máquinas com Mais Demandas")
-                col_setor = "SETOR" if "SETOR" in df_filtrado_dashboard.columns else ("MÁQUINA" if "MÁQUINA" in df_filtrado_dashboard.columns else None)
-                if col_setor:
-                    df_setor = df_filtrado_dashboard[col_setor].value_counts().head(10).reset_index()
-                    df_setor.columns = ["Setor/Máquina", "Quantidade"]
-                    fig_horiz = px.bar(df_setor, y="Setor/Máquina", x="Quantidade", orientation="h", text="Quantidade", color="Quantidade", color_continuous_scale="Blues")
-                    fig_horiz.update_layout(margin=dict(t=10, b=10, l=10, r=10), height=350, yaxis={'categoryorder':'total ascending'})
-                    st.plotly_chart(fig_horiz, use_container_width=True)
-                else:
-                    st.info("Coluna de Setor ou Máquina não encontrada.")
+    with col_g4:
+        st.markdown("### 🏢 Top Setores / Máquinas com Mais Demandas")
+        col_setor = "SETOR" if "SETOR" in df_filtrado_dashboard.columns else ("MÁQUINA" if "MÁQUINA" in df_filtrado_dashboard.columns else None)
+        if col_setor:
+            df_setor = df_filtrado_dashboard[col_setor].value_counts().head(10).reset_index()
+            df_setor.columns = ["Setor/Máquina", "Quantidade"]
+            fig_horiz = px.bar(df_setor, y="Setor/Máquina", x="Quantidade", orientation="h", text="Quantidade", color="Quantidade", color_continuous_scale="Blues")
+            fig_horiz.update_layout(margin=dict(t=10, b=10, l=10, r=10), height=350, yaxis={'categoryorder':'total ascending'})
+            st.plotly_chart(fig_horiz, use_container_width=True)
+        else:
+            st.info("Coluna de Setor ou Máquina não encontrada.")
 
         # ==========================================
         # ABA 2: PESQUISA & RELATÓRIOS POR TERMO
