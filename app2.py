@@ -673,7 +673,9 @@ if df is not None:
 
         st.markdown("---")
         
-    # Abas Principais
+        # ==========================================
+        # CRIAÇÃO DAS ABAS PRINCIPAIS
+        # ==========================================
         aba_dash, aba_busca, aba_nlp, aba_chat = st.tabs([
             "📊 Dashboard Geral (KPIs & Gráficos)",
             "🔍 Pesquisa & Relatórios por Termo", 
@@ -682,186 +684,187 @@ if df is not None:
         ])
 
         # ==========================================
-# ABA 1: DASHBOARD GERAL
-# ==========================================
-with aba_dash:
-    st.subheader("📈 Visão Executiva Completa da Manutenção")
-    
-    # 1. Métricas Principais
-    col_kpi1, col_kpi2, col_kpi3, col_kpi4 = st.columns(4)
-    
-    total_os = len(df_filtrado_dashboard)
-    
-    if "CUSTO COM MATERIAIS" in df_filtrado_dashboard.columns:
-        val_mat = limpar_coluna_monetaria(df_filtrado_dashboard["CUSTO COM MATERIAIS"]).sum()
-        custo_materiais = formatar_moeda_br(val_mat)
-    else:
-        custo_materiais = "R$ 0,00"
-
-    if "MÃO DE OBRA EXTERNA" in df_filtrado_dashboard.columns:
-        val_moe = limpar_coluna_monetaria(df_filtrado_dashboard["MÃO DE OBRA EXTERNA"]).sum()
-        mao_de_obra = formatar_moeda_br(val_moe)
-    else:
-        mao_de_obra = "R$ 0,00"
-    
-    total_os_str = f"{total_os:,}".replace(",", ".")
-    
-    with col_kpi1:
-        st.markdown(f"""
-            <div class="metric-card">
-                <h4 style="color: #6B7280; font-size: 14px; margin-bottom: 5px;">TOTAL DE OS</h4>
-                <h2 style="color: #1E3A8A; font-size: 26px; margin: 0;">{total_os_str}</h2>
-            </div>
-        """, unsafe_allow_html=True)
-    with col_kpi2:
-        st.markdown(f"""
-            <div class="metric-card">
-                <h4 style="color: #6B7280; font-size: 14px; margin-bottom: 5px;">CUSTO MATERIAIS</h4>
-                <h2 style="color: #059669; font-size: 26px; margin: 0;">{custo_materiais}</h2>
-            </div>
-        """, unsafe_allow_html=True)
-    with col_kpi3:
-        st.markdown(f"""
-            <div class="metric-card">
-                <h4 style="color: #6B7280; font-size: 14px; margin-bottom: 5px;">MÃO DE OBRA EXTERNA</h4>
-                <h2 style="color: #D97706; font-size: 26px; margin: 0;">{mao_de_obra}</h2>
-            </div>
-        """, unsafe_allow_html=True)
-    with col_kpi4:
-        st.markdown(f"""
-            <div class="metric-card">
-                <h4 style="color: #6B7280; font-size: 14px; margin-bottom: 5px;">VOLUME FILTRADO</h4>
-                <h2 style="color: #DC2626; font-size: 26px; margin: 0;">{total_os_str} OS</h2>
-            </div>
-        """, unsafe_allow_html=True)
-
-    st.markdown("<br>", unsafe_allow_html=True)
-
-    # ==========================================
-    # NOVOS INDICADORES EXECUTIVOS (CARDS ADICIONAIS)
-    # ==========================================
-    col_ind1, col_ind2, col_ind3 = st.columns(3)
-    
-    if "STATUS" in df_filtrado_dashboard.columns:
-        status_txt = df_filtrado_dashboard["STATUS"].astype(str).str.lower()
-        concluidas_count = status_txt.str.contains("concluíd|concluid|fechad|encerrad|finalizad").sum()
-        conformidade_pct = (concluidas_count / total_os * 100) if total_os > 0 else 0.0
-        conf_str = f"{conformidade_pct:.1f}".replace(".", ",") + "%"
-        
-        backlog_count = total_os - concluidas_count
-        backlog_str = f"{backlog_count:,}".replace(",", ".")
-    else:
-        conf_str = "N/A"
-        backlog_str = "N/A"
-
-    tempo_medio_str = "N/A"
-    col_data_abertura = "ABERTO EM" if "ABERTO EM" in df_filtrado_dashboard.columns else ("DATA" if "DATA" in df_filtrado_dashboard.columns else None)
-    col_data_fechamento = "FECHADO EM" if "FECHADO EM" in df_filtrado_dashboard.columns else ("DATA FECHAMENTO" if "DATA FECHAMENTO" in df_filtrado_dashboard.columns else None)
-    
-    if col_data_abertura and col_data_fechamento:
-        try:
-            dt_ini = pd.to_datetime(df_filtrado_dashboard[col_data_abertura], errors='coerce')
-            dt_fim = pd.to_datetime(df_filtrado_dashboard[col_data_fechamento], errors='coerce')
-            diff_dias = (dt_fim - dt_ini).dt.total_seconds() / 86400
-            media_dias = diff_dias[diff_dias >= 0].mean()
-            if not pd.isna(media_dias):
-                tempo_medio_str = f"{media_dias:.1f} dias".replace(".", ",")
-        except Exception:
-            pass
-
-    with col_ind1:
-        st.markdown(f"""
-            <div class="metric-card">
-                <h4 style="color: #6B7280; font-size: 14px; margin-bottom: 5px;">% CONFORMIDADE GERAL</h4>
-                <h2 style="color: #2563EB; font-size: 24px; margin: 0;">{conf_str}</h2>
-            </div>
-        """, unsafe_allow_html=True)
-    with col_ind2:
-        st.markdown(f"""
-            <div class="metric-card">
-                <h4 style="color: #6B7280; font-size: 14px; margin-bottom: 5px;">BACKLOG DE MANUTENÇÃO</h4>
-                <h2 style="color: #9333EA; font-size: 24px; margin: 0;">{backlog_str} OS</h2>
-            </div>
-        """, unsafe_allow_html=True)
-    with col_ind3:
-        st.markdown(f"""
-            <div class="metric-card">
-                <h4 style="color: #6B7280; font-size: 14px; margin-bottom: 5px;">TEMPO MÉDIO DE ATENDIMENTO</h4>
-                <h2 style="color: #0D9488; font-size: 24px; margin: 0;">{tempo_medio_str}</h2>
-            </div>
-        """, unsafe_allow_html=True)
-
-    st.markdown("<br>", unsafe_allow_html=True)
-
-    # 2. Gráficos: OS Abertas x Concluídas & Categoria NLP
-    col_g1, col_g2 = st.columns(2)
-    
-    with col_g1:
-        st.markdown("### 🔄 OS Abertas x Concluídas")
-        if "STATUS" in df_filtrado_dashboard.columns:
-            s_low = df_filtrado_dashboard["STATUS"].astype(str).str.lower()
-            cond_conc = s_low.str.contains("concluíd|concluid|fechad|encerrad|finalizad")
-            df_filtrado_dashboard["STATUS_AGRUPADO"] = "Concluídas / Fechadas"
-            df_filtrado_dashboard.loc[~cond_conc, "STATUS_AGRUPADO"] = "Pendentes / Abertas"
+        # ABA 1: DASHBOARD GERAL
+        # ==========================================
+        with aba_dash:
+            st.subheader("📈 Visão Executiva Completa da Manutenção")
             
-            df_status_comp = df_filtrado_dashboard["STATUS_AGRUPADO"].value_counts().reset_index()
-            df_status_comp.columns = ["Status", "Quantidade"]
-            df_status_comp["Texto_Fmt"] = df_status_comp["Quantidade"].apply(lambda x: f"{x:,}".replace(",", "."))
+            # 1. Métricas Principais
+            col_kpi1, col_kpi2, col_kpi3, col_kpi4 = st.columns(4)
             
-            fig_abertas_conc = px.bar(df_status_comp, x="Status", y="Quantidade", text="Texto_Fmt", color="Status", color_discrete_sequence=["#059669", "#DC2626"])
-            fig_abertas_conc.update_layout(margin=dict(t=10, b=10, l=10, r=10), height=350, showlegend=False, separators=',.')
-            st.plotly_chart(fig_abertas_conc, use_container_width=True)
-        else:
-            st.info("Coluna de status não disponível para comparação.")
-
-    with col_g2:
-        st.markdown("### 🏷️ Pendências por Categoria (NLP)")
-        if "CATEGORIA_NLP" in df_filtrado_dashboard.columns:
-            df_cat = df_filtrado_dashboard["CATEGORIA_NLP"].value_counts().reset_index()
-            df_cat.columns = ["Categoria", "Quantidade"]
-            df_cat["Texto_Fmt"] = df_cat["Quantidade"].apply(lambda x: f"{x:,}".replace(",", "."))
+            total_os = len(df_filtrado_dashboard)
             
-            fig_cat = px.bar(df_cat, x="Quantidade", y="Categoria", orientation="h", text="Texto_Fmt", color="Quantidade", color_continuous_scale="Tealgrn")
-            fig_cat.update_layout(margin=dict(t=10, b=10, l=10, r=10), height=350, yaxis={'categoryorder':'total ascending'}, separators=',.')
-            st.plotly_chart(fig_cat, use_container_width=True)
-        else:
-            st.info("Dado de categoria NLP não disponível.")
+            if "CUSTO COM MATERIAIS" in df_filtrado_dashboard.columns:
+                val_mat = limpar_coluna_monetaria(df_filtrado_dashboard["CUSTO COM MATERIAIS"]).sum()
+                custo_materiais = formatar_moeda_br(val_mat)
+            else:
+                custo_materiais = "R$ 0,00"
 
-    st.markdown("---")
-
-    # 3. Gráficos: Linha Temporal & Pendências por Setor
-    col_g3, col_g4 = st.columns(2)
-    
-    with col_g3:
-        st.markdown("### 📈 Evolução de Ocorrências ao Longo do Tempo (Linhas)")
-        col_data = "ABERTO EM" if "ABERTO EM" in df_filtrado_dashboard.columns else ("DATA" if "DATA" in df_filtrado_dashboard.columns else None)
-        if col_data:
-            try:
-                df_temp = df_filtrado_dashboard.copy()
-                df_temp["DATA_FORMATADA"] = pd.to_datetime(df_temp[col_data], errors='coerce').dt.to_period("M").astype(str)
-                df_line = df_temp["DATA_FORMATADA"].value_counts().sort_index().reset_index()
-                df_line.columns = ["Mês/Ano", "Total OS"]
-                fig_line = px.line(df_line, x="Mês/Ano", y="Total OS", markers=True, line_shape="linear")
-                fig_line.update_layout(margin=dict(t=10, b=10, l=10, r=10), height=350, separators=',.')
-                st.plotly_chart(fig_line, use_container_width=True)
-            except Exception:
-                st.info("Formato de data inválido para montagem do gráfico temporal.")
-        else:
-            st.info("Coluna de data não encontrada na base.")
-
-    with col_g4:
-        st.markdown("### 🏢 Pendências por Setor / Máquinas")
-        col_setor = "SETOR" if "SETOR" in df_filtrado_dashboard.columns else ("MÁQUINA" if "MÁQUINA" in df_filtrado_dashboard.columns else None)
-        if col_setor:
-            df_setor = df_filtrado_dashboard[col_setor].value_counts().head(10).reset_index()
-            df_setor.columns = ["Setor/Máquina", "Quantidade"]
-            df_setor["Texto_Fmt"] = df_setor["Quantidade"].apply(lambda x: f"{x:,}".replace(",", "."))
+            if "MÃO DE OBRA EXTERNA" in df_filtrado_dashboard.columns:
+                val_moe = limpar_coluna_monetaria(df_filtrado_dashboard["MÃO DE OBRA EXTERNA"]).sum()
+                mao_de_obra = formatar_moeda_br(val_moe)
+            else:
+                mao_de_obra = "R$ 0,00"
             
-            fig_horiz = px.bar(df_setor, y="Setor/Máquina", x="Quantidade", orientation="h", text="Texto_Fmt", color="Quantidade", color_continuous_scale="Blues")
-            fig_horiz.update_layout(margin=dict(t=10, b=10, l=10, r=10), height=350, yaxis={'categoryorder':'total ascending'}, separators=',.')
-            st.plotly_chart(fig_horiz, use_container_width=True)
-        else:
-            st.info("Coluna de Setor ou Máquina não encontrada.")
+            total_os_str = f"{total_os:,}".replace(",", ".")
+            
+            with col_kpi1:
+                st.markdown(f"""
+                    <div class="metric-card">
+                        <h4 style="color: #6B7280; font-size: 14px; margin-bottom: 5px;">TOTAL DE OS</h4>
+                        <h2 style="color: #1E3A8A; font-size: 26px; margin: 0;">{total_os_str}</h2>
+                    </div>
+                """, unsafe_allow_html=True)
+            with col_kpi2:
+                st.markdown(f"""
+                    <div class="metric-card">
+                        <h4 style="color: #6B7280; font-size: 14px; margin-bottom: 5px;">CUSTO MATERIAIS</h4>
+                        <h2 style="color: #059669; font-size: 26px; margin: 0;">{custo_materiais}</h2>
+                    </div>
+                """, unsafe_allow_html=True)
+            with col_kpi3:
+                st.markdown(f"""
+                    <div class="metric-card">
+                        <h4 style="color: #6B7280; font-size: 14px; margin-bottom: 5px;">MÃO DE OBRA EXTERNA</h4>
+                        <h2 style="color: #D97706; font-size: 26px; margin: 0;">{mao_de_obra}</h2>
+                    </div>
+                """, unsafe_allow_html=True)
+            with col_kpi4:
+                st.markdown(f"""
+                    <div class="metric-card">
+                        <h4 style="color: #6B7280; font-size: 14px; margin-bottom: 5px;">VOLUME FILTRADO</h4>
+                        <h2 style="color: #DC2626; font-size: 26px; margin: 0;">{total_os_str} OS</h2>
+                    </div>
+                """, unsafe_allow_html=True)
+
+            st.markdown("<br>", unsafe_allow_html=True)
+
+            # ==========================================
+            # NOVOS INDICADORES EXECUTIVOS (CARDS ADICIONAIS)
+            # ==========================================
+            col_ind1, col_ind2, col_ind3 = st.columns(3)
+            
+            if "STATUS" in df_filtrado_dashboard.columns:
+                status_txt = df_filtrado_dashboard["STATUS"].astype(str).str.lower()
+                concluidas_count = status_txt.str.contains("concluíd|concluid|fechad|encerrad|finalizad").sum()
+                conformidade_pct = (concluidas_count / total_os * 100) if total_os > 0 else 0.0
+                conf_str = f"{conformidade_pct:.1f}".replace(".", ",") + "%"
+                
+                backlog_count = total_os - concluidas_count
+                backlog_str = f"{backlog_count:,}".replace(",", ".")
+            else:
+                conf_str = "N/A"
+                backlog_str = "N/A"
+
+            tempo_medio_str = "N/A"
+            col_data_abertura = "ABERTO EM" if "ABERTO EM" in df_filtrado_dashboard.columns else ("DATA" if "DATA" in df_filtrado_dashboard.columns else None)
+            col_data_fechamento = "FECHADO EM" if "FECHADO EM" in df_filtrado_dashboard.columns else ("DATA FECHAMENTO" if "DATA FECHAMENTO" in df_filtrado_dashboard.columns else None)
+            
+            if col_data_abertura and col_data_fechamento:
+                try:
+                    dt_ini = pd.to_datetime(df_filtrado_dashboard[col_data_abertura], errors='coerce')
+                    dt_fim = pd.to_datetime(df_filtrado_dashboard[col_data_fechamento], errors='coerce')
+                    diff_dias = (dt_fim - dt_ini).dt.total_seconds() / 86400
+                    media_dias = diff_dias[diff_dias >= 0].mean()
+                    if not pd.isna(media_dias):
+                        tempo_medio_str = f"{media_dias:.1f} dias".replace(".", ",")
+                except Exception:
+                    pass
+
+            with col_ind1:
+                st.markdown(f"""
+                    <div class="metric-card">
+                        <h4 style="color: #6B7280; font-size: 14px; margin-bottom: 5px;">% CONFORMIDADE GERAL</h4>
+                        <h2 style="color: #2563EB; font-size: 24px; margin: 0;">{conf_str}</h2>
+                    </div>
+                """, unsafe_allow_html=True)
+            with col_ind2:
+                st.markdown(f"""
+                    <div class="metric-card">
+                        <h4 style="color: #6B7280; font-size: 14px; margin-bottom: 5px;">BACKLOG DE MANUTENÇÃO</h4>
+                        <h2 style="color: #9333EA; font-size: 24px; margin: 0;">{backlog_str} OS</h2>
+                    </div>
+                """, unsafe_allow_html=True)
+            with col_ind3:
+                st.markdown(f"""
+                    <div class="metric-card">
+                        <h4 style="color: #6B7280; font-size: 14px; margin-bottom: 5px;">TEMPO MÉDIO DE ATENDIMENTO</h4>
+                        <h2 style="color: #0D9488; font-size: 24px; margin: 0;">{tempo_medio_str}</h2>
+                    </div>
+                """, unsafe_allow_html=True)
+
+            st.markdown("<br>", unsafe_allow_html=True)
+
+            # 2. Gráficos: OS Abertas x Concluídas & Categoria NLP
+            col_g1, col_g2 = st.columns(2)
+            
+            with col_g1:
+                st.markdown("### 🔄 OS Abertas x Concluídas")
+                if "STATUS" in df_filtrado_dashboard.columns:
+                    s_low = df_filtrado_dashboard["STATUS"].astype(str).str.lower()
+                    cond_conc = s_low.str.contains("concluíd|concluid|fechad|encerrad|finalizad")
+                    df_filtrado_dashboard["STATUS_AGRUPADO"] = "Concluídas / Fechadas"
+                    df_filtrado_dashboard.loc[~cond_conc, "STATUS_AGRUPADO"] = "Pendentes / Abertas"
+                    
+                    df_status_comp = df_filtrado_dashboard["STATUS_AGRUPADO"].value_counts().reset_index()
+                    df_status_comp.columns = ["Status", "Quantidade"]
+                    df_status_comp["Texto_Fmt"] = df_status_comp["Quantidade"].apply(lambda x: f"{x:,}".replace(",", "."))
+                    
+                    fig_abertas_conc = px.bar(df_status_comp, x="Status", y="Quantidade", text="Texto_Fmt", color="Status", color_discrete_sequence=["#059669", "#DC2626"])
+                    fig_abertas_conc.update_layout(margin=dict(t=10, b=10, l=10, r=10), height=350, showlegend=False, separators=',.')
+                    st.plotly_chart(fig_abertas_conc, use_container_width=True)
+                else:
+                    st.info("Coluna de status não disponível para comparação.")
+
+            with col_g2:
+                st.markdown("### 🏷️ Pendências por Categoria (NLP)")
+                if "CATEGORIA_NLP" in df_filtrado_dashboard.columns:
+                    df_cat = df_filtrado_dashboard["CATEGORIA_NLP"].value_counts().reset_index()
+                    df_cat.columns = ["Categoria", "Quantidade"]
+                    df_cat["Texto_Fmt"] = df_cat["Quantidade"].apply(lambda x: f"{x:,}".replace(",", "."))
+                    
+                    fig_cat = px.bar(df_cat, x="Quantidade", y="Categoria", orientation="h", text="Texto_Fmt", color="Quantidade", color_continuous_scale="Tealgrn")
+                    fig_cat.update_layout(margin=dict(t=10, b=10, l=10, r=10), height=350, yaxis={'categoryorder':'total ascending'}, separators=',.')
+                    st.plotly_chart(fig_cat, use_container_width=True)
+                else:
+                    st.info("Dado de categoria NLP não disponível.")
+
+            st.markdown("---")
+
+            # 3. Gráficos: Linha Temporal & Pendências por Setor
+            col_g3, col_g4 = st.columns(2)
+            
+            with col_g3:
+                st.markdown("### 📈 Evolução de Ocorrências ao Longo do Tempo (Linhas)")
+                col_data = "ABERTO EM" if "ABERTO EM" in df_filtrado_dashboard.columns else ("DATA" if "DATA" in df_filtrado_dashboard.columns else None)
+                if col_data:
+                    try:
+                        df_temp = df_filtrado_dashboard.copy()
+                        df_temp["DATA_FORMATADA"] = pd.to_datetime(df_temp[col_data], errors='coerce').dt.to_period("M").astype(str)
+                        df_line = df_temp["DATA_FORMATADA"].value_counts().sort_index().reset_index()
+                        df_line.columns = ["Mês/Ano", "Total OS"]
+                        fig_line = px.line(df_line, x="Mês/Ano", y="Total OS", markers=True, line_shape="linear")
+                        fig_line.update_layout(margin=dict(t=10, b=10, l=10, r=10), height=350, separators=',.')
+                        st.plotly_chart(fig_line, use_container_width=True)
+                    except Exception:
+                        st.info("Formato de data inválido para montagem do gráfico temporal.")
+                else:
+                    st.info("Coluna de data não encontrada na base.")
+
+            with col_g4:
+                st.markdown("### 🏢 Pendências por Setor / Máquinas")
+                col_setor = "SETOR" if "SETOR" in df_filtrado_dashboard.columns else ("MÁQUINA" if "MÁQUINA" in df_filtrado_dashboard.columns else None)
+                if col_setor:
+                    df_setor = df_filtrado_dashboard[col_setor].value_counts().head(10).reset_index()
+                    df_setor.columns = ["Setor/Máquina", "Quantidade"]
+                    df_setor["Texto_Fmt"] = df_setor["Quantidade"].apply(lambda x: f"{x:,}".replace(",", "."))
+                    
+                    fig_horiz = px.bar(df_setor, y="Setor/Máquina", x="Quantidade", orientation="h", text="Texto_Fmt", color="Quantidade", color_continuous_scale="Blues")
+                    fig_horiz.update_layout(margin=dict(t=10, b=10, l=10, r=10), height=350, yaxis={'categoryorder':'total ascending'}, separators=',.')
+                    st.plotly_chart(fig_horiz, use_container_width=True)
+                else:
+                    st.info("Coluna de Setor ou Máquina não encontrada.")
+
         # ==========================================
         # ABA 2: PESQUISA & RELATÓRIOS POR TERMO
         # ==========================================
@@ -882,7 +885,7 @@ with aba_dash:
                 termo_busca = st.session_state.termo_pesquisa.lower().strip()
                 df_resultado = df[df["TEXTO_BUSCA"].str.contains(termo_busca, na=False)]
                 
-                st.markdown(f"**Registros encontrados:** {len(df_resultado):,} de {len(df):,}")
+                st.markdown(f"**Registros encontrados:** {len(df_resultado):,} de {len(df):,}".replace(",", "."))
                 
                 if len(df_resultado) > 0:
                     col_r1, col_r2 = st.columns([1, 2])
@@ -900,11 +903,11 @@ with aba_dash:
                         st.markdown(f"### 📋 Relatório IA para '{termo_busca.upper()}'")
                         st.markdown(st.session_state.relatorio_gerado)
                         
-                        # Tentar extrair gráfico do relatório se houver tabela markdown
                         serie_tabela = extrair_dados_tabela_markdown(st.session_state.relatorio_gerado)
                         if serie_tabela is not None and not serie_tabela.empty:
                             st.markdown("#### 📊 Gráfico extraído do Relatório")
                             fig_rel = px.bar(x=serie_tabela.index, y=serie_tabela.values, labels={'x': 'Área/Problema', 'y': 'Frequência'})
+                            fig_rel.update_layout(separators=',.')
                             st.plotly_chart(fig_rel, use_container_width=True)
 
                     st.markdown("---")
