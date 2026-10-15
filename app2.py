@@ -558,6 +558,19 @@ def extrair_dados_tabela_markdown(relatorio_texto: str) -> pd.DataFrame:
 # ==========================================
 st.sidebar.title("⚙️ Configurações & Filtros")
 
+# --- INFORMAÇÕES DO USUÁRIO E LOGOUT ---
+st.sidebar.markdown(f"👤 Logado como: **{st.session_state.get('usuario_atual', 'Usuário')}**")
+
+if st.sidebar.button("🚪 Sair", use_container_width=True, type="secondary"):
+    # Limpa as variáveis de autenticação da sessão
+    st.session_state.autenticado = False
+    st.session_state.usuario_atual = ""
+    # Recarrega a aplicação para voltar à tela de login
+    st.rerun()
+
+st.sidebar.markdown("---")
+# ----------------------------------------
+
 groq_api_key_input = ""
 try:
     if hasattr(st, "secrets") and "GROQ_API_KEY" in st.secrets:
@@ -596,7 +609,6 @@ unidade_escolhida = st.sidebar.selectbox("Escolha a Unidade", lista_unidades)
 
 st.sidebar.markdown("---")
 arquivo_carregado = st.sidebar.file_uploader("Ou envie manualmente (.csv, .xls, .xlsx)", type=["csv", "xls", "xlsx"])
-
 # ==========================================
 # CORPO PRINCIPAL DO APLICATIVO
 # ==========================================
