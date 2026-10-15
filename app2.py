@@ -589,6 +589,7 @@ lista_unidades = [
     "CARRETA GASTRONOMIA", 
     "CARRETA MODA E BELEZA", 
     "CARRETA INFORMÁTICA"
+    "CHECKLIST - DIRETORIA - HOTEL"
 ]
 
 unidade_escolhida = st.sidebar.selectbox("Escolha a Unidade", lista_unidades)
