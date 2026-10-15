@@ -780,147 +780,147 @@ if df is not None:
         st.markdown("---")
         
             # ==========================================
-            # NAVEGAÇÃO POR BOTÕES (SUBSTITUINDO AS ABAS)
-            # ==========================================
-            
-            # Inicializa a aba ativa no session_state se não existir
-            if "aba_ativa" not in st.session_state:
+        # NAVEGAÇÃO POR BOTÕES (SUBSTITUINDO AS ABAS)
+        # ==========================================
+        
+        # Inicializa a aba ativa no session_state se não existir
+        if "aba_ativa" not in st.session_state:
+            st.session_state.aba_ativa = "dash"
+        
+        # Cria colunas para dispor os botões lado a lado no topo
+        col_b1, col_b2, col_b3, col_b4 = st.columns(4)
+        
+        with col_b1:
+            if st.button("📊 Dashboard Geral", use_container_width=True, type="primary" if st.session_state.aba_ativa == "dash" else "secondary"):
                 st.session_state.aba_ativa = "dash"
+                st.rerun()
+        
+        with col_b2:
+            if st.button("🔍 Pesquisa & Relatórios", use_container_width=True, type="primary" if st.session_state.aba_ativa == "busca" else "secondary"):
+                st.session_state.aba_ativa = "busca"
+                st.rerun()
+        
+        with col_b3:
+            if st.button("🏷️ Classificação (NLP)", use_container_width=True, type="primary" if st.session_state.aba_ativa == "nlp" else "secondary"):
+                st.session_state.aba_ativa = "nlp"
+                st.rerun()
+        
+        with col_b4:
+            if st.button("💬 Chat Inteligente", use_container_width=True, type="primary" if st.session_state.aba_ativa == "chat" else "secondary"):
+                st.session_state.aba_ativa = "chat"
+                st.rerun()
+        
+        st.markdown("---")
+        
+        # ==========================================
+        # CONTEÚDO DE CADA SEÇÃO (BASEADO NO BOTÃO CLICADO)
+        # ==========================================
+        
+        if st.session_state.aba_ativa == "dash":
+            st.subheader(f"📈 Visão Executiva Completa da Manutenção - {unidade_escolhida}")
             
-            # Cria colunas para dispor os botões lado a lado no topo
-            col_b1, col_b2, col_b3, col_b4 = st.columns(4)
+            # Inicializa o estado do filtro dos KPIs se não existir
+            if "filtro_kpi_ativo" not in st.session_state:
+                st.session_state.filtro_kpi_ativo = "geral"
+        
+            col_kpi1, col_kpi2, col_kpi3, col_kpi4 = st.columns(4)
             
-            with col_b1:
-                if st.button("📊 Dashboard Geral", use_container_width=True, type="primary" if st.session_state.aba_ativa == "dash" else "secondary"):
-                    st.session_state.aba_ativa = "dash"
+            total_os = len(df_filtrado_dashboard)
+            
+            if "CUSTO COM MATERIAIS" in df_filtrado_dashboard.columns:
+                val_mat = limpar_coluna_monetaria(df_filtrado_dashboard["CUSTO COM MATERIAIS"]).sum()
+                custo_materiais = formatar_moeda_br(val_mat)
+            else:
+                custo_materiais = "R$ 0,00"
+                val_mat = 0.0
+        
+            if "MÃO DE OBRA EXTERNA" in df_filtrado_dashboard.columns:
+                val_moe = limpar_coluna_monetaria(df_filtrado_dashboard["MÃO DE OBRA EXTERNA"]).sum()
+                mao_de_obra = formatar_moeda_br(val_moe)
+            else:
+                mao_de_obra = "R$ 0,00"
+                val_moe = 0.0
+            
+            total_os_str = f"{total_os:,}".replace(",", ".")
+            custo_total_val = val_mat + val_moe
+        
+            with col_kpi1:
+                st.markdown(f"""
+                    <div class="metric-card">
+                        <h4 style="color: #6B7280; font-size: 14px; margin-bottom: 5px;">TOTAL DE OS</h4>
+                        <h2 style="color: #1E3A8A; font-size: 26px; margin: 0;">{total_os_str}</h2>
+                    </div>
+                """, unsafe_allow_html=True)
+                if st.button("📋 Detalhar OS", key="btn_kpi_os", use_container_width=True):
+                    st.session_state.filtro_kpi_ativo = "todas_os"
                     st.rerun()
-            
-            with col_b2:
-                if st.button("🔍 Pesquisa & Relatórios", use_container_width=True, type="primary" if st.session_state.aba_ativa == "busca" else "secondary"):
-                    st.session_state.aba_ativa = "busca"
+        
+            with col_kpi2:
+                st.markdown(f"""
+                    <div class="metric-card">
+                        <h4 style="color: #6B7280; font-size: 14px; margin-bottom: 5px;">CUSTO MATERIAIS</h4>
+                        <h2 style="color: #059669; font-size: 26px; margin: 0;">{custo_materiais}</h2>
+                    </div>
+                """, unsafe_allow_html=True)
+                if st.button("📦 Ver Materiais", key="btn_kpi_mat", use_container_width=True):
+                    st.session_state.filtro_kpi_ativo = "materiais"
                     st.rerun()
-            
-            with col_b3:
-                if st.button("🏷️ Classificação (NLP)", use_container_width=True, type="primary" if st.session_state.aba_ativa == "nlp" else "secondary"):
-                    st.session_state.aba_ativa = "nlp"
+        
+            with col_kpi3:
+                st.markdown(f"""
+                    <div class="metric-card">
+                        <h4 style="color: #6B7280; font-size: 14px; margin-bottom: 5px;">MÃO DE OBRA EXTERNA</h4>
+                        <h2 style="color: #D97706; font-size: 26px; margin: 0;">{mao_de_obra}</h2>
+                    </div>
+                """, unsafe_allow_html=True)
+                if st.button("🛠️ Ver Mão de Obra", key="btn_kpi_moe", use_container_width=True):
+                    st.session_state.filtro_kpi_ativo = "mao_de_obra"
                     st.rerun()
-            
-            with col_b4:
-                if st.button("💬 Chat Inteligente", use_container_width=True, type="primary" if st.session_state.aba_ativa == "chat" else "secondary"):
-                    st.session_state.aba_ativa = "chat"
+        
+            with col_kpi4:
+                st.markdown(f"""
+                    <div class="metric-card">
+                        <h4 style="color: #6B7280; font-size: 14px; margin-bottom: 5px;">CUSTO TOTAL</h4>
+                        <h2 style="color: #DC2626; font-size: 26px; margin: 0;">{formatar_moeda_br(custo_total_val)}</h2>
+                    </div>
+                """, unsafe_allow_html=True)
+                if st.button("💰 Ver Custos Detalhados", key="btn_kpi_custo", use_container_width=True):
+                    st.session_state.filtro_kpi_ativo = "custos_totais"
                     st.rerun()
-            
-            st.markdown("---")
-            
-            # ==========================================
-            # CONTEÚDO DE CADA SEÇÃO (BASEADO NO BOTÃO CLICADO)
-            # ==========================================
-            
-            if st.session_state.aba_ativa == "dash":
-                st.subheader(f"📈 Visão Executiva Completa da Manutenção - {unidade_escolhida}")
+        
+            st.markdown("<br>", unsafe_allow_html=True)
+        
+            if st.session_state.filtro_kpi_ativo != "geral":
+                st.markdown("---")
+                if st.session_state.filtro_kpi_ativo == "todas_os":
+                    st.info("📌 **Filtro Ativo:** Exibindo todas as Ordens de Serviço da unidade.")
+                    st.dataframe(df_filtrado_dashboard, use_container_width=True, hide_index=True)
+                elif st.session_state.filtro_kpi_ativo == "materiais":
+                    st.info("📌 **Filtro Ativo:** Exibindo OS com foco em Custo de Materiais.")
+                    cols_mat = [c for c in ["CÓDIGO", "ABERTO EM", "STATUS", "SETOR", "CUSTO COM MATERIAIS"] if c in df_filtrado_dashboard.columns]
+                    st.dataframe(df_filtrado_dashboard[cols_mat], use_container_width=True, hide_index=True)
+                elif st.session_state.filtro_kpi_ativo == "mao_de_obra":
+                    st.info("📌 **Filtro Ativo:** Exibindo OS com foco em Mão de Obra Externa.")
+                    cols_moe = [c for c in ["CÓDIGO", "ABERTO EM", "STATUS", "SETOR", "MÃO DE OBRA EXTERNA"] if c in df_filtrado_dashboard.columns]
+                    st.dataframe(df_filtrado_dashboard[cols_moe], use_container_width=True, hide_index=True)
+                elif st.session_state.filtro_kpi_ativo == "custos_totais":
+                    st.info("📌 **Filtro Ativo:** Exibindo comparativo financeiro completo.")
+                    cols_custos = [c for c in ["CÓDIGO", "ABERTO EM", "STATUS", "SETOR", "CUSTO COM MATERIAIS", "MÃO DE OBRA EXTERNA"] if c in df_filtrado_dashboard.columns]
+                    st.dataframe(df_filtrado_dashboard[cols_custos], use_container_width=True, hide_index=True)
                 
-                # Inicializa o estado do filtro dos KPIs se não existir
-                if "filtro_kpi_ativo" not in st.session_state:
+                if st.button("🔄 Limpar Filtro do KPI"):
                     st.session_state.filtro_kpi_ativo = "geral"
-            
-                col_kpi1, col_kpi2, col_kpi3, col_kpi4 = st.columns(4)
-                
-                total_os = len(df_filtrado_dashboard)
-                
-                if "CUSTO COM MATERIAIS" in df_filtrado_dashboard.columns:
-                    val_mat = limpar_coluna_monetaria(df_filtrado_dashboard["CUSTO COM MATERIAIS"]).sum()
-                    custo_materiais = formatar_moeda_br(val_mat)
-                else:
-                    custo_materiais = "R$ 0,00"
-                    val_mat = 0.0
-            
-                if "MÃO DE OBRA EXTERNA" in df_filtrado_dashboard.columns:
-                    val_moe = limpar_coluna_monetaria(df_filtrado_dashboard["MÃO DE OBRA EXTERNA"]).sum()
-                    mao_de_obra = formatar_moeda_br(val_moe)
-                else:
-                    mao_de_obra = "R$ 0,00"
-                    val_moe = 0.0
-                
-                total_os_str = f"{total_os:,}".replace(",", ".")
-                custo_total_val = val_mat + val_moe
-            
-                with col_kpi1:
-                    st.markdown(f"""
-                        <div class="metric-card">
-                            <h4 style="color: #6B7280; font-size: 14px; margin-bottom: 5px;">TOTAL DE OS</h4>
-                            <h2 style="color: #1E3A8A; font-size: 26px; margin: 0;">{total_os_str}</h2>
-                        </div>
-                    """, unsafe_allow_html=True)
-                    if st.button("📋 Detalhar OS", key="btn_kpi_os", use_container_width=True):
-                        st.session_state.filtro_kpi_ativo = "todas_os"
-                        st.rerun()
-            
-                with col_kpi2:
-                    st.markdown(f"""
-                        <div class="metric-card">
-                            <h4 style="color: #6B7280; font-size: 14px; margin-bottom: 5px;">CUSTO MATERIAIS</h4>
-                            <h2 style="color: #059669; font-size: 26px; margin: 0;">{custo_materiais}</h2>
-                        </div>
-                    """, unsafe_allow_html=True)
-                    if st.button("📦 Ver Materiais", key="btn_kpi_mat", use_container_width=True):
-                        st.session_state.filtro_kpi_ativo = "materiais"
-                        st.rerun()
-            
-                with col_kpi3:
-                    st.markdown(f"""
-                        <div class="metric-card">
-                            <h4 style="color: #6B7280; font-size: 14px; margin-bottom: 5px;">MÃO DE OBRA EXTERNA</h4>
-                            <h2 style="color: #D97706; font-size: 26px; margin: 0;">{mao_de_obra}</h2>
-                        </div>
-                    """, unsafe_allow_html=True)
-                    if st.button("🛠️ Ver Mão de Obra", key="btn_kpi_moe", use_container_width=True):
-                        st.session_state.filtro_kpi_ativo = "mao_de_obra"
-                        st.rerun()
-            
-                with col_kpi4:
-                    st.markdown(f"""
-                        <div class="metric-card">
-                            <h4 style="color: #6B7280; font-size: 14px; margin-bottom: 5px;">CUSTO TOTAL</h4>
-                            <h2 style="color: #DC2626; font-size: 26px; margin: 0;">{formatar_moeda_br(custo_total_val)}</h2>
-                        </div>
-                    """, unsafe_allow_html=True)
-                    if st.button("💰 Ver Custos Detalhados", key="btn_kpi_custo", use_container_width=True):
-                        st.session_state.filtro_kpi_ativo = "custos_totais"
-                        st.rerun()
-            
-                st.markdown("<br>", unsafe_allow_html=True)
-            
-                if st.session_state.filtro_kpi_ativo != "geral":
-                    st.markdown("---")
-                    if st.session_state.filtro_kpi_ativo == "todas_os":
-                        st.info("📌 **Filtro Ativo:** Exibindo todas as Ordens de Serviço da unidade.")
-                        st.dataframe(df_filtrado_dashboard, use_container_width=True, hide_index=True)
-                    elif st.session_state.filtro_kpi_ativo == "materiais":
-                        st.info("📌 **Filtro Ativo:** Exibindo OS com foco em Custo de Materiais.")
-                        cols_mat = [c for c in ["CÓDIGO", "ABERTO EM", "STATUS", "SETOR", "CUSTO COM MATERIAIS"] if c in df_filtrado_dashboard.columns]
-                        st.dataframe(df_filtrado_dashboard[cols_mat], use_container_width=True, hide_index=True)
-                    elif st.session_state.filtro_kpi_ativo == "mao_de_obra":
-                        st.info("📌 **Filtro Ativo:** Exibindo OS com foco em Mão de Obra Externa.")
-                        cols_moe = [c for c in ["CÓDIGO", "ABERTO EM", "STATUS", "SETOR", "MÃO DE OBRA EXTERNA"] if c in df_filtrado_dashboard.columns]
-                        st.dataframe(df_filtrado_dashboard[cols_moe], use_container_width=True, hide_index=True)
-                    elif st.session_state.filtro_kpi_ativo == "custos_totais":
-                        st.info("📌 **Filtro Ativo:** Exibindo comparativo financeiro completo.")
-                        cols_custos = [c for c in ["CÓDIGO", "ABERTO EM", "STATUS", "SETOR", "CUSTO COM MATERIAIS", "MÃO DE OBRA EXTERNA"] if c in df_filtrado_dashboard.columns]
-                        st.dataframe(df_filtrado_dashboard[cols_custos], use_container_width=True, hide_index=True)
-                    
-                    if st.button("🔄 Limpar Filtro do KPI"):
-                        st.session_state.filtro_kpi_ativo = "geral"
-                        st.rerun()
-            
-            elif st.session_state.aba_ativa == "busca":
-                st.subheader("🔍 Pesquisa & Relatórios por Termo")
-            
-            elif st.session_state.aba_ativa == "nlp":
-                st.subheader("🔍 Detalhamento por Categoria e Equipamentos")
-            
-            elif st.session_state.aba_ativa == "chat":
-                st.subheader("💬 Chat Inteligente com a Base Completa")
-                        
+                    st.rerun()
+        
+        elif st.session_state.aba_ativa == "busca":
+            st.subheader("🔍 Pesquisa & Relatórios por Termo")
+        
+        elif st.session_state.aba_ativa == "nlp":
+            st.subheader("🔍 Detalhamento por Categoria e Equipamentos")
+        
+        elif st.session_state.aba_ativa == "chat":
+            st.subheader("💬 Chat Inteligente com a Base Completa")
+                                
         
             # ==========================================
             # NOVOS INDICADORES EXECUTIVOS (CARDS ADICIONAIS)
