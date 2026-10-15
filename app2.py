@@ -964,21 +964,17 @@ if df is not None:
                 # Cria a lista de categorias incluindo uma opção vazia/inicial no topo
                 categorias_disponiveis = ["-- Selecione uma categoria --"] + sorted(df["CATEGORIA_NLP"].dropna().unique())
                 
-                # index=0 faz com que comece vazio/neutro
                 cat_selecionada = st.selectbox(
                     "Selecione uma Categoria para abrir e ver os itens:", 
                     options=categorias_disponiveis, 
                     index=0
                 )
                 
-                # Só executa o detalhamento se o usuário escolher uma categoria real
                 if cat_selecionada and cat_selecionada != "-- Selecione uma categoria --":
-                    # Filtra o dataframe para a categoria escolhida
                     df_cat = df[df["CATEGORIA_NLP"] == cat_selecionada]
                     
                     st.write(f"Total de registros na categoria **{cat_selecionada}**: **{len(df_cat):,}**")
                     
-                    # Identifica qual coluna de máquina/equipamento existe no arquivo
                     col_maq = None
                     for c in ["MÁQUINAS", "MAQUINAS", "MÁQUINA", "MAQUINA"]:
                         if c in df.columns:
@@ -988,40 +984,58 @@ if df is not None:
                     if col_maq:
                         st.markdown(f"##### ⚙️ Equipamentos / Ativos relacionados (Coluna: `{col_maq}`)")
                         
-                        # Agrupa e conta os quantitativos por máquina na categoria selecionada
                         df_ranking_maq = df_cat[col_maq].value_counts().reset_index()
                         df_ranking_maq.columns = ["Equipamento / Máquina", "Quantidade"]
                         
-                        # Exibe a tabela resumo
-                        st.dataframe(df_ranking_maq, use_container_width=True, hide_index=True)
+                        # --- MELHORIA: Tabela interativa com seleção por clique ---
+                        evento_tabela = st.dataframe(
+                            df_ranking_maq, 
+                            use_container_width=True, 
+                            hide_index=True,
+                            selection_mode="single-row",
+                            on_select="rerun",
+                            key=f"tabela_ranking_{cat_selecionada}"
+                        )
                         
+                        # Descobre se o usuário clicou em alguma linha da tabela
+                        linhas_selecionadas = evento_tabela.get("selection", {}).get("rows", [])
+                        
+                        # Define a máquina selecionada via clique na tabela ou via selectbox
+                        maquina_via_tabela = None
+                        if linhas_selecionadas:
+                            idx_linha = linhas_selecionadas[0]
+                            maquina_via_tabela = str(df_ranking_maq.iloc[idx_linha]["Equipamento / Máquina"])
+
                         st.markdown("---")
                         st.markdown("#### 📋 Ordens de Serviço Específicas por Máquina/Equipamento")
                         
-                        # Adiciona uma opção vazia no topo da lista de máquinas
                         lista_maquinas_cat = ["-- Selecione uma Máquina/Equipamento --"] + sorted(df_cat[col_maq].dropna().unique().astype(str))
                         
-                        if len(lista_maquinas_cat) > 1:
-                            maquina_selecionada = st.selectbox(
-                                "Selecione uma Máquina/Equipamento para ver as Ordens de Serviço detalhadas:", 
-                                lista_maquinas_cat,
-                                index=0,
-                                key=f"select_maq_{cat_selecionada}"
-                            )
+                        # Se o usuário clicou na tabela, ajustamos o índice padrão do selectbox para sincronizar
+                        index_inicial = 0
+                        if maquina_via_tabela and maquina_via_tabela in lista_maquinas_cat:
+                            index_inicial = lista_maquinas_cat.index(maquina_via_tabela)
+
+                        maquina_selecionada = st.selectbox(
+                            "Selecione uma Máquina/Equipamento para ver as Ordens de Serviço detalhadas:", 
+                            lista_maquinas_cat,
+                            index=index_inicial,
+                            key=f"select_maq_{cat_selecionada}"
+                        )
+                        
+                        # Se escolheu via tabela mas o selectbox ainda não atualizou visualmente no mesmo ciclo, garantimos a exibição
+                        maquina_ativa = maquina_via_tabela if maquina_via_tabela else maquina_selecionada
+
+                        if maquina_ativa and maquina_ativa != "-- Selecione uma Máquina/Equipamento --":
+                            df_os_maquina = df_cat[df_cat[col_maq].astype(str) == maquina_ativa]
                             
-                            # Só exibe as OS se o usuário escolher uma máquina real (diferente da opção vazia)
-                            if maquina_selecionada and maquina_selecionada != "-- Selecione uma Máquina/Equipamento --":
-                                # Filtra as OS específicas da máquina escolhida
-                                df_os_maquina = df_cat[df_cat[col_maq].astype(str) == maquina_selecionada]
-                                
-                                st.info(f"Exibindo **{len(df_os_maquina)}** Ordem(ns) de Serviço para o equipamento: **{maquina_selecionada}**")
-                                
-                                # Seleciona colunas úteis para exibir as OS
-                                cols_mostrar = [c for c in ["CÓDIGO", "ABERTO EM", "STATUS", "SETOR", col_maq, coluna_comentario, "CUSTO COM MATERIAIS"] if c in df_os_maquina.columns]
-                                
-                                st.dataframe(df_os_maquina[cols_mostrar], use_container_width=True, hide_index=True)
-                            else:
-                                st.info("👈 Selecione um equipamento acima para carregar as Ordens de Serviço específicas.")
+                            st.info(f"Exibindo **{len(df_os_maquina)}** Ordem(ns) de Serviço para o equipamento: **{maquina_ativa}**")
+                            
+                            cols_mostrar = [c for c in ["CÓDIGO", "ABERTO EM", "STATUS", "SETOR", col_maq, coluna_comentario, "CUSTO COM MATERIAIS"] if c in df_os_maquina.columns]
+                            
+                            st.dataframe(df_os_maquina[cols_mostrar], use_container_width=True, hide_index=True)
+                        else:
+                            st.info("👈 Clique em uma linha na tabela acima ou selecione um equipamento no menu para carregar as Ordens de Serviço específicas.")
         # ==========================================
         # ABA 4: CHAT INTELIGENTE COM A BASE COMPLETA
         # ==========================================
