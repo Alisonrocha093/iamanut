@@ -779,7 +779,7 @@ if df is not None:
 
         st.markdown("---")
         
-       # ==========================================
+            # ==========================================
 # NAVEGAÇÃO POR BOTÕES (SUBSTITUINDO AS ABAS)
 # ==========================================
 
@@ -817,7 +817,6 @@ st.markdown("---")
 # ==========================================
 
 if st.session_state.aba_ativa == "dash":
-    # Aqui vai todo o conteúdo que estava dentro de "with aba_dash:"
     st.subheader(f"📈 Visão Executiva Completa da Manutenção - {unidade_escolhida}")
     
     # Inicializa o estado do filtro dos KPIs se não existir
@@ -914,19 +913,13 @@ if st.session_state.aba_ativa == "dash":
             st.rerun()
 
 elif st.session_state.aba_ativa == "busca":
-    # Conteúdo da aba de Pesquisa por Termo
     st.subheader("🔍 Pesquisa & Relatórios por Termo")
-    # (Insira aqui o código correspondente à aba de pesquisa)
 
 elif st.session_state.aba_ativa == "nlp":
-    # Conteúdo da aba de Classificação Automática (NLP) que ajustamos anteriormente
     st.subheader("🔍 Detalhamento por Categoria e Equipamentos")
-    # (Insira aqui o código da ABA 3 que construímos nos passos anteriores)
 
 elif st.session_state.aba_ativa == "chat":
-    # Conteúdo da aba de Chat Inteligente
     st.subheader("💬 Chat Inteligente com a Base Completa")
-    # (Insira aqui o código do chat)     
         
             # ==========================================
             # NOVOS INDICADORES EXECUTIVOS (CARDS ADICIONAIS)
