@@ -643,19 +643,20 @@ st.sidebar.subheader("📂 Seleção de Unidade")
 
 # Lista de unidades disponíveis
 lista_unidades = [
+    "HOTEL BARREIRA ROXA",
+    "CHECKLIST - DIRETORIA - HOTEL",
     "SENAC CENTRO", 
     "SENAC ALECRIM", 
     "SENAC ZONA NORTE", 
     "SENAC ZONA SUL", 
     "SENAC MOSSORÓ", 
     "SENAC CAICÓ", 
-    "SENAC ASSÚ", 
-    "HOTEL BARREIRA ROXA", 
+    "SENAC ASSÚ",  
     "CEP BARREIRA ROXA", 
     "CARRETA GASTRONOMIA", 
     "CARRETA MODA E BELEZA", 
-    "CARRETA INFORMÁTICA",
-    "CHECKLIST - DIRETORIA - HOTEL"
+    "CARRETA INFORMÁTICA"
+    
 ]
 
 unidade_escolhida = st.sidebar.selectbox("Escolha a Unidade", lista_unidades)
