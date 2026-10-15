@@ -609,7 +609,7 @@ def extrair_dados_tabela_markdown(relatorio_texto: str) -> pd.DataFrame:
 # ==========================================
 # INTERFACE GRÁFICA (BARRA LATERAL)
 # ==========================================
-st.sidebar.title("⚙️ Configurações & Filtros")
+st.sidebar.title("⚙️ Configurações")
 
 # --- INFORMAÇÕES DO USUÁRIO E LOGOUT ---
 st.sidebar.markdown(f"👤 Logado como: **{st.session_state.get('usuario_atual', 'Usuário')}**")
@@ -639,7 +639,7 @@ if not groq_api_key_input and os.path.exists("groq_api_key.txt"):
         pass
 
 st.sidebar.markdown("---")
-st.sidebar.subheader("📂 Seleção de Unidade (OneDrive)")
+st.sidebar.subheader("📂 Seleção de Unidade")
 
 # Lista de unidades disponíveis
 lista_unidades = [
@@ -661,7 +661,7 @@ lista_unidades = [
 unidade_escolhida = st.sidebar.selectbox("Escolha a Unidade", lista_unidades)
 
 st.sidebar.markdown("---")
-arquivo_carregado = st.sidebar.file_uploader("Ou envie manualmente (.csv, .xls, .xlsx)", type=["csv", "xls", "xlsx"])
+arquivo_carregado = st.sidebar.file_uploader("Enviar manualmente ", type=["csv", "xls", "xlsx"])
 # ==========================================
 # CORPO PRINCIPAL DO APLICATIVO
 # ==========================================
@@ -761,7 +761,7 @@ if df is not None:
             df["TEXTO_BUSCA"] = df[coluna_comentario].astype(str).str.lower().fillna("")
 
         st.sidebar.markdown("---")
-        st.sidebar.subheader("🎯 Filtros Globais do Dashboard")
+        st.sidebar.subheader("🎯 Filtros Dashboard")
         
         df_filtrado_dashboard = df.copy()
         
