@@ -961,8 +961,8 @@ if df is not None:
             st.subheader("🔍 Detalhamento por Categoria e Equipamentos")
 
             if "CATEGORIA_NLP" in df.columns:
-                # Cria a lista de categorias incluindo uma opção vazia/inicial no topo
-                categorias_disponiveis = ["-- Selecione uma categoria --"] + sorted(df["CATEGORIA_NLP"].dropna().unique())
+                # Adiciona "-- Selecione uma categoria --", "Todas" e as categorias ordenadas
+                categorias_disponiveis = ["-- Selecione uma categoria --", "Todas"] + sorted(df["CATEGORIA_NLP"].dropna().unique())
                 
                 cat_selecionada = st.selectbox(
                     "Selecione uma Categoria para abrir e ver os itens:", 
@@ -970,10 +970,16 @@ if df is not None:
                     index=0
                 )
                 
+                # Verifica se o usuário escolheu uma opção válida (diferente da mensagem inicial)
                 if cat_selecionada and cat_selecionada != "-- Selecione uma categoria --":
-                    df_cat = df[df["CATEGORIA_NLP"] == cat_selecionada]
                     
-                    st.write(f"Total de registros na categoria **{cat_selecionada}**: **{len(df_cat):,}**")
+                    # Se for "Todas", o dataframe utilizado é o df completo; caso contrário, filtra pela categoria
+                    if cat_selecionada == "Todas":
+                        df_cat = df.copy()
+                        st.write(f"Exibindo registros de **Todas** as categorias: **{len(df_cat):,}**")
+                    else:
+                        df_cat = df[df["CATEGORIA_NLP"] == cat_selecionada]
+                        st.write(f"Total de registros na categoria **{cat_selecionada}**: **{len(df_cat):,}**")
                     
                     col_maq = None
                     for c in ["MÁQUINAS", "MAQUINAS", "MÁQUINA", "MAQUINA"]:
@@ -987,7 +993,7 @@ if df is not None:
                         df_ranking_maq = df_cat[col_maq].value_counts().reset_index()
                         df_ranking_maq.columns = ["Equipamento / Máquina", "Quantidade"]
                         
-                        # --- MELHORIA: Tabela interativa com seleção por clique ---
+                        # Tabela interativa com seleção por clique
                         evento_tabela = st.dataframe(
                             df_ranking_maq, 
                             use_container_width=True, 
@@ -1000,7 +1006,6 @@ if df is not None:
                         # Descobre se o usuário clicou em alguma linha da tabela
                         linhas_selecionadas = evento_tabela.get("selection", {}).get("rows", [])
                         
-                        # Define a máquina selecionada via clique na tabela ou via selectbox
                         maquina_via_tabela = None
                         if linhas_selecionadas:
                             idx_linha = linhas_selecionadas[0]
@@ -1011,7 +1016,6 @@ if df is not None:
                         
                         lista_maquinas_cat = ["-- Selecione uma Máquina/Equipamento --"] + sorted(df_cat[col_maq].dropna().unique().astype(str))
                         
-                        # Se o usuário clicou na tabela, ajustamos o índice padrão do selectbox para sincronizar
                         index_inicial = 0
                         if maquina_via_tabela and maquina_via_tabela in lista_maquinas_cat:
                             index_inicial = lista_maquinas_cat.index(maquina_via_tabela)
@@ -1023,7 +1027,6 @@ if df is not None:
                             key=f"select_maq_{cat_selecionada}"
                         )
                         
-                        # Se escolheu via tabela mas o selectbox ainda não atualizou visualmente no mesmo ciclo, garantimos a exibição
                         maquina_ativa = maquina_via_tabela if maquina_via_tabela else maquina_selecionada
 
                         if maquina_ativa and maquina_ativa != "-- Selecione uma Máquina/Equipamento --":
@@ -1031,7 +1034,16 @@ if df is not None:
                             
                             st.info(f"Exibindo **{len(df_os_maquina)}** Ordem(ns) de Serviço para o equipamento: **{maquina_ativa}**")
                             
-                            cols_mostrar = [c for c in ["CÓDIGO", "ABERTO EM", "STATUS", "SETOR", col_maq, coluna_comentario, "CUSTO COM MATERIAIS"] if c in df_os_maquina.columns]
+                            # Identifica variações comuns para a coluna de data de execução prevista
+                            col_exec_prevista = None
+                            for c in ["EXEC. PREVISTA", "EXEC_PREVISTA", "DATA EXEC PREVISTA", "PREVISÃO", "PREVISAO"]:
+                                if c in df.columns:
+                                    col_exec_prevista = c
+                                    break
+                            
+                            # Constrói a lista dinamicamente garantindo que a coluna de execução prevista seja incluída
+                            candidatos_cols = ["CÓDIGO", "ABERTO EM", col_exec_prevista, "STATUS", "SETOR", col_maq, coluna_comentario, "CUSTO COM MATERIAIS"]
+                            cols_mostrar = [c for c in candidatos_cols if c and c in df_os_maquina.columns]
                             
                             st.dataframe(df_os_maquina[cols_mostrar], use_container_width=True, hide_index=True)
                         else:
