@@ -779,440 +779,415 @@ if df is not None:
 
         st.markdown("---")
         
-            # ==========================================
-        # NAVEGAÇÃO POR BOTÕES (SUBSTITUINDO AS ABAS)
-        # ==========================================
-        
-        # Inicializa a aba ativa no session_state se não existir
-        if "aba_ativa" not in st.session_state:
-            st.session_state.aba_ativa = "dash"
-        
-        # Cria colunas para dispor os botões lado a lado no topo
-        col_b1, col_b2, col_b3, col_b4 = st.columns(4)
-        
-        with col_b1:
-            if st.button("📊 Dashboard Geral", use_container_width=True, type="primary" if st.session_state.aba_ativa == "dash" else "secondary"):
-                st.session_state.aba_ativa = "dash"
-                st.rerun()
-        
-        with col_b2:
-            if st.button("🔍 Pesquisa & Relatórios", use_container_width=True, type="primary" if st.session_state.aba_ativa == "busca" else "secondary"):
-                st.session_state.aba_ativa = "busca"
-                st.rerun()
-        
-        with col_b3:
-            if st.button("🏷️ Classificação (NLP)", use_container_width=True, type="primary" if st.session_state.aba_ativa == "nlp" else "secondary"):
-                st.session_state.aba_ativa = "nlp"
-                st.rerun()
-        
-        with col_b4:
-            if st.button("💬 Chat Inteligente", use_container_width=True, type="primary" if st.session_state.aba_ativa == "chat" else "secondary"):
-                st.session_state.aba_ativa = "chat"
-                st.rerun()
-        
+           # ==========================================
+# NAVEGAÇÃO POR BOTÕES (SUBSTITUINDO AS ABAS)
+# ==========================================
+
+# Inicializa a aba ativa no session_state se não existir
+if "aba_ativa" not in st.session_state:
+    st.session_state.aba_ativa = "dash"
+
+# Cria colunas para dispor os botões lado a lado no topo
+col_b1, col_b2, col_b3, col_b4 = st.columns(4)
+
+with col_b1:
+    if st.button("📊 Dashboard Geral", use_container_width=True, type="primary" if st.session_state.aba_ativa == "dash" else "secondary"):
+        st.session_state.aba_ativa = "dash"
+        st.rerun()
+
+with col_b2:
+    if st.button("🔍 Pesquisa & Relatórios", use_container_width=True, type="primary" if st.session_state.aba_ativa == "busca" else "secondary"):
+        st.session_state.aba_ativa = "busca"
+        st.rerun()
+
+with col_b3:
+    if st.button("🏷️ Classificação (NLP)", use_container_width=True, type="primary" if st.session_state.aba_ativa == "nlp" else "secondary"):
+        st.session_state.aba_ativa = "nlp"
+        st.rerun()
+
+with col_b4:
+    if st.button("💬 Chat Inteligente", use_container_width=True, type="primary" if st.session_state.aba_ativa == "chat" else "secondary"):
+        st.session_state.aba_ativa = "chat"
+        st.rerun()
+
+st.markdown("---")
+
+# ==========================================
+# CONTEÚDO DE CADA SEÇÃO (BASEADO NO BOTÃO CLICADO)
+# ==========================================
+
+if st.session_state.aba_ativa == "dash":
+    st.subheader(f"📈 Visão Executiva Completa da Manutenção - {unidade_escolhida}")
+    
+    # Inicializa o estado do filtro dos KPIs se não existir
+    if "filtro_kpi_ativo" not in st.session_state:
+        st.session_state.filtro_kpi_ativo = "geral"
+
+    col_kpi1, col_kpi2, col_kpi3, col_kpi4 = st.columns(4)
+    
+    total_os = len(df_filtrado_dashboard)
+    
+    if "CUSTO COM MATERIAIS" in df_filtrado_dashboard.columns:
+        val_mat = limpar_coluna_monetaria(df_filtrado_dashboard["CUSTO COM MATERIAIS"]).sum()
+        custo_materiais = formatar_moeda_br(val_mat)
+    else:
+        custo_materiais = "R$ 0,00"
+        val_mat = 0.0
+
+    if "MÃO DE OBRA EXTERNA" in df_filtrado_dashboard.columns:
+        val_moe = limpar_coluna_monetaria(df_filtrado_dashboard["MÃO DE OBRA EXTERNA"]).sum()
+        mao_de_obra = formatar_moeda_br(val_moe)
+    else:
+        mao_de_obra = "R$ 0,00"
+        val_moe = 0.0
+    
+    total_os_str = f"{total_os:,}".replace(",", ".")
+    custo_total_val = val_mat + val_moe
+
+    with col_kpi1:
+        st.markdown(f"""
+            <div class="metric-card">
+                <h4 style="color: #6B7280; font-size: 14px; margin-bottom: 5px;">TOTAL DE OS</h4>
+                <h2 style="color: #1E3A8A; font-size: 26px; margin: 0;">{total_os_str}</h2>
+            </div>
+        """, unsafe_allow_html=True)
+        if st.button("📋 Detalhar OS", key="btn_kpi_os", use_container_width=True):
+            st.session_state.filtro_kpi_ativo = "todas_os"
+            st.rerun()
+
+    with col_kpi2:
+        st.markdown(f"""
+            <div class="metric-card">
+                <h4 style="color: #6B7280; font-size: 14px; margin-bottom: 5px;">CUSTO MATERIAIS</h4>
+                <h2 style="color: #059669; font-size: 26px; margin: 0;">{custo_materiais}</h2>
+            </div>
+        """, unsafe_allow_html=True)
+        if st.button("📦 Ver Materiais", key="btn_kpi_mat", use_container_width=True):
+            st.session_state.filtro_kpi_ativo = "materiais"
+            st.rerun()
+
+    with col_kpi3:
+        st.markdown(f"""
+            <div class="metric-card">
+                <h4 style="color: #6B7280; font-size: 14px; margin-bottom: 5px;">MÃO DE OBRA EXTERNA</h4>
+                <h2 style="color: #D97706; font-size: 26px; margin: 0;">{mao_de_obra}</h2>
+            </div>
+        """, unsafe_allow_html=True)
+        if st.button("🛠️ Ver Mão de Obra", key="btn_kpi_moe", use_container_width=True):
+            st.session_state.filtro_kpi_ativo = "mao_de_obra"
+            st.rerun()
+
+    with col_kpi4:
+        st.markdown(f"""
+            <div class="metric-card">
+                <h4 style="color: #6B7280; font-size: 14px; margin-bottom: 5px;">CUSTO TOTAL</h4>
+                <h2 style="color: #DC2626; font-size: 26px; margin: 0;">{formatar_moeda_br(custo_total_val)}</h2>
+            </div>
+        """, unsafe_allow_html=True)
+        if st.button("💰 Ver Custos Detalhados", key="btn_kpi_custo", use_container_width=True):
+            st.session_state.filtro_kpi_ativo = "custos_totais"
+            st.rerun()
+
+    st.markdown("<br>", unsafe_allow_html=True)
+
+    if st.session_state.filtro_kpi_ativo != "geral":
         st.markdown("---")
+        if st.session_state.filtro_kpi_ativo == "todas_os":
+            st.info("📌 **Filtro Ativo:** Exibindo todas as Ordens de Serviço da unidade.")
+            st.dataframe(df_filtrado_dashboard, use_container_width=True, hide_index=True)
+        elif st.session_state.filtro_kpi_ativo == "materiais":
+            st.info("📌 **Filtro Ativo:** Exibindo OS com foco em Custo de Materiais.")
+            cols_mat = [c for c in ["CÓDIGO", "ABERTO EM", "STATUS", "SETOR", "CUSTO COM MATERIAIS"] if c in df_filtrado_dashboard.columns]
+            st.dataframe(df_filtrado_dashboard[cols_mat], use_container_width=True, hide_index=True)
+        elif st.session_state.filtro_kpi_ativo == "mao_de_obra":
+            st.info("📌 **Filtro Ativo:** Exibindo OS com foco em Mão de Obra Externa.")
+            cols_moe = [c for c in ["CÓDIGO", "ABERTO EM", "STATUS", "SETOR", "MÃO DE OBRA EXTERNA"] if c in df_filtrado_dashboard.columns]
+            st.dataframe(df_filtrado_dashboard[cols_moe], use_container_width=True, hide_index=True)
+        elif st.session_state.filtro_kpi_ativo == "custos_totais":
+            st.info("📌 **Filtro Ativo:** Exibindo comparativo financeiro completo.")
+            cols_custos = [c for c in ["CÓDIGO", "ABERTO EM", "STATUS", "SETOR", "CUSTO COM MATERIAIS", "MÃO DE OBRA EXTERNA"] if c in df_filtrado_dashboard.columns]
+            st.dataframe(df_filtrado_dashboard[cols_custos], use_container_width=True, hide_index=True)
         
-        # ==========================================
-        # CONTEÚDO DE CADA SEÇÃO (BASEADO NO BOTÃO CLICADO)
-        # ==========================================
+        if st.button("🔄 Limpar Filtro do KPI"):
+            st.session_state.filtro_kpi_ativo = "geral"
+            st.rerun()
+
+    # ==========================================
+    # NOVOS INDICADORES EXECUTIVOS (CARDS ADICIONAIS)
+    # ==========================================
+    col_ind1, col_ind2, col_ind3 = st.columns(3)
+    
+    if "STATUS" in df_filtrado_dashboard.columns:
+        status_txt = df_filtrado_dashboard["STATUS"].astype(str).str.lower()
+        concluidas_count = status_txt.str.contains("concluíd|concluid|fechad|encerrad|finalizad").sum()
+        conformidade_pct = (concluidas_count / total_os * 100) if total_os > 0 else 0.0
+        conf_str = f"{conformidade_pct:.1f}".replace(".", ",") + "%"
         
-        if st.session_state.aba_ativa == "dash":
-            st.subheader(f"📈 Visão Executiva Completa da Manutenção - {unidade_escolhida}")
+        backlog_count = total_os - concluidas_count
+        backlog_str = f"{backlog_count:,}".replace(",", ".")
+    else:
+        conf_str = "N/A"
+        backlog_str = "N/A"
+
+    tempo_medio_str = "N/A"
+    col_data_abertura = "ABERTO EM" if "ABERTO EM" in df_filtrado_dashboard.columns else ("DATA" if "DATA" in df_filtrado_dashboard.columns else None)
+    col_data_fechamento = "FECHADO EM" if "FECHADO EM" in df_filtrado_dashboard.columns else ("DATA FECHAMENTO" if "DATA FECHAMENTO" in df_filtrado_dashboard.columns else None)
+    
+    if col_data_abertura and col_data_fechamento:
+        try:
+            dt_ini = pd.to_datetime(df_filtrado_dashboard[col_data_abertura], errors='coerce')
+            dt_fim = pd.to_datetime(df_filtrado_dashboard[col_data_fechamento], errors='coerce')
+            diff_dias = (dt_fim - dt_ini).dt.total_seconds() / 86400
+            media_dias = diff_dias[diff_dias >= 0].mean()
+            if not pd.isna(media_dias):
+                tempo_medio_str = f"{media_dias:.1f} dias".replace(".", ",")
+        except Exception:
+            pass
+
+    with col_ind1:
+        st.markdown(f"""
+            <div class="metric-card">
+                <h4 style="color: #6B7280; font-size: 14px; margin-bottom: 5px;">% CONFORMIDADE GERAL</h4>
+                <h2 style="color: #2563EB; font-size: 24px; margin: 0;">{conf_str}</h2>
+            </div>
+        """, unsafe_allow_html=True)
+    with col_ind2:
+        st.markdown(f"""
+            <div class="metric-card">
+                <h4 style="color: #6B7280; font-size: 14px; margin-bottom: 5px;">BACKLOG DE MANUTENÇÃO</h4>
+                <h2 style="color: #9333EA; font-size: 24px; margin: 0;">{backlog_str} OS</h2>
+            </div>
+        """, unsafe_allow_html=True)
+    with col_ind3:
+        st.markdown(f"""
+            <div class="metric-card">
+                <h4 style="color: #6B7280; font-size: 14px; margin-bottom: 5px;">TEMPO MÉDIO DE ATENDIMENTO</h4>
+                <h2 style="color: #0D9488; font-size: 24px; margin: 0;">{tempo_medio_str}</h2>
+            </div>
+        """, unsafe_allow_html=True)
+
+    st.markdown("<br>", unsafe_allow_html=True)
+
+    # 2. Gráficos: OS Abertas x Concluídas & Categoria NLP
+    col_g1, col_g2 = st.columns(2)
+    
+    with col_g1:
+        st.markdown("### 🔄 OS Abertas x Concluídas")
+        if "STATUS" in df_filtrado_dashboard.columns:
+            s_low = df_filtrado_dashboard["STATUS"].astype(str).str.lower()
+            cond_conc = s_low.str.contains("concluíd|concluid|fechad|encerrad|finalizad")
+            df_filtrado_dashboard["STATUS_AGRUPADO"] = "Concluídas / Fechadas"
+            df_filtrado_dashboard.loc[~cond_conc, "STATUS_AGRUPADO"] = "Pendentes / Abertas"
             
-            # Inicializa o estado do filtro dos KPIs se não existir
-            if "filtro_kpi_ativo" not in st.session_state:
-                st.session_state.filtro_kpi_ativo = "geral"
-        
-            col_kpi1, col_kpi2, col_kpi3, col_kpi4 = st.columns(4)
+            df_status_comp = df_filtrado_dashboard["STATUS_AGRUPADO"].value_counts().reset_index()
+            df_status_comp.columns = ["Status", "Quantidade"]
+            df_status_comp["Texto_Fmt"] = df_status_comp["Quantidade"].apply(lambda x: f"{x:,}".replace(",", "."))
             
-            total_os = len(df_filtrado_dashboard)
+            fig_abertas_conc = px.bar(df_status_comp, x="Status", y="Quantidade", text="Texto_Fmt", color="Status", color_discrete_sequence=["#059669", "#DC2626"])
+            fig_abertas_conc.update_layout(margin=dict(t=10, b=10, l=10, r=10), height=350, showlegend=False, separators=',.')
+            st.plotly_chart(fig_abertas_conc, use_container_width=True)
+        else:
+            st.info("Coluna de status não disponível para comparação.")
+
+    with col_g2:
+        st.markdown("### 🏷️ Pendências por Categoria (NLP)")
+        if "CATEGORIA_NLP" in df_filtrado_dashboard.columns:
+            df_cat = df_filtrado_dashboard["CATEGORIA_NLP"].value_counts().reset_index()
+            df_cat.columns = ["Categoria", "Quantidade"]
+            df_cat["Texto_Fmt"] = df_cat["Quantidade"].apply(lambda x: f"{x:,}".replace(",", "."))
             
-            if "CUSTO COM MATERIAIS" in df_filtrado_dashboard.columns:
-                val_mat = limpar_coluna_monetaria(df_filtrado_dashboard["CUSTO COM MATERIAIS"]).sum()
-                custo_materiais = formatar_moeda_br(val_mat)
-            else:
-                custo_materiais = "R$ 0,00"
-                val_mat = 0.0
-        
-            if "MÃO DE OBRA EXTERNA" in df_filtrado_dashboard.columns:
-                val_moe = limpar_coluna_monetaria(df_filtrado_dashboard["MÃO DE OBRA EXTERNA"]).sum()
-                mao_de_obra = formatar_moeda_br(val_moe)
-            else:
-                mao_de_obra = "R$ 0,00"
-                val_moe = 0.0
+            fig_cat = px.bar(df_cat, x="Quantidade", y="Categoria", orientation="h", text="Texto_Fmt", color="Quantidade", color_continuous_scale="Tealgrn")
+            fig_cat.update_layout(margin=dict(t=10, b=10, l=10, r=10), height=350, yaxis={'categoryorder':'total ascending'}, separators=',.')
+            st.plotly_chart(fig_cat, use_container_width=True)
+        else:
+            st.info("Dado de categoria NLP não disponível.")
+
+    st.markdown("---")
+
+    # 3. Gráficos: Linha Temporal & Pendências por Setor
+    col_g3, col_g4 = st.columns(2)
+    
+    with col_g3:
+        st.markdown("### 📈 Evolução de Ocorrências ao Longo do Tempo (Linhas)")
+        col_data = "ABERTO EM" if "ABERTO EM" in df_filtrado_dashboard.columns else ("DATA" if "DATA" in df_filtrado_dashboard.columns else None)
+        if col_data:
+            try:
+                df_temp = df_filtrado_dashboard.copy()
+                df_temp["DATA_FORMATADA"] = pd.to_datetime(df_temp[col_data], errors='coerce').dt.to_period("M").astype(str)
+                df_line = df_temp["DATA_FORMATADA"].value_counts().sort_index().reset_index()
+                df_line.columns = ["Mês/Ano", "Total OS"]
+                fig_line = px.line(df_line, x="Mês/Ano", y="Total OS", markers=True, line_shape="linear")
+                fig_line.update_layout(margin=dict(t=10, b=10, l=10, r=10), height=350, separators=',.')
+                st.plotly_chart(fig_line, use_container_width=True)
+            except Exception:
+                st.info("Formato de data inválido para montagem do gráfico temporal.")
+        else:
+            st.info("Coluna de data não encontrada na base.")
+
+    with col_g4:
+        st.markdown("### 🏢 Pendências por Setor / Máquinas")
+        col_setor = "SETOR" if "SETOR" in df_filtrado_dashboard.columns else ("MÁQUINA" if "MÁQUINA" in df_filtrado_dashboard.columns else None)
+        if col_setor:
+            df_setor = df_filtrado_dashboard[col_setor].value_counts().head(10).reset_index()
+            df_setor.columns = ["Setor/Máquina", "Quantidade"]
+            df_setor["Texto_Fmt"] = df_setor["Quantidade"].apply(lambda x: f"{x:,}".replace(",", "."))
             
-            total_os_str = f"{total_os:,}".replace(",", ".")
-            custo_total_val = val_mat + val_moe
+            fig_horiz = px.bar(df_setor, y="Setor/Máquina", x="Quantidade", orientation="h", text="Texto_Fmt", color="Quantidade", color_continuous_scale="Blues")
+            fig_horiz.update_layout(margin=dict(t=10, b=10, l=10, r=10), height=350, yaxis={'categoryorder':'total ascending'}, separators=',.')
+            st.plotly_chart(fig_horiz, use_container_width=True)
+        else:
+            st.info("Coluna de Setor ou Máquina não encontrada.")
+
+elif st.session_state.aba_ativa == "busca":
+    st.subheader("🔍 Pesquisa Textual & Geração de Relatórios por IA")
+    
+    col_search, col_btn = st.columns([4, 1])
+    with col_search:
+        termo = st.text_input("Digite um termo para pesquisar nas observações (ex: ar condicionado, vazamento, bomba):", value=st.session_state.termo_pesquisa)
+    with col_btn:
+        st.write("")
+        st.write("")
+        if st.button("🔎 Buscar"):
+            st.session_state.termo_pesquisa = termo
+            limpar_pesquisa()
+
+    if st.session_state.termo_pesquisa:
+        termo_busca = st.session_state.termo_pesquisa.lower().strip()
+        df_resultado = df[df["TEXTO_BUSCA"].str.contains(termo_busca, na=False)]
         
-            with col_kpi1:
-                st.markdown(f"""
-                    <div class="metric-card">
-                        <h4 style="color: #6B7280; font-size: 14px; margin-bottom: 5px;">TOTAL DE OS</h4>
-                        <h2 style="color: #1E3A8A; font-size: 26px; margin: 0;">{total_os_str}</h2>
-                    </div>
-                """, unsafe_allow_html=True)
-                if st.button("📋 Detalhar OS", key="btn_kpi_os", use_container_width=True):
-                    st.session_state.filtro_kpi_ativo = "todas_os"
-                    st.rerun()
+        st.markdown(f"**Registros encontrados:** {len(df_resultado):,} de {len(df):,}".replace(",", "."))
         
-            with col_kpi2:
-                st.markdown(f"""
-                    <div class="metric-card">
-                        <h4 style="color: #6B7280; font-size: 14px; margin-bottom: 5px;">CUSTO MATERIAIS</h4>
-                        <h2 style="color: #059669; font-size: 26px; margin: 0;">{custo_materiais}</h2>
-                    </div>
-                """, unsafe_allow_html=True)
-                if st.button("📦 Ver Materiais", key="btn_kpi_mat", use_container_width=True):
-                    st.session_state.filtro_kpi_ativo = "materiais"
-                    st.rerun()
-        
-            with col_kpi3:
-                st.markdown(f"""
-                    <div class="metric-card">
-                        <h4 style="color: #6B7280; font-size: 14px; margin-bottom: 5px;">MÃO DE OBRA EXTERNA</h4>
-                        <h2 style="color: #D97706; font-size: 26px; margin: 0;">{mao_de_obra}</h2>
-                    </div>
-                """, unsafe_allow_html=True)
-                if st.button("🛠️ Ver Mão de Obra", key="btn_kpi_moe", use_container_width=True):
-                    st.session_state.filtro_kpi_ativo = "mao_de_obra"
-                    st.rerun()
-        
-            with col_kpi4:
-                st.markdown(f"""
-                    <div class="metric-card">
-                        <h4 style="color: #6B7280; font-size: 14px; margin-bottom: 5px;">CUSTO TOTAL</h4>
-                        <h2 style="color: #DC2626; font-size: 26px; margin: 0;">{formatar_moeda_br(custo_total_val)}</h2>
-                    </div>
-                """, unsafe_allow_html=True)
-                if st.button("💰 Ver Custos Detalhados", key="btn_kpi_custo", use_container_width=True):
-                    st.session_state.filtro_kpi_ativo = "custos_totais"
-                    st.rerun()
-        
-            st.markdown("<br>", unsafe_allow_html=True)
-        
-            if st.session_state.filtro_kpi_ativo != "geral":
+        if len(df_resultado) > 0:
+            col_r1, col_r2 = st.columns([1, 2])
+            
+            with col_r1:
+                st.markdown("#### 📄 Ações com a Seleção")
+                if st.button("🤖 Gerar Relatório Executivo com IA"):
+                    with st.spinner("Analisando dados e gerando relatório executivo via Groq..."):
+                        relatorio = gerar_relatorio_ia(termo_busca, df_resultado[coluna_comentario].tolist(), groq_api_key_input)
+                        st.session_state.relatorio_gerado = relatorio
+                        st.session_state.termo_relatorio = termo_busca
+
+            if "relatorio_gerado" in st.session_state and st.session_state.get("termo_relatorio") == termo_busca:
                 st.markdown("---")
-                if st.session_state.filtro_kpi_ativo == "todas_os":
-                    st.info("📌 **Filtro Ativo:** Exibindo todas as Ordens de Serviço da unidade.")
-                    st.dataframe(df_filtrado_dashboard, use_container_width=True, hide_index=True)
-                elif st.session_state.filtro_kpi_ativo == "materiais":
-                    st.info("📌 **Filtro Ativo:** Exibindo OS com foco em Custo de Materiais.")
-                    cols_mat = [c for c in ["CÓDIGO", "ABERTO EM", "STATUS", "SETOR", "CUSTO COM MATERIAIS"] if c in df_filtrado_dashboard.columns]
-                    st.dataframe(df_filtrado_dashboard[cols_mat], use_container_width=True, hide_index=True)
-                elif st.session_state.filtro_kpi_ativo == "mao_de_obra":
-                    st.info("📌 **Filtro Ativo:** Exibindo OS com foco em Mão de Obra Externa.")
-                    cols_moe = [c for c in ["CÓDIGO", "ABERTO EM", "STATUS", "SETOR", "MÃO DE OBRA EXTERNA"] if c in df_filtrado_dashboard.columns]
-                    st.dataframe(df_filtrado_dashboard[cols_moe], use_container_width=True, hide_index=True)
-                elif st.session_state.filtro_kpi_ativo == "custos_totais":
-                    st.info("📌 **Filtro Ativo:** Exibindo comparativo financeiro completo.")
-                    cols_custos = [c for c in ["CÓDIGO", "ABERTO EM", "STATUS", "SETOR", "CUSTO COM MATERIAIS", "MÃO DE OBRA EXTERNA"] if c in df_filtrado_dashboard.columns]
-                    st.dataframe(df_filtrado_dashboard[cols_custos], use_container_width=True, hide_index=True)
+                st.markdown(f"### 📋 Relatório IA para '{termo_busca.upper()}'")
+                st.markdown(st.session_state.relatorio_gerado)
                 
-                if st.button("🔄 Limpar Filtro do KPI"):
-                    st.session_state.filtro_kpi_ativo = "geral"
-                    st.rerun()
-        
-        elif st.session_state.aba_ativa == "busca":
-            st.subheader("🔍 Pesquisa & Relatórios por Termo")
-        
-        elif st.session_state.aba_ativa == "nlp":
-            st.subheader("🔍 Detalhamento por Categoria e Equipamentos")
-        
-        elif st.session_state.aba_ativa == "chat":
-            st.subheader("💬 Chat Inteligente com a Base Completa")
-                                
-        
-            # ==========================================
-            # NOVOS INDICADORES EXECUTIVOS (CARDS ADICIONAIS)
-            # ==========================================
-            col_ind1, col_ind2, col_ind3 = st.columns(3)
-            
-            if "STATUS" in df_filtrado_dashboard.columns:
-                status_txt = df_filtrado_dashboard["STATUS"].astype(str).str.lower()
-                concluidas_count = status_txt.str.contains("concluíd|concluid|fechad|encerrad|finalizad").sum()
-                conformidade_pct = (concluidas_count / total_os * 100) if total_os > 0 else 0.0
-                conf_str = f"{conformidade_pct:.1f}".replace(".", ",") + "%"
-                
-                backlog_count = total_os - concluidas_count
-                backlog_str = f"{backlog_count:,}".replace(",", ".")
-            else:
-                conf_str = "N/A"
-                backlog_str = "N/A"
-
-            tempo_medio_str = "N/A"
-            col_data_abertura = "ABERTO EM" if "ABERTO EM" in df_filtrado_dashboard.columns else ("DATA" if "DATA" in df_filtrado_dashboard.columns else None)
-            col_data_fechamento = "FECHADO EM" if "FECHADO EM" in df_filtrado_dashboard.columns else ("DATA FECHAMENTO" if "DATA FECHAMENTO" in df_filtrado_dashboard.columns else None)
-            
-            if col_data_abertura and col_data_fechamento:
-                try:
-                    dt_ini = pd.to_datetime(df_filtrado_dashboard[col_data_abertura], errors='coerce')
-                    dt_fim = pd.to_datetime(df_filtrado_dashboard[col_data_fechamento], errors='coerce')
-                    diff_dias = (dt_fim - dt_ini).dt.total_seconds() / 86400
-                    media_dias = diff_dias[diff_dias >= 0].mean()
-                    if not pd.isna(media_dias):
-                        tempo_medio_str = f"{media_dias:.1f} dias".replace(".", ",")
-                except Exception:
-                    pass
-
-            with col_ind1:
-                st.markdown(f"""
-                    <div class="metric-card">
-                        <h4 style="color: #6B7280; font-size: 14px; margin-bottom: 5px;">% CONFORMIDADE GERAL</h4>
-                        <h2 style="color: #2563EB; font-size: 24px; margin: 0;">{conf_str}</h2>
-                    </div>
-                """, unsafe_allow_html=True)
-            with col_ind2:
-                st.markdown(f"""
-                    <div class="metric-card">
-                        <h4 style="color: #6B7280; font-size: 14px; margin-bottom: 5px;">BACKLOG DE MANUTENÇÃO</h4>
-                        <h2 style="color: #9333EA; font-size: 24px; margin: 0;">{backlog_str} OS</h2>
-                    </div>
-                """, unsafe_allow_html=True)
-            with col_ind3:
-                st.markdown(f"""
-                    <div class="metric-card">
-                        <h4 style="color: #6B7280; font-size: 14px; margin-bottom: 5px;">TEMPO MÉDIO DE ATENDIMENTO</h4>
-                        <h2 style="color: #0D9488; font-size: 24px; margin: 0;">{tempo_medio_str}</h2>
-                    </div>
-                """, unsafe_allow_html=True)
-
-            st.markdown("<br>", unsafe_allow_html=True)
-
-            # 2. Gráficos: OS Abertas x Concluídas & Categoria NLP
-            col_g1, col_g2 = st.columns(2)
-            
-            with col_g1:
-                st.markdown("### 🔄 OS Abertas x Concluídas")
-                if "STATUS" in df_filtrado_dashboard.columns:
-                    s_low = df_filtrado_dashboard["STATUS"].astype(str).str.lower()
-                    cond_conc = s_low.str.contains("concluíd|concluid|fechad|encerrad|finalizad")
-                    df_filtrado_dashboard["STATUS_AGRUPADO"] = "Concluídas / Fechadas"
-                    df_filtrado_dashboard.loc[~cond_conc, "STATUS_AGRUPADO"] = "Pendentes / Abertas"
-                    
-                    df_status_comp = df_filtrado_dashboard["STATUS_AGRUPADO"].value_counts().reset_index()
-                    df_status_comp.columns = ["Status", "Quantidade"]
-                    df_status_comp["Texto_Fmt"] = df_status_comp["Quantidade"].apply(lambda x: f"{x:,}".replace(",", "."))
-                    
-                    fig_abertas_conc = px.bar(df_status_comp, x="Status", y="Quantidade", text="Texto_Fmt", color="Status", color_discrete_sequence=["#059669", "#DC2626"])
-                    fig_abertas_conc.update_layout(margin=dict(t=10, b=10, l=10, r=10), height=350, showlegend=False, separators=',.')
-                    st.plotly_chart(fig_abertas_conc, use_container_width=True)
-                else:
-                    st.info("Coluna de status não disponível para comparação.")
-
-            with col_g2:
-                st.markdown("### 🏷️ Pendências por Categoria (NLP)")
-                if "CATEGORIA_NLP" in df_filtrado_dashboard.columns:
-                    df_cat = df_filtrado_dashboard["CATEGORIA_NLP"].value_counts().reset_index()
-                    df_cat.columns = ["Categoria", "Quantidade"]
-                    df_cat["Texto_Fmt"] = df_cat["Quantidade"].apply(lambda x: f"{x:,}".replace(",", "."))
-                    
-                    fig_cat = px.bar(df_cat, x="Quantidade", y="Categoria", orientation="h", text="Texto_Fmt", color="Quantidade", color_continuous_scale="Tealgrn")
-                    fig_cat.update_layout(margin=dict(t=10, b=10, l=10, r=10), height=350, yaxis={'categoryorder':'total ascending'}, separators=',.')
-                    st.plotly_chart(fig_cat, use_container_width=True)
-                else:
-                    st.info("Dado de categoria NLP não disponível.")
+                serie_tabela = extrair_dados_tabela_markdown(st.session_state.relatorio_gerado)
+                if serie_tabela is not None and not serie_tabela.empty:
+                    st.markdown("#### 📊 Gráfico extraído do Relatório")
+                    fig_rel = px.bar(x=serie_tabela.index, y=serie_tabela.values, labels={'x': 'Área/Problema', 'y': 'Frequência'})
+                    fig_rel.update_layout(separators=',.')
+                    st.plotly_chart(fig_rel, use_container_width=True)
 
             st.markdown("---")
+            st.markdown("#### 📋 Listagem das OS Encontradas")
+            cols_exibir = [c for c in ["CÓDIGO", "ABERTO EM", "STATUS", "SETOR", "MÁQUINA", "CATEGORIA_NLP", coluna_comentario] if c in df_resultado.columns]
+            st.dataframe(df_resultado[cols_exibir], use_container_width=True)
+        else:
+            st.warning("Nenhuma Ordem de Serviço encontrada com o termo informado.")
 
-            # 3. Gráficos: Linha Temporal & Pendências por Setor
-            col_g3, col_g4 = st.columns(2)
+elif st.session_state.aba_ativa == "nlp":
+    st.subheader("🔍 Detalhamento por Categoria e Equipamentos")
+
+    if "CATEGORIA_NLP" in df.columns:
+        categorias_disponiveis = ["-- Selecione uma categoria --", "Todas"] + sorted(df["CATEGORIA_NLP"].dropna().unique())
+        
+        cat_selecionada = st.selectbox(
+            "Selecione uma Categoria para abrir e ver os itens:", 
+            options=categorias_disponiveis, 
+            index=0
+        )
+        
+        if cat_selecionada and cat_selecionada != "-- Selecione uma categoria --":
+            if cat_selecionada == "Todas":
+                df_cat = df.copy()
+                st.write(f"Exibindo registros de **Todas** as categorias: **{len(df_cat):,}**")
+            else:
+                df_cat = df[df["CATEGORIA_NLP"] == cat_selecionada]
+                st.write(f"Total de registros na categoria **{cat_selecionada}**: **{len(df_cat):,}**")
             
-            with col_g3:
-                st.markdown("### 📈 Evolução de Ocorrências ao Longo do Tempo (Linhas)")
-                col_data = "ABERTO EM" if "ABERTO EM" in df_filtrado_dashboard.columns else ("DATA" if "DATA" in df_filtrado_dashboard.columns else None)
-                if col_data:
-                    try:
-                        df_temp = df_filtrado_dashboard.copy()
-                        df_temp["DATA_FORMATADA"] = pd.to_datetime(df_temp[col_data], errors='coerce').dt.to_period("M").astype(str)
-                        df_line = df_temp["DATA_FORMATADA"].value_counts().sort_index().reset_index()
-                        df_line.columns = ["Mês/Ano", "Total OS"]
-                        fig_line = px.line(df_line, x="Mês/Ano", y="Total OS", markers=True, line_shape="linear")
-                        fig_line.update_layout(margin=dict(t=10, b=10, l=10, r=10), height=350, separators=',.')
-                        st.plotly_chart(fig_line, use_container_width=True)
-                    except Exception:
-                        st.info("Formato de data inválido para montagem do gráfico temporal.")
-                else:
-                    st.info("Coluna de data não encontrada na base.")
-
-            with col_g4:
-                st.markdown("### 🏢 Pendências por Setor / Máquinas")
-                col_setor = "SETOR" if "SETOR" in df_filtrado_dashboard.columns else ("MÁQUINA" if "MÁQUINA" in df_filtrado_dashboard.columns else None)
-                if col_setor:
-                    df_setor = df_filtrado_dashboard[col_setor].value_counts().head(10).reset_index()
-                    df_setor.columns = ["Setor/Máquina", "Quantidade"]
-                    df_setor["Texto_Fmt"] = df_setor["Quantidade"].apply(lambda x: f"{x:,}".replace(",", "."))
-                    
-                    fig_horiz = px.bar(df_setor, y="Setor/Máquina", x="Quantidade", orientation="h", text="Texto_Fmt", color="Quantidade", color_continuous_scale="Blues")
-                    fig_horiz.update_layout(margin=dict(t=10, b=10, l=10, r=10), height=350, yaxis={'categoryorder':'total ascending'}, separators=',.')
-                    st.plotly_chart(fig_horiz, use_container_width=True)
-                else:
-                    st.info("Coluna de Setor ou Máquina não encontrada.")
-
-        # ==========================================
-        # ABA 2: PESQUISA & RELATÓRIOS POR TERMO
-        # ==========================================
-        with aba_busca:
-            st.subheader("🔍 Pesquisa Textual & Geração de Relatórios por IA")
+            col_maq = None
+            for c in ["MÁQUINAS", "MAQUINAS", "MÁQUINA", "MAQUINA"]:
+                if c in df.columns:
+                    col_maq = c
+                    break
             
-            col_search, col_btn = st.columns([4, 1])
-            with col_search:
-                termo = st.text_input("Digite um termo para pesquisar nas observações (ex: ar condicionado, vazamento, bomba):", value=st.session_state.termo_pesquisa)
-            with col_btn:
-                st.write("")
-                st.write("")
-                if st.button("🔎 Buscar"):
-                    st.session_state.termo_pesquisa = termo
-                    limpar_pesquisa()
-
-            if st.session_state.termo_pesquisa:
-                termo_busca = st.session_state.termo_pesquisa.lower().strip()
-                df_resultado = df[df["TEXTO_BUSCA"].str.contains(termo_busca, na=False)]
+            if col_maq:
+                st.markdown(f"##### ⚙️ Equipamentos / Ativos relacionados (Coluna: `{col_maq}`)")
                 
-                st.markdown(f"**Registros encontrados:** {len(df_resultado):,} de {len(df):,}".replace(",", "."))
+                df_ranking_maq = df_cat[col_maq].value_counts().reset_index()
+                df_ranking_maq.columns = ["Equipamento / Máquina", "Quantidade"]
                 
-                if len(df_resultado) > 0:
-                    col_r1, col_r2 = st.columns([1, 2])
-                    
-                    with col_r1:
-                        st.markdown("#### 📄 Ações com a Seleção")
-                        if st.button("🤖 Gerar Relatório Executivo com IA"):
-                            with st.spinner("Analisando dados e gerando relatório executivo via Groq..."):
-                                relatorio = gerar_relatorio_ia(termo_busca, df_resultado[coluna_comentario].tolist(), groq_api_key_input)
-                                st.session_state.relatorio_gerado = relatorio
-                                st.session_state.termo_relatorio = termo_busca
-
-                    if "relatorio_gerado" in st.session_state and st.session_state.get("termo_relatorio") == termo_busca:
-                        st.markdown("---")
-                        st.markdown(f"### 📋 Relatório IA para '{termo_busca.upper()}'")
-                        st.markdown(st.session_state.relatorio_gerado)
-                        
-                        serie_tabela = extrair_dados_tabela_markdown(st.session_state.relatorio_gerado)
-                        if serie_tabela is not None and not serie_tabela.empty:
-                            st.markdown("#### 📊 Gráfico extraído do Relatório")
-                            fig_rel = px.bar(x=serie_tabela.index, y=serie_tabela.values, labels={'x': 'Área/Problema', 'y': 'Frequência'})
-                            fig_rel.update_layout(separators=',.')
-                            st.plotly_chart(fig_rel, use_container_width=True)
-
-                    st.markdown("---")
-                    st.markdown("#### 📋 Listagem das OS Encontradas")
-                    cols_exibir = [c for c in ["CÓDIGO", "ABERTO EM", "STATUS", "SETOR", "MÁQUINA", "CATEGORIA_NLP", coluna_comentario] if c in df_resultado.columns]
-                    st.dataframe(df_resultado[cols_exibir], use_container_width=True)
-                else:
-                    st.warning("Nenhuma Ordem de Serviço encontrada com o termo informado.")
-        # ==========================================
-        # ABA 3: CLASSIFICAÇÃO AUTOMÁTICA (NLP)
-        # ==========================================
-        with aba_nlp:
-            st.subheader("🔍 Detalhamento por Categoria e Equipamentos")
-
-            if "CATEGORIA_NLP" in df.columns:
-                # Adiciona "-- Selecione uma categoria --", "Todas" e as categorias ordenadas
-                categorias_disponiveis = ["-- Selecione uma categoria --", "Todas"] + sorted(df["CATEGORIA_NLP"].dropna().unique())
-                
-                cat_selecionada = st.selectbox(
-                    "Selecione uma Categoria para abrir e ver os itens:", 
-                    options=categorias_disponiveis, 
-                    index=0
+                evento_tabela = st.dataframe(
+                    df_ranking_maq, 
+                    use_container_width=True, 
+                    hide_index=True,
+                    selection_mode="single-row",
+                    on_select="rerun",
+                    key=f"tabela_ranking_{cat_selecionada}"
                 )
                 
-                # Verifica se o usuário escolheu uma opção válida (diferente da mensagem inicial)
-                if cat_selecionada and cat_selecionada != "-- Selecione uma categoria --":
+                linhas_selecionadas = evento_tabela.get("selection", {}).get("rows", [])
+                
+                maquina_via_tabela = None
+                if linhas_selecionadas:
+                    idx_linha = linhas_selecionadas[0]
+                    maquina_via_tabela = str(df_ranking_maq.iloc[idx_linha]["Equipamento / Máquina"])
+
+                st.markdown("---")
+                st.markdown("#### 📋 Ordens de Serviço Específicas por Máquina/Equipamento")
+                
+                lista_maquinas_cat = ["-- Selecione uma Máquina/Equipamento --"] + sorted(df_cat[col_maq].dropna().unique().astype(str))
+                
+                index_inicial = 0
+                if maquina_via_tabela and maquina_via_tabela in lista_maquinas_cat:
+                    index_inicial = lista_maquinas_cat.index(maquina_via_tabela)
+
+                maquina_selecionada = st.selectbox(
+                    "Selecione uma Máquina/Equipamento para ver as Ordens de Serviço detalhadas:", 
+                    lista_maquinas_cat,
+                    index=index_inicial,
+                    key=f"select_maq_{cat_selecionada}"
+                )
+                
+                maquina_ativa = maquina_via_tabela if maquina_via_tabela else maquina_selecionada
+
+                if maquina_ativa and maquina_ativa != "-- Selecione uma Máquina/Equipamento --":
+                    df_os_maquina = df_cat[df_cat[col_maq].astype(str) == maquina_ativa]
                     
-                    # Se for "Todas", o dataframe utilizado é o df completo; caso contrário, filtra pela categoria
-                    if cat_selecionada == "Todas":
-                        df_cat = df.copy()
-                        st.write(f"Exibindo registros de **Todas** as categorias: **{len(df_cat):,}**")
-                    else:
-                        df_cat = df[df["CATEGORIA_NLP"] == cat_selecionada]
-                        st.write(f"Total de registros na categoria **{cat_selecionada}**: **{len(df_cat):,}**")
+                    st.info(f"Exibindo **{len(df_os_maquina)}** Ordem(ns) de Serviço para o equipamento: **{maquina_ativa}**")
                     
-                    col_maq = None
-                    for c in ["MÁQUINAS", "MAQUINAS", "MÁQUINA", "MAQUINA"]:
+                    col_exec_prevista = None
+                    for c in ["EXEC. PREVISTA", "EXEC_PREVISTA", "DATA EXEC PREVISTA", "PREVISÃO", "PREVISAO"]:
                         if c in df.columns:
-                            col_maq = c
+                            col_exec_prevista = c
                             break
                     
-                    if col_maq:
-                        st.markdown(f"##### ⚙️ Equipamentos / Ativos relacionados (Coluna: `{col_maq}`)")
-                        
-                        df_ranking_maq = df_cat[col_maq].value_counts().reset_index()
-                        df_ranking_maq.columns = ["Equipamento / Máquina", "Quantidade"]
-                        
-                        # Tabela interativa com seleção por clique
-                        evento_tabela = st.dataframe(
-                            df_ranking_maq, 
-                            use_container_width=True, 
-                            hide_index=True,
-                            selection_mode="single-row",
-                            on_select="rerun",
-                            key=f"tabela_ranking_{cat_selecionada}"
-                        )
-                        
-                        # Descobre se o usuário clicou em alguma linha da tabela
-                        linhas_selecionadas = evento_tabela.get("selection", {}).get("rows", [])
-                        
-                        maquina_via_tabela = None
-                        if linhas_selecionadas:
-                            idx_linha = linhas_selecionadas[0]
-                            maquina_via_tabela = str(df_ranking_maq.iloc[idx_linha]["Equipamento / Máquina"])
+                    candidatos_cols = ["CÓDIGO", "ABERTO EM", col_exec_prevista, "STATUS", "SETOR", col_maq, coluna_comentario, "CUSTO COM MATERIAIS"]
+                    cols_mostrar = [c for c in candidatos_cols if c and c in df_os_maquina.columns]
+                    
+                    st.dataframe(df_os_maquina[cols_mostrar], use_container_width=True, hide_index=True)
+                else:
+                    st.info("👈 Clique em uma linha na tabela acima ou selecione um equipamento no menu para carregar as Ordens de Serviço específicas.")
 
-                        st.markdown("---")
-                        st.markdown("#### 📋 Ordens de Serviço Específicas por Máquina/Equipamento")
-                        
-                        lista_maquinas_cat = ["-- Selecione uma Máquina/Equipamento --"] + sorted(df_cat[col_maq].dropna().unique().astype(str))
-                        
-                        index_inicial = 0
-                        if maquina_via_tabela and maquina_via_tabela in lista_maquinas_cat:
-                            index_inicial = lista_maquinas_cat.index(maquina_via_tabela)
+elif st.session_state.aba_ativa == "chat":
+    st.subheader("💬 Chat Inteligente sobre a Base de Dados")
+    st.write("Faça perguntas diretas em linguagem natural sobre qualquer informação da planilha.")
+    
+    for msg in st.session_state.mensagens_chat:
+        with st.chat_message(msg["role"]):
+            st.write(msg["content"])
 
-                        maquina_selecionada = st.selectbox(
-                            "Selecione uma Máquina/Equipamento para ver as Ordens de Serviço detalhadas:", 
-                            lista_maquinas_cat,
-                            index=index_inicial,
-                            key=f"select_maq_{cat_selecionada}"
-                        )
-                        
-                        maquina_ativa = maquina_via_tabela if maquina_via_tabela else maquina_selecionada
-
-                        if maquina_ativa and maquina_ativa != "-- Selecione uma Máquina/Equipamento --":
-                            df_os_maquina = df_cat[df_cat[col_maq].astype(str) == maquina_ativa]
-                            
-                            st.info(f"Exibindo **{len(df_os_maquina)}** Ordem(ns) de Serviço para o equipamento: **{maquina_ativa}**")
-                            
-                            # Identifica variações comuns para a coluna de data de execução prevista
-                            col_exec_prevista = None
-                            for c in ["EXEC. PREVISTA", "EXEC_PREVISTA", "DATA EXEC PREVISTA", "PREVISÃO", "PREVISAO"]:
-                                if c in df.columns:
-                                    col_exec_prevista = c
-                                    break
-                            
-                            # Constrói a lista dinamicamente garantindo que a coluna de execução prevista seja incluída
-                            candidatos_cols = ["CÓDIGO", "ABERTO EM", col_exec_prevista, "STATUS", "SETOR", col_maq, coluna_comentario, "CUSTO COM MATERIAIS"]
-                            cols_mostrar = [c for c in candidatos_cols if c and c in df_os_maquina.columns]
-                            
-                            st.dataframe(df_os_maquina[cols_mostrar], use_container_width=True, hide_index=True)
-                        else:
-                            st.info("👈 Clique em uma linha na tabela acima ou selecione um equipamento no menu para carregar as Ordens de Serviço específicas.")
-        # ==========================================
-        # ABA 4: CHAT INTELIGENTE COM A BASE COMPLETA
-        # ==========================================
-        with aba_chat:
-            st.subheader("💬 Chat Inteligente sobre a Base de Dados")
-            st.write("Faça perguntas diretas em linguagem natural sobre qualquer informação da planilha.")
-            
-            for msg in st.session_state.mensagens_chat:
-                with st.chat_message(msg["role"]):
-                    st.write(msg["content"])
-
-            pergunta = st.chat_input("Ex: Qual o setor com mais chamados abertos? Quantos vazamentos tivemos?")
-            
-            if pergunta:
-                st.session_state.mensagens_chat.append({"role": "user", "content": pergunta})
-                with st.chat_message("user"):
-                    st.write(pergunta)
-                
-                with st.chat_message("assistant"):
-                    with st.spinner("Consultando dados da planilha via Groq..."):
-                        resposta = responder_pergunta_livre_com_todo_arquivo(pergunta, df, groq_api_key_input)
-                        st.write(resposta)
-                        st.session_state.mensagens_chat.append({"role": "assistant", "content": resposta})
+    pergunta = st.chat_input("Ex: Qual o setor com mais chamados abertos? Quantos vazamentos tivemos?")
+    
+    if pergunta:
+        st.session_state.mensagens_chat.append({"role": "user", "content": pergunta})
+        with st.chat_message("user"):
+            st.write(pergunta)
+        
+        with st.chat_message("assistant"):
+            with st.spinner("Consultando dados da planilha via Groq..."):
+                resposta = responder_pergunta_livre_com_todo_arquivo(pergunta, df, groq_api_key_input)
+                st.write(resposta)
+                st.session_state.mensagens_chat.append({"role": "assistant", "content": resposta})
