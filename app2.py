@@ -45,7 +45,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ==========================================
-# SISTEMA DE LOGIN MÚLTIPLO VIA SECRETS
+# SISTEMA DE LOGIN MÚLTIPLO (CAIXA REDUZIDA)
 # ==========================================
 def verificar_autenticacao():
     if "autenticado" not in st.session_state:
@@ -53,30 +53,34 @@ def verificar_autenticacao():
         st.session_state.usuario_atual = ""
 
     if not st.session_state.autenticado:
-        st.markdown("## 🔐 Autenticação Necessária")
-        st.markdown("Por favor, faça o login para acessar o painel de manutenção.")
+        # Cria colunas para centralizar e limitar a largura da caixa de login
+        col_esq, col_centro, col_dir = st.columns([1, 1.2, 1])
         
-        with st.form("form_login"):
-            usuario_input = st.text_input("Usuário").strip()
-            senha_input = st.text_input("Senha", type="password")
-            submit = st.form_submit_button("Entrar")
+        with col_centro:
+            st.markdown("## 🔐 Autenticação")
+            st.markdown("Insira suas credenciais para acessar o painel.")
             
-            if submit:
-                usuarios_cadastrados = {}
-                try:
-                    if hasattr(st, "secrets") and "USUARIOS" in st.secrets:
-                        # Converte os segredos para um dicionário Python padrão
-                        usuarios_cadastrados = dict(st.secrets["USUARIOS"])
-                except Exception:
-                    pass
+            with st.form("form_login"):
+                usuario_input = st.text_input("Usuário").strip()
+                senha_input = st.text_input("Senha", type="password")
+                # use_container_width=True faz o botão ocupar a largura da caixa menor
+                submit = st.form_submit_button("Entrar", use_container_width=True)
                 
-                # Valida se o usuário existe e se a senha está correta
-                if usuario_input in usuarios_cadastrados and senha_input == usuarios_cadastrados[usuario_input]:
-                    st.session_state.autenticado = True
-                    st.session_state.usuario_atual = usuario_input
-                    st.rerun()
-                else:
-                    st.error("❌ Usuário ou senha incorretos.")
+                if submit:
+                    usuarios_cadastrados = {}
+                    try:
+                        if hasattr(st, "secrets") and "SENHA_APP" in st.secrets:
+                            usuarios_cadastrados = dict(st.secrets["SENHA_APP"])
+                    except Exception:
+                        pass
+                    
+                    # Valida se o usuário existe e se a senha está correta
+                    if usuario_input in usuarios_cadastrados and senha_input == usuarios_cadastrados[usuario_input]:
+                        st.session_state.autenticado = True
+                        st.session_state.usuario_atual = usuario_input
+                        st.rerun()
+                    else:
+                        st.error("❌ Usuário ou senha incorretos.")
         return False
     return True
 
