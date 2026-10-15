@@ -19,9 +19,10 @@ st.set_page_config(
     layout="wide"
 )
 
-# Estilização CSS personalizada para um dashboard executivo moderno
+# Estilização CSS personalizada para um dashboard executivo moderno, barra lateral e responsividade mobile
 st.markdown("""
     <style>
+    /* Estilos do Dashboard Executivo */
     .main-header {
         font-size: 2.2rem;
         color: #1E3A8A;
@@ -40,6 +41,56 @@ st.markdown("""
         border-radius: 10px;
         box-shadow: 0 1px 3px rgba(0,0,0,0.05);
         text-align: center;
+    }
+
+    /* Ajuste da barra lateral para ocupar 100vh sem rolagem excessiva */
+    [data-testid="stSidebar"] > div:first-child {
+        height: 100vh;
+        padding-top: 1rem;
+        padding-bottom: 1rem;
+        display: flex;
+        flex-direction: column;
+        justify-content: flex-start;
+    }
+    
+    [data-testid="stSidebar"] [data-testid="stVerticalBlock"] {
+        gap: 0.5rem;
+    }
+
+    /* Responsividade para celulares e telas menores */
+    @media (max-width: 768px) {
+        .main-header {
+            font-size: 1.5rem !important;
+        }
+        .sub-header {
+            font-size: 1rem !important;
+            margin-bottom: 10px;
+        }
+        h1 {
+            font-size: 1.5rem !important;
+        }
+        h2 {
+            font-size: 1.25rem !important;
+        }
+        h3 {
+            font-size: 1.1rem !important;
+        }
+        
+        /* Empilha as colunas verticalmente no mobile */
+        [data-testid="stHorizontalBlock"] {
+            flex-direction: column !important;
+        }
+        
+        /* Ocupa a largura total em inputs e seletores */
+        .stSelectbox, .stTextInput, .stFileUploader {
+            width: 100% !important;
+        }
+
+        /* Garante rolagem horizontal fluida nas tabelas em telas estreitas */
+        .stDataFrame {
+            width: 100% !important;
+            overflow-x: auto !important;
+        }
     }
     </style>
 """, unsafe_allow_html=True)
