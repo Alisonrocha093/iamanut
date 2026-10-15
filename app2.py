@@ -19,7 +19,6 @@ st.set_page_config(
     layout="wide"
 )
 
-# Estilização CSS personalizada para um dashboard executivo moderno, barra lateral e responsividade mobile
 st.markdown("""
     <style>
     /* Estilos do Dashboard Executivo */
@@ -43,18 +42,25 @@ st.markdown("""
         text-align: center;
     }
 
-    /* Ajuste da barra lateral para ocupar 100vh sem rolagem excessiva */
+    /* --- AJUSTES DA BARRA LATERAL (SEM ESPAÇOS EXCEDENTES) --- */
     [data-testid="stSidebar"] > div:first-child {
         height: 100vh;
-        padding-top: 1rem;
-        padding-bottom: 1rem;
+        padding-top: 0.5rem;
+        padding-bottom: 0.5rem;
         display: flex;
         flex-direction: column;
         justify-content: flex-start;
     }
     
+    /* Reduz o espaço padrão entre os componentes da barra lateral */
     [data-testid="stSidebar"] [data-testid="stVerticalBlock"] {
-        gap: 0.5rem;
+        gap: 0.2rem !important;
+    }
+
+    /* Reduz o espaçamento gerado pelas linhas divisórias (st.markdown("---")) */
+    [data-testid="stSidebar"] hr {
+        margin-top: 0.4rem !important;
+        margin-bottom: 0.4rem !important;
     }
 
     /* Responsividade para celulares e telas menores */
@@ -76,17 +82,14 @@ st.markdown("""
             font-size: 1.1rem !important;
         }
         
-        /* Empilha as colunas verticalmente no mobile */
         [data-testid="stHorizontalBlock"] {
             flex-direction: column !important;
         }
         
-        /* Ocupa a largura total em inputs e seletores */
         .stSelectbox, .stTextInput, .stFileUploader {
             width: 100% !important;
         }
 
-        /* Garante rolagem horizontal fluida nas tabelas em telas estreitas */
         .stDataFrame {
             width: 100% !important;
             overflow-x: auto !important;
@@ -94,7 +97,6 @@ st.markdown("""
     }
     </style>
 """, unsafe_allow_html=True)
-
 # ==========================================
 # SISTEMA DE LOGIN MÚLTIPLO (CAIXA REDUZIDA)
 # ==========================================
