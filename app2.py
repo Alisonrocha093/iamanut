@@ -643,6 +643,7 @@ st.sidebar.subheader("📂 Seleção de Unidade")
 
 # Lista de unidades disponíveis
 lista_unidades = [
+    " ",
     "SENAC CENTRO", 
     "SENAC ALECRIM", 
     "SENAC ZONA NORTE", 
