@@ -779,7 +779,7 @@ if df is not None:
 
         st.markdown("---")
         
-            # ==========================================
+       # ==========================================
 # NAVEGAÇÃO POR BOTÕES (SUBSTITUINDO AS ABAS)
 # ==========================================
 
@@ -926,8 +926,8 @@ elif st.session_state.aba_ativa == "nlp":
 elif st.session_state.aba_ativa == "chat":
     # Conteúdo da aba de Chat Inteligente
     st.subheader("💬 Chat Inteligente com a Base Completa")
-    # (Insira aqui o código do chat)
-
+    # (Insira aqui o código do chat)     
+        
             # ==========================================
             # NOVOS INDICADORES EXECUTIVOS (CARDS ADICIONAIS)
             # ==========================================
