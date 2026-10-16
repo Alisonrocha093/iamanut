@@ -1293,8 +1293,8 @@ elif st.session_state.aba_ativa == "busca":
             st.markdown("#### 📋 Listagem das OS Encontradas")
             cols_exibir = [c for c in ["CÓDIGO", "ABERTO EM", "STATUS", "SETOR", "MÁQUINA", "CATEGORIA_NLP", coluna_comentario] if c in df_resultado.columns]
             st.dataframe(df_resultado[cols_exibir], use_container_width=True)
-        else:
-            st.warning("Nenhuma Ordem de Serviço encontrada com o termo informado.")
+       # else:
+         #   st.warning("Nenhuma Ordem de Serviço encontrada com o termo informado.")
 
 elif st.session_state.aba_ativa == "nlp":
     st.subheader("🔍 Detalhamento por Categoria e Equipamentos")
