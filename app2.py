@@ -480,7 +480,7 @@ def obter_modelo_ativo(client, api_key: str) -> str:
         pass
     return "llama-3.1-8b-instant"
 
-def gerar_relatorio_ia(termo: str, lista_observacoes: list, api_key: str) -> str:
+def gerar_relatorio_ia(termo: str, df_filtrado: pd.DataFrame, api_key: str) -> str:
     if not api_key:
         return "⚠️ Chave da Groq não configurada! Insira sua chave na barra lateral."
     try:
@@ -490,21 +490,50 @@ def gerar_relatorio_ia(termo: str, lista_observacoes: list, api_key: str) -> str
 
     modelo_ativo = obter_modelo_ativo(client, api_key)
     
-    df_obs = pd.DataFrame({"obs": [str(o).strip().lower() for o in lista_observacoes]})
+    # Identifica corretamente a coluna de observação/descrição do problema
+    col_obs = "OBSERVAÇÃO ABERTURA" if "OBSERVAÇÃO ABERTURA" in df_filtrado.columns else df_filtrado.columns[0]
+    
+    # Identifica a coluna de máquina para contexto
+    col_maq = None
+    for c in df_filtrado.columns:
+        if c in ["MÁQUINAS", "MAQUINAS", "MÁQUINA", "MAQUINA", "EQUIPAMENTO"]:
+            col_maq = c
+            break
+
+    # Extrai os textos reais das observações (removendo vazios ou valores "N/A")
+    observacoes_reais = df_filtrado[col_obs].dropna().astype(str).str.strip()
+    observacoes_reais = observacoes_reais[observacoes_reais.str.lower() != "n/a"]
+    
+    if len(observacoes_reais) == 0:
+        # Fallback caso a observação esteja vazia, usa o texto de busca geral
+        observacoes_reais = df_filtrado["TEXTO_BUSCA"].dropna().astype(str).str.strip()
+
+    df_obs = pd.DataFrame({"obs": observacoes_reais.str.lower()})
+    
+    if col_maq:
+        df_obs["maquina"] = df_filtrado[col_maq].astype(str).str.strip().str.upper()
+    else:
+        df_obs["maquina"] = "N/A"
+
+    # Conta as falhas mais frequentes baseadas no texto real das observações
     top_falhas = df_obs["obs"].value_counts().head(15).reset_index()
     top_falhas.columns = ["Descricao_Falha", "Frequencia"]
     
     ranking_texto = "\n".join([f"- {row['Descricao_Falha']} (Ocorrências: {row['Frequencia']})" for _, row in top_falhas.iterrows()])
+    top_maquinas = df_obs["maquina"].value_counts().head(10).to_dict() if col_maq else "Não aplicável"
 
     prompt = f"""Você é um especialista em manutenção de Ordens de Serviço (OS).
-Foram encontrados {len(lista_observacoes)} registros no total para o termo '{termo.upper()}'. 
-Abaixo está o ranking real das descrições de falhas mais repetidas na coluna de observação:
+Foram encontrados {len(df_filtrado)} registros no total para a pesquisa/máquina '{termo.upper()}'. 
+As principais máquinas/equipamentos envolvidos nestes registros são: {top_maquinas}
+
+Abaixo está o ranking real dos relatos e descrições de ocorrências registrados nas observações das OS:
 {ranking_texto}
 
 Escreva um relatório executivo detalhado em português contendo:
 1. Resumo dos Principais Problemas Relatados (Inclua obrigatoriamente uma tabela em Markdown com colunas 'Descrição da Falha / Problema' e 'Frequência')
-2. Padrões ou Causas Recorrentes baseados nas repetições reais
-3. Recomendações e Ações Preventivas direcionadas a esses problemas"""
+2. Análise específica das Máquinas/Equipamentos mais afetados por esses chamados
+3. Padrões ou Causas Recorrentes baseados nos relatos reais
+4. Recomendações e Ações Preventivas direcionadas a esses equipamentos e problemas"""
 
     try:
         response = client.chat.completions.create(
@@ -516,7 +545,6 @@ Escreva um relatório executivo detalhado em português contendo:
         return response.choices[0].message.content
     except Exception as e:
         return f"❌ Erro ao gerar relatório com a IA: {e}"
-
 def responder_pergunta_livre_com_todo_arquivo(pergunta_usuario: str, df: pd.DataFrame, api_key: str) -> str:
     if not api_key:
         return "⚠️ Chave da Groq não configurada! Insira sua chave na barra lateral."
