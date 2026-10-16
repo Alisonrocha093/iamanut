@@ -918,7 +918,7 @@ if st.session_state.aba_ativa == "dash":
             st.session_state.filtro_kpi_ativo = "geral"
             st.rerun()
 
-    # ==========================================
+   # ==========================================
     # NOVOS INDICADORES EXECUTIVOS (CARDS ADICIONAIS)
     # ==========================================
     col_ind1, col_ind2, col_ind3 = st.columns(3)
@@ -974,7 +974,46 @@ if st.session_state.aba_ativa == "dash":
 
     st.markdown("<br>", unsafe_allow_html=True)
 
+    # ==========================================
+    # 1. EVOLUÇÃO TEMPORAL EMPILHADA (Abertas, Pendentes, Programadas, Finalizadas)
+    # ==========================================
+    st.markdown("### 📊 Evolução Temporal das OS por Status (Finalizadas, Pendentes, Programadas)")
+    if col_data and "STATUS" in df_filtrado_dashboard.columns:
+        df_evolucao = df_filtrado_dashboard.copy()
+        df_evolucao["MES_ANO"] = pd.to_datetime(df_evolucao[col_data], errors='coerce').dt.to_period("M").astype(str)
+        
+        # Categorização detalhada para o gráfico de barras
+        def categorizar_status_detalhado(val):
+            v = str(val).lower()
+            if any(term in v for term in ["concluíd", "concluid", "fechad", "encerrad", "finalizad"]):
+                return "Finalizadas"
+            elif any(term in v for term in ["program", "planejad"]):
+                return "Programadas"
+            else:
+                return "Pendentes / Abertas"
+                
+        df_evolucao["STATUS_DETALHE"] = df_evolucao["STATUS"].apply(categorizar_status_detalhado)
+        df_group_evol = df_evolucao.groupby(["MES_ANO", "STATUS_DETALHE"]).size().reset_index(name="Quantidade")
+        
+        fig_evolucao_bar = px.bar(
+            df_group_evol, 
+            x="MES_ANO", 
+            y="Quantidade", 
+            color="STATUS_DETALHE", 
+            text="Quantidade",
+            barmode="stack",
+            color_discrete_map={"Finalizadas": "#059669", "Programadas": "#2563EB", "Pendentes / Abertas": "#DC2626"}
+        )
+        fig_evolucao_bar.update_layout(margin=dict(t=10, b=10, l=10, r=10), height=380, separators=',.', legend_title="Status das OS")
+        st.plotly_chart(fig_evolucao_bar, use_container_width=True)
+    else:
+        st.info("Colunas de data ou status indisponíveis para gerar a evolução temporal detalhada.")
+
+    st.markdown("---")
+
+    # ==========================================
     # 2. Gráficos: OS Abertas x Concluídas & Categoria NLP
+    # ==========================================
     col_g1, col_g2 = st.columns(2)
     
     with col_g1:
@@ -1010,12 +1049,13 @@ if st.session_state.aba_ativa == "dash":
 
     st.markdown("---")
 
-    # 3. Gráficos: Linha Temporal & Pendências por Setor
+    # ==========================================
+    # 3. Gráficos: Linha Temporal & Pendências por Setor (Com Diagrama de Pareto Interativo)
+    # ==========================================
     col_g3, col_g4 = st.columns(2)
     
     with col_g3:
         st.markdown("### 📈 Evolução de Ocorrências ao Longo do Tempo (Linhas)")
-        col_data = "ABERTO EM" if "ABERTO EM" in df_filtrado_dashboard.columns else ("DATA" if "DATA" in df_filtrado_dashboard.columns else None)
         if col_data:
             try:
                 df_temp = df_filtrado_dashboard.copy()
@@ -1031,7 +1071,7 @@ if st.session_state.aba_ativa == "dash":
             st.info("Coluna de data não encontrada na base.")
 
     with col_g4:
-        st.markdown("### 🏢 Pendências por Setor / Máquinas")
+        st.markdown("### 🏢 Pendências por Setor / Máquinas (Clique para Pareto)")
         col_setor = "SETOR" if "SETOR" in df_filtrado_dashboard.columns else ("MÁQUINA" if "MÁQUINA" in df_filtrado_dashboard.columns else None)
         if col_setor:
             df_setor = df_filtrado_dashboard[col_setor].value_counts().head(10).reset_index()
@@ -1040,160 +1080,55 @@ if st.session_state.aba_ativa == "dash":
             
             fig_horiz = px.bar(df_setor, y="Setor/Máquina", x="Quantidade", orientation="h", text="Texto_Fmt", color="Quantidade", color_continuous_scale="Blues")
             fig_horiz.update_layout(margin=dict(t=10, b=10, l=10, r=10), height=350, yaxis={'categoryorder':'total ascending'}, separators=',.')
-            st.plotly_chart(fig_horiz, use_container_width=True)
+            
+            # Usando st.plotly_chart com seleção habilitada para interatividade
+            evento_grafico = st.plotly_chart(fig_horiz, use_container_width=True, on_select="rerun", key="pareto_trigger_chart")
+            
+            # Captura de clique para exibir o Diagrama de Pareto de Falhas por Máquina/Edificação
+            ponto_selecionado = None
+            try:
+                selection_points = evento_grafico.get("selection", {}).get("points", [])
+                if selection_points:
+                    ponto_selecionado = selection_points[0].get("y")
+            except Exception:
+                pass
+
+            if ponto_selecionado:
+                st.session_state["maquina_pareto_ativa"] = ponto_selecionado
+
         else:
             st.info("Coluna de Setor ou Máquina não encontrada.")
 
-elif st.session_state.aba_ativa == "busca":
-    st.subheader("🔍 Pesquisa Textual & Geração de Relatórios por IA")
-    
-    col_search, col_btn = st.columns([4, 1])
-    with col_search:
-        termo = st.text_input("Digite um termo para pesquisar nas observações (ex: ar condicionado, vazamento, bomba):", value=st.session_state.termo_pesquisa)
-    with col_btn:
-        st.write("")
-        st.write("")
-        if st.button("🔎 Buscar"):
-            st.session_state.termo_pesquisa = termo
-            limpar_pesquisa()
-
-    if st.session_state.termo_pesquisa:
-        termo_busca = st.session_state.termo_pesquisa.lower().strip()
-        df_resultado = df[df["TEXTO_BUSCA"].str.contains(termo_busca, na=False)]
+    # Se uma máquina foi clicada ou selecionada, exibe o Diagrama de Pareto correspondente
+    if "maquina_pareto_ativa" in st.session_state and st.session_state["maquina_pareto_ativa"]:
+        maq_ativa = st.session_state["maquina_pareto_ativa"]
+        st.markdown("---")
+        st.markdown(f"### 📊 Diagrama de Pareto de Falhas — Edificação / Máquina: `{maq_ativa}`")
         
-        st.markdown(f"**Registros encontrados:** {len(df_resultado):,} de {len(df):,}".replace(",", "."))
-        
-        if len(df_resultado) > 0:
-            col_r1, col_r2 = st.columns([1, 2])
+        col_maq_filtro = "MÁQUINA" if "MÁQUINA" in df_filtrado_dashboard.columns else ("SETOR" if "SETOR" in df_filtrado_dashboard.columns else None)
+        if col_maq_filtro:
+            df_pareto_base = df_filtrado_dashboard[df_filtrado_dashboard[col_maq_filtro].astype(str) == str(maq_ativa)]
+            col_falha = "CATEGORIA_NLP" if "CATEGORIA_NLP" in df_pareto_base.columns else (coluna_comentario if coluna_comentario in df_pareto_base.columns else None)
             
-            with col_r1:
-                st.markdown("#### 📄 Ações com a Seleção")
-                if st.button("🤖 Gerar Relatório Executivo com IA"):
-                    with st.spinner("Analisando dados e gerando relatório executivo via Groq..."):
-                        relatorio = gerar_relatorio_ia(termo_busca, df_resultado[coluna_comentario].tolist(), groq_api_key_input)
-                        st.session_state.relatorio_gerado = relatorio
-                        st.session_state.termo_relatorio = termo_busca
-
-            if "relatorio_gerado" in st.session_state and st.session_state.get("termo_relatorio") == termo_busca:
-                st.markdown("---")
-                st.markdown(f"### 📋 Relatório IA para '{termo_busca.upper()}'")
-                st.markdown(st.session_state.relatorio_gerado)
+            if col_falha and not df_pareto_base.empty:
+                df_pareto = df_pareto_base[col_falha].value_counts().reset_index()
+                df_pareto.columns = ["Falha / Ocorrência", "Quantidade"]
+                df_pareto["Acumulado_%"] = (df_pareto["Quantidade"].cumsum() / df_pareto["Quantidade"].sum()) * 100
                 
-                serie_tabela = extrair_dados_tabela_markdown(st.session_state.relatorio_gerado)
-                if serie_tabela is not None and not serie_tabela.empty:
-                    st.markdown("#### 📊 Gráfico extraído do Relatório")
-                    fig_rel = px.bar(x=serie_tabela.index, y=serie_tabela.values, labels={'x': 'Área/Problema', 'y': 'Frequência'})
-                    fig_rel.update_layout(separators=',.')
-                    st.plotly_chart(fig_rel, use_container_width=True)
-
-            st.markdown("---")
-            st.markdown("#### 📋 Listagem das OS Encontradas")
-            cols_exibir = [c for c in ["CÓDIGO", "ABERTO EM", "STATUS", "SETOR", "MÁQUINA", "CATEGORIA_NLP", coluna_comentario] if c in df_resultado.columns]
-            st.dataframe(df_resultado[cols_exibir], use_container_width=True)
-        else:
-            st.warning("Nenhuma Ordem de Serviço encontrada com o termo informado.")
-
-elif st.session_state.aba_ativa == "nlp":
-    st.subheader("🔍 Detalhamento por Categoria e Equipamentos")
-
-    if "CATEGORIA_NLP" in df.columns:
-        categorias_disponiveis = ["-- Selecione uma categoria --", "Todas"] + sorted(df["CATEGORIA_NLP"].dropna().unique())
-        
-        cat_selecionada = st.selectbox(
-            "Selecione uma Categoria para abrir e ver os itens:", 
-            options=categorias_disponiveis, 
-            index=0
-        )
-        
-        if cat_selecionada and cat_selecionada != "-- Selecione uma categoria --":
-            if cat_selecionada == "Todas":
-                df_cat = df.copy()
-                st.write(f"Exibindo registros de **Todas** as categorias: **{len(df_cat):,}**")
+                # Gráfico misto de Pareto (Barras + Linha Acumulada)
+                fig_pareto = px.bar(df_pareto, x="Falha / Ocorrência", y="Quantidade", text="Quantidade", title=f"Análise de Pareto para {maq_ativa}")
+                fig_pareto.add_scatter(x=df_pareto["Falha / Ocorrência"], y=df_pareto["Acumulado_%"], mode="lines+markers", name="Acumulado %", yaxis="y2")
+                fig_pareto.update_layout(
+                    xaxis=dict(tickangle=-45),
+                    yaxis=dict(title="Quantidade de Falhas"),
+                    yaxis2=dict(title="Acumulado (%)", overlaying="y", side="right", range=[0, 105]),
+                    height=400,
+                    margin=dict(t=40, b=40, l=40, r=40)
+                )
+                st.plotly_chart(fig_pareto, use_container_width=True)
+                
+                if st.button("❌ Limpar Seleção de Pareto"):
+                    st.session_state["maquina_pareto_ativa"] = None
+                    st.rerun()
             else:
-                df_cat = df[df["CATEGORIA_NLP"] == cat_selecionada]
-                st.write(f"Total de registros na categoria **{cat_selecionada}**: **{len(df_cat):,}**")
-            
-            col_maq = None
-            for c in ["MÁQUINAS", "MAQUINAS", "MÁQUINA", "MAQUINA"]:
-                if c in df.columns:
-                    col_maq = c
-                    break
-            
-            if col_maq:
-                st.markdown(f"##### ⚙️ Equipamentos / Ativos relacionados (Coluna: `{col_maq}`)")
-                
-                df_ranking_maq = df_cat[col_maq].value_counts().reset_index()
-                df_ranking_maq.columns = ["Equipamento / Máquina", "Quantidade"]
-                
-                evento_tabela = st.dataframe(
-                    df_ranking_maq, 
-                    use_container_width=True, 
-                    hide_index=True,
-                    selection_mode="single-row",
-                    on_select="rerun",
-                    key=f"tabela_ranking_{cat_selecionada}"
-                )
-                
-                linhas_selecionadas = evento_tabela.get("selection", {}).get("rows", [])
-                
-                maquina_via_tabela = None
-                if linhas_selecionadas:
-                    idx_linha = linhas_selecionadas[0]
-                    maquina_via_tabela = str(df_ranking_maq.iloc[idx_linha]["Equipamento / Máquina"])
-
-                st.markdown("---")
-                st.markdown("#### 📋 Ordens de Serviço Específicas por Máquina/Equipamento")
-                
-                lista_maquinas_cat = ["-- Selecione uma Máquina/Equipamento --"] + sorted(df_cat[col_maq].dropna().unique().astype(str))
-                
-                index_inicial = 0
-                if maquina_via_tabela and maquina_via_tabela in lista_maquinas_cat:
-                    index_inicial = lista_maquinas_cat.index(maquina_via_tabela)
-
-                maquina_selecionada = st.selectbox(
-                    "Selecione uma Máquina/Equipamento para ver as Ordens de Serviço detalhadas:", 
-                    lista_maquinas_cat,
-                    index=index_inicial,
-                    key=f"select_maq_{cat_selecionada}"
-                )
-                
-                maquina_ativa = maquina_via_tabela if maquina_via_tabela else maquina_selecionada
-
-                if maquina_ativa and maquina_ativa != "-- Selecione uma Máquina/Equipamento --":
-                    df_os_maquina = df_cat[df_cat[col_maq].astype(str) == maquina_ativa]
-                    
-                    st.info(f"Exibindo **{len(df_os_maquina)}** Ordem(ns) de Serviço para o equipamento: **{maquina_ativa}**")
-                    
-                    col_exec_prevista = None
-                    for c in ["EXEC. PREVISTA", "EXEC_PREVISTA", "DATA EXEC PREVISTA", "PREVISÃO", "PREVISAO"]:
-                        if c in df.columns:
-                            col_exec_prevista = c
-                            break
-                    
-                    candidatos_cols = ["CÓDIGO", "ABERTO EM", col_exec_prevista, "STATUS", "SETOR", col_maq, coluna_comentario, "CUSTO COM MATERIAIS"]
-                    cols_mostrar = [c for c in candidatos_cols if c and c in df_os_maquina.columns]
-                    
-                    st.dataframe(df_os_maquina[cols_mostrar], use_container_width=True, hide_index=True)
-                else:
-                    st.info("👈 Clique em uma linha na tabela acima ou selecione um equipamento no menu para carregar as Ordens de Serviço específicas.")
-
-elif st.session_state.aba_ativa == "chat":
-    st.subheader("💬 Chat Inteligente sobre a Base de Dados")
-    st.write("Faça perguntas diretas em linguagem natural sobre qualquer informação da planilha.")
-    
-    for msg in st.session_state.mensagens_chat:
-        with st.chat_message(msg["role"]):
-            st.write(msg["content"])
-
-    pergunta = st.chat_input("Ex: Qual o setor com mais chamados abertos? Quantos vazamentos tivemos?")
-    
-    if pergunta:
-        st.session_state.mensagens_chat.append({"role": "user", "content": pergunta})
-        with st.chat_message("user"):
-            st.write(pergunta)
-        
-        with st.chat_message("assistant"):
-            with st.spinner("Consultando dados da planilha via Groq..."):
-                resposta = responder_pergunta_livre_com_todo_arquivo(pergunta, df, groq_api_key_input)
-                st.write(resposta)
-                st.session_state.mensagens_chat.append({"role": "assistant", "content": resposta})
+                st.warning("Não há dados detalhados suficientes de falhas para este item.")
