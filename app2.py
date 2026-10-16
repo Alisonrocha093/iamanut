@@ -1006,18 +1006,12 @@ if st.session_state.aba_ativa == "dash":
         conformidade_pct = (concluidas_count / total_os * 100) if total_os > 0 else 0.0
         conf_str = f"{conformidade_pct:.1f}".replace(".", ",") + "%"
         
-        # Identifica OS em aberto (não concluídas, ex: PENDENTE, ABERTO, etc.)
         mask_nao_concluidas = ~status_txt.str.contains("concluíd|concluid|fechad|encerrad|finalizad")
-        
-        # Usa explicitamente a coluna "EXEC. PREVISTA" que aparece na sua planilha
         col_data_prev = "EXEC. PREVISTA" if "EXEC. PREVISTA" in df_filtrado_dashboard.columns else None
         
         if col_data_prev:
             hoje = pd.Timestamp.today().normalize()
-            # Converte a coluna de data prevista considerando o formato brasileiro ou padrão
             dt_limite = pd.to_datetime(df_filtrado_dashboard[col_data_prev], errors='coerce')
-            
-            # Backlog considera apenas: Não concluídas E data prevista menor que hoje (Atrasadas)
             mask_atrasadas = mask_nao_concluidas & (dt_limite < hoje)
             backlog_count = mask_atrasadas.sum()
         else:
@@ -1028,18 +1022,24 @@ if st.session_state.aba_ativa == "dash":
         conf_str = "N/A"
         backlog_str = "N/A"
 
+    # Cálculo corrigido do Tempo Médio de Atendimento
     tempo_medio_str = "N/A"
-    col_data_abertura = "ABERTO EM" if "ABERTO EM" in df_filtrado_dashboard.columns else ("DATA" if "DATA" in df_filtrado_dashboard.columns else None)
-    col_data_fechamento = "FECHADO EM" if "FECHADO EM" in df_filtrado_dashboard.columns else ("DATA FECHAMENTO" if "DATA FECHAMENTO" in df_filtrado_dashboard.columns else None)
+    col_data_abertura = "ABERTO EM" if "ABERTO EM" in df_filtrado_dashboard.columns else None
+    # Aponta diretamente para a coluna "FINALIZAÇÃO" que aparece na sua planilha
+    col_data_fechamento = "FINALIZAÇÃO" if "FINALIZAÇÃO" in df_filtrado_dashboard.columns else ("FECHADO EM" if "FECHADO EM" in df_filtrado_dashboard.columns else None)
     
     if col_data_abertura and col_data_fechamento:
         try:
-            dt_ini = pd.to_datetime(df_filtrado_dashboard[col_data_abertura], errors='coerce')
-            dt_fim = pd.to_datetime(df_filtrado_dashboard[col_data_fechamento], errors='coerce')
-            diff_dias = (dt_fim - dt_ini).dt.total_seconds() / 86400
-            media_dias = diff_dias[diff_dias >= 0].mean()
-            if not pd.isna(media_dias):
-                tempo_medio_str = f"{media_dias:.1f} dias".replace(".", ",")
+            # Filtra apenas o subset de OS que possuem data de fechamento preenchida para o cálculo
+            df_fechadas = df_filtrado_dashboard.dropna(subset=[col_data_abertura, col_data_fechamento]).copy()
+            
+            if len(df_fechadas) > 0:
+                dt_ini = pd.to_datetime(df_fechadas[col_data_abertura], errors='coerce')
+                dt_fim = pd.to_datetime(df_fechadas[col_data_fechamento], errors='coerce')
+                diff_dias = (dt_fim - dt_ini).dt.total_seconds() / 86400
+                media_dias = diff_dias[diff_dias >= 0].mean()
+                if not pd.isna(media_dias):
+                    tempo_medio_str = f"{media_dias:.1f} dias".replace(".", ",")
         except Exception:
             pass
 
