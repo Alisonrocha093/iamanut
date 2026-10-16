@@ -767,13 +767,13 @@ for c in df.columns:
 
 # Constrói o texto de busca combinando Observação, Máquina/Equipamento e Categoria NLP
 if col_maquinas_ref:
-    df["TEXTO_BUSCA"] = (
+        df["TEXTO_BUSCA"] = (
         df[coluna_comentario].astype(str).str.lower().fillna("") + " " + 
         df[col_maquinas_ref].astype(str).str.lower().fillna("") + " " +
         df["CATEGORIA_NLP"].astype(str).str.lower().fillna("")
     )
 else:
-    df["TEXTO_BUSCA"] = (
+        df["TEXTO_BUSCA"] = (
         df[coluna_comentario].astype(str).str.lower().fillna("") + " " + 
         df["CATEGORIA_NLP"].astype(str).str.lower().fillna("")
     )
