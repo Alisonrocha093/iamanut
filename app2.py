@@ -1241,7 +1241,7 @@ if st.session_state.aba_ativa == "dash":
                 st.warning(f"Não há dados detalhados suficientes de falhas para a máquina '{maq_ativa}'.")
 
 elif st.session_state.aba_ativa == "busca":
-    st.subheader("🔍 Pesquisa Textual & Geração de Relatórios por IA")
+     st.subheader("🔍 Pesquisa Textual & Geração de Relatórios por IA")
     
     col_search, col_btn = st.columns([4, 1])
     with col_search:
