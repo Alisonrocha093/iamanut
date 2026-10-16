@@ -749,6 +749,8 @@ if df is not None:
         st.error(f"❌ A coluna obrigatória **'{coluna_comentario}'** não foi encontrada na planilha.")
         st.write(f"📋 **Colunas disponíveis na planilha:** `{list(df.columns)}`")
     else:
+        # Substitui todos os valores vazios/nulos nas colunas de texto por uma string padrão
+        df = df.fillna("N/A")
         df = df.dropna(subset=[coluna_comentario]).copy()
 
         if "CATEGORIA_NLP" not in df.columns:
