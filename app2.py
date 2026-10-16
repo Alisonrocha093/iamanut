@@ -918,7 +918,7 @@ if st.session_state.aba_ativa == "dash":
             st.session_state.filtro_kpi_ativo = "geral"
             st.rerun()
 
-    # ==========================================
+   # ==========================================
     # NOVOS INDICADORES EXECUTIVOS (CARDS ADICIONAIS)
     # ==========================================
     col_ind1, col_ind2, col_ind3 = st.columns(3)
@@ -974,7 +974,46 @@ if st.session_state.aba_ativa == "dash":
 
     st.markdown("<br>", unsafe_allow_html=True)
 
+    # ==========================================
+    # 1. EVOLUÇÃO TEMPORAL EMPILHADA (Abertas, Pendentes, Programadas, Finalizadas)
+    # ==========================================
+    st.markdown("### 📊 Evolução Temporal das OS por Status (Finalizadas, Pendentes, Programadas)")
+    if col_data and "STATUS" in df_filtrado_dashboard.columns:
+        df_evolucao = df_filtrado_dashboard.copy()
+        df_evolucao["MES_ANO"] = pd.to_datetime(df_evolucao[col_data], errors='coerce').dt.to_period("M").astype(str)
+        
+        # Categorização detalhada para o gráfico de barras
+        def categorizar_status_detalhado(val):
+            v = str(val).lower()
+            if any(term in v for term in ["concluíd", "concluid", "fechad", "encerrad", "finalizad"]):
+                return "Finalizadas"
+            elif any(term in v for term in ["program", "planejad"]):
+                return "Programadas"
+            else:
+                return "Pendentes / Abertas"
+                
+        df_evolucao["STATUS_DETALHE"] = df_evolucao["STATUS"].apply(categorizar_status_detalhado)
+        df_group_evol = df_evolucao.groupby(["MES_ANO", "STATUS_DETALHE"]).size().reset_index(name="Quantidade")
+        
+        fig_evolucao_bar = px.bar(
+            df_group_evol, 
+            x="MES_ANO", 
+            y="Quantidade", 
+            color="STATUS_DETALHE", 
+            text="Quantidade",
+            barmode="stack",
+            color_discrete_map={"Finalizadas": "#059669", "Programadas": "#2563EB", "Pendentes / Abertas": "#DC2626"}
+        )
+        fig_evolucao_bar.update_layout(margin=dict(t=10, b=10, l=10, r=10), height=380, separators=',.', legend_title="Status das OS")
+        st.plotly_chart(fig_evolucao_bar, use_container_width=True)
+    else:
+        st.info("Colunas de data ou status indisponíveis para gerar a evolução temporal detalhada.")
+
+    st.markdown("---")
+
+    # ==========================================
     # 2. Gráficos: OS Abertas x Concluídas & Categoria NLP
+    # ==========================================
     col_g1, col_g2 = st.columns(2)
     
     with col_g1:
@@ -1010,12 +1049,13 @@ if st.session_state.aba_ativa == "dash":
 
     st.markdown("---")
 
-    # 3. Gráficos: Linha Temporal & Pendências por Setor
+    # ==========================================
+    # 3. Gráficos: Linha Temporal & Pendências por Setor (Com Diagrama de Pareto Interativo)
+    # ==========================================
     col_g3, col_g4 = st.columns(2)
     
     with col_g3:
         st.markdown("### 📈 Evolução de Ocorrências ao Longo do Tempo (Linhas)")
-        col_data = "ABERTO EM" if "ABERTO EM" in df_filtrado_dashboard.columns else ("DATA" if "DATA" in df_filtrado_dashboard.columns else None)
         if col_data:
             try:
                 df_temp = df_filtrado_dashboard.copy()
@@ -1031,59 +1071,67 @@ if st.session_state.aba_ativa == "dash":
             st.info("Coluna de data não encontrada na base.")
 
     with col_g4:
-        st.markdown("### 🏢 Pendências por Setor / Máquinas")
+        st.markdown("### 🏢 Pendências por Setor / Máquinas (Clique para Pareto)")
         col_setor = "SETOR" if "SETOR" in df_filtrado_dashboard.columns else ("MÁQUINA" if "MÁQUINA" in df_filtrado_dashboard.columns else None)
-        
         if col_setor:
             df_setor = df_filtrado_dashboard[col_setor].value_counts().head(10).reset_index()
             df_setor.columns = ["Setor/Máquina", "Quantidade"]
             df_setor["Texto_Fmt"] = df_setor["Quantidade"].apply(lambda x: f"{x:,}".replace(",", "."))
             
-            fig_horiz = px.bar(
-                df_setor, 
-                y="Setor/Máquina", 
-                x="Quantidade", 
-                orientation="h", 
-                text="Texto_Fmt", 
-                color="Quantidade", 
-                color_continuous_scale="Blues"
-            )
-            fig_horiz.update_layout(
-                margin=dict(t=10, b=10, l=10, r=10), 
-                height=350, 
-                yaxis={'categoryorder':'total ascending'}, 
-                separators=',.'
-            )
+            fig_horiz = px.bar(df_setor, y="Setor/Máquina", x="Quantidade", orientation="h", text="Texto_Fmt", color="Quantidade", color_continuous_scale="Blues")
+            fig_horiz.update_layout(margin=dict(t=10, b=10, l=10, r=10), height=350, yaxis={'categoryorder':'total ascending'}, separators=',.')
             
-            # Gráfico de barras com suporte a cliques
-            evento_grafico = st.plotly_chart(
-                fig_horiz, 
-                width='stretch', 
-                on_select="rerun", 
-                key="grafico_barras_setor_pareto"
-            )
+            # Usando st.plotly_chart com seleção habilitada para interatividade
+            evento_grafico = st.plotly_chart(fig_horiz, use_container_width=True, on_select="rerun", key="pareto_trigger_chart")
             
-            # Captura o clique na barra
+            # Captura de clique para exibir o Diagrama de Pareto de Falhas por Máquina/Edificação
+            ponto_selecionado = None
             try:
                 selection_points = evento_grafico.get("selection", {}).get("points", [])
                 if selection_points:
-                    st.session_state["maquina_pareto_ativa"] = selection_points[0].get("y")
+                    ponto_selecionado = selection_points[0].get("y")
             except Exception:
                 pass
 
-            # Alternativa via menu suspenso para garantir funcionamento imediato
-            lista_maquinas_pareto = ["-- Ou selecione a máquina aqui --"] + sorted(df_filtrado_dashboard[col_setor].dropna().unique().astype(str))
-            maquina_escolhida = st.selectbox(
-                "📊 Seleção rápida para o Diagrama de Pareto:",
-                options=lista_maquinas_pareto,
-                key="select_maquina_pareto_direto"
-            )
-            
-            if maquina_escolhida and maquina_escolhida != "-- Ou selecione a máquina aqui --":
-                st.session_state["maquina_pareto_ativa"] = maquina_escolhida
+            if ponto_selecionado:
+                st.session_state["maquina_pareto_ativa"] = ponto_selecionado
 
         else:
             st.info("Coluna de Setor ou Máquina não encontrada.")
+
+    # Se uma máquina foi clicada ou selecionada, exibe o Diagrama de Pareto correspondente
+    if "maquina_pareto_ativa" in st.session_state and st.session_state["maquina_pareto_ativa"]:
+        maq_ativa = st.session_state["maquina_pareto_ativa"]
+        st.markdown("---")
+        st.markdown(f"### 📊 Diagrama de Pareto de Falhas — Edificação / Máquina: `{maq_ativa}`")
+        
+        col_maq_filtro = "MÁQUINA" if "MÁQUINA" in df_filtrado_dashboard.columns else ("SETOR" if "SETOR" in df_filtrado_dashboard.columns else None)
+        if col_maq_filtro:
+            df_pareto_base = df_filtrado_dashboard[df_filtrado_dashboard[col_maq_filtro].astype(str) == str(maq_ativa)]
+            col_falha = "CATEGORIA_NLP" if "CATEGORIA_NLP" in df_pareto_base.columns else (coluna_comentario if coluna_comentario in df_pareto_base.columns else None)
+            
+            if col_falha and not df_pareto_base.empty:
+                df_pareto = df_pareto_base[col_falha].value_counts().reset_index()
+                df_pareto.columns = ["Falha / Ocorrência", "Quantidade"]
+                df_pareto["Acumulado_%"] = (df_pareto["Quantidade"].cumsum() / df_pareto["Quantidade"].sum()) * 100
+                
+                # Gráfico misto de Pareto (Barras + Linha Acumulada)
+                fig_pareto = px.bar(df_pareto, x="Falha / Ocorrência", y="Quantidade", text="Quantidade", title=f"Análise de Pareto para {maq_ativa}")
+                fig_pareto.add_scatter(x=df_pareto["Falha / Ocorrência"], y=df_pareto["Acumulado_%"], mode="lines+markers", name="Acumulado %", yaxis="y2")
+                fig_pareto.update_layout(
+                    xaxis=dict(tickangle=-45),
+                    yaxis=dict(title="Quantidade de Falhas"),
+                    yaxis2=dict(title="Acumulado (%)", overlaying="y", side="right", range=[0, 105]),
+                    height=400,
+                    margin=dict(t=40, b=40, l=40, r=40)
+                )
+                st.plotly_chart(fig_pareto, use_container_width=True)
+                
+                if st.button("❌ Limpar Seleção de Pareto"):
+                    st.session_state["maquina_pareto_ativa"] = None
+                    st.rerun()
+            else:
+                st.warning("Não há dados detalhados suficientes de falhas para este item.")
 
     # ==========================================
     # EXIBIÇÃO DO DIAGRAMA DE PARETO
