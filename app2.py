@@ -757,15 +757,26 @@ if df is not None:
             with st.spinner(f"Processando algoritmo de classificação NLP em {len(df):,} registros..."):
                 df = classificar_texto_nlp(df, coluna_comentario)
 
-        col_maquinas_ref = "MÁQUINAS" if "MÁQUINAS" in df.columns else ("MAQUINAS" if "MAQUINAS" in df.columns else None)
-        
-        if col_maquinas_ref:
-            df["TEXTO_BUSCA"] = (
-                df[coluna_comentario].astype(str).str.lower().fillna("") + " " + 
-                df[col_maquinas_ref].astype(str).str.lower().fillna("")
-            )
-        else:
-            df["TEXTO_BUSCA"] = df[coluna_comentario].astype(str).str.lower().fillna("")
+        # Identifica corretamente a coluna de máquinas na planilha
+col_maquinas_ref = None
+for c in df.columns:
+    c_limpo = c.strip().upper()
+    if c_limpo in ["MÁQUINAS", "MAQUINAS", "MÁQUINA", "MAQUINA", "EQUIPAMENTO"]:
+        col_maquinas_ref = c
+        break
+
+# Constrói o texto de busca combinando Observação, Máquina/Equipamento e Categoria NLP
+if col_maquinas_ref:
+    df["TEXTO_BUSCA"] = (
+        df[coluna_comentario].astype(str).str.lower().fillna("") + " " + 
+        df[col_maquinas_ref].astype(str).str.lower().fillna("") + " " +
+        df["CATEGORIA_NLP"].astype(str).str.lower().fillna("")
+    )
+else:
+    df["TEXTO_BUSCA"] = (
+        df[coluna_comentario].astype(str).str.lower().fillna("") + " " + 
+        df["CATEGORIA_NLP"].astype(str).str.lower().fillna("")
+    )
 
         st.sidebar.markdown("---")
         st.sidebar.subheader("🎯 Filtros Dashboard")
