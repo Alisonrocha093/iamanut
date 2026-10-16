@@ -974,6 +974,12 @@ if st.session_state.aba_ativa == "dash":
 
     st.markdown("<br>", unsafe_allow_html=True)
 
+   # ==========================================
+    # GARANTINDO A DEFINIÇÃO DAS VARIÁVEIS DE DATA
+    # ==========================================
+    col_data = "ABERTO EM" if "ABERTO EM" in df_filtrado_dashboard.columns else ("DATA" if "DATA" in df_filtrado_dashboard.columns else None)
+    col_data_fechamento = "FECHADO EM" if "FECHADO EM" in df_filtrado_dashboard.columns else ("DATA FECHAMENTO" if "DATA FECHAMENTO" in df_filtrado_dashboard.columns else None)
+
     # ==========================================
     # 1. EVOLUÇÃO TEMPORAL EMPILHADA (Abertas, Pendentes, Programadas, Finalizadas)
     # ==========================================
