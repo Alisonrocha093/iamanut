@@ -806,6 +806,17 @@ else:
         df["CATEGORIA_NLP"].astype(str).str.lower().fillna("")
     )
 
+st.sidebar.markdown("---")
+st.sidebar.subheader("🎯 Filtros Dashboard")
+
+df_filtrado_dashboard = df.copy()
+
+if "STATUS" in df.columns:
+    lista_status = ["Todos"] + list(df["STATUS"].dropna().unique())
+    status_escolhido = st.sidebar.selectbox("Filtrar por Status", lista_status)
+    if status_escolhido != "Todos":
+        df_filtrado_dashboard = df_filtrado_dashboard[df_filtrado_dashboard["STATUS"] == status_escolhido]
+
 # ==========================================
 # 📅 FILTRO DE PERÍODO (Em Português)
 # ==========================================
@@ -843,18 +854,7 @@ if coluna_data in df.columns:
 else:
     df_filtrado_dashboard = df.copy()
 
-
-st.sidebar.markdown("---")
-st.sidebar.subheader("🎯 Filtros Dashboard")
-
-df_filtrado_dashboard = df.copy()
-
-if "STATUS" in df.columns:
-    lista_status = ["Todos"] + list(df["STATUS"].dropna().unique())
-    status_escolhido = st.sidebar.selectbox("Filtrar por Status", lista_status)
-    if status_escolhido != "Todos":
-        df_filtrado_dashboard = df_filtrado_dashboard[df_filtrado_dashboard["STATUS"] == status_escolhido]
-
+    
    # ==========================================
     # FILTRO POR TIPO DE MANUTENÇÃO (AJUSTADO PARA OS CHECKLISTS)
     # ==========================================
