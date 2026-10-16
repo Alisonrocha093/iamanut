@@ -995,7 +995,7 @@ if st.session_state.aba_ativa == "dash":
             st.session_state.filtro_kpi_ativo = "geral"
             st.rerun()
 
-   # ==========================================
+  # ==========================================
     # NOVOS INDICADORES EXECUTIVOS (CARDS ADICIONAIS)
     # ==========================================
     col_ind1, col_ind2, col_ind3 = st.columns(3)
@@ -1006,7 +1006,23 @@ if st.session_state.aba_ativa == "dash":
         conformidade_pct = (concluidas_count / total_os * 100) if total_os > 0 else 0.0
         conf_str = f"{conformidade_pct:.1f}".replace(".", ",") + "%"
         
-        backlog_count = total_os - concluidas_count
+        # Identifica OS em aberto (não concluídas, ex: PENDENTE, ABERTO, etc.)
+        mask_nao_concluidas = ~status_txt.str.contains("concluíd|concluid|fechad|encerrad|finalizad")
+        
+        # Usa explicitamente a coluna "EXEC. PREVISTA" que aparece na sua planilha
+        col_data_prev = "EXEC. PREVISTA" if "EXEC. PREVISTA" in df_filtrado_dashboard.columns else None
+        
+        if col_data_prev:
+            hoje = pd.Timestamp.today().normalize()
+            # Converte a coluna de data prevista considerando o formato brasileiro ou padrão
+            dt_limite = pd.to_datetime(df_filtrado_dashboard[col_data_prev], errors='coerce')
+            
+            # Backlog considera apenas: Não concluídas E data prevista menor que hoje (Atrasadas)
+            mask_atrasadas = mask_nao_concluidas & (dt_limite < hoje)
+            backlog_count = mask_atrasadas.sum()
+        else:
+            backlog_count = mask_nao_concluidas.sum()
+            
         backlog_str = f"{backlog_count:,}".replace(",", ".")
     else:
         conf_str = "N/A"
@@ -1037,7 +1053,7 @@ if st.session_state.aba_ativa == "dash":
     with col_ind2:
         st.markdown(f"""
             <div class="metric-card">
-                <h4 style="color: #6B7280; font-size: 14px; margin-bottom: 5px;">BACKLOG DE MANUTENÇÃO</h4>
+                <h4 style="color: #6B7280; font-size: 14px; margin-bottom: 5px;">BACKLOG DE MANUTENÇÃO (ATRASADAS)</h4>
                 <h2 style="color: #9333EA; font-size: 24px; margin: 0;">{backlog_str} OS</h2>
             </div>
         """, unsafe_allow_html=True)
