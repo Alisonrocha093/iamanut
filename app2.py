@@ -1233,7 +1233,7 @@ elif st.session_state.aba_ativa == "busca":
     
     col_search, col_btn = st.columns([4, 1])
     with col_search:
-        termo = st.text_input("Digite um termo para pesquisar nas observações (ex: ar condicionado, vazamento, bomba):", value=st.session_state.termo_pesquisa)
+        termo = st.text_input("Digite um termo para pesquisar nas observações ou máquinas (ex: ar condicionado, vazamento, bomba, gerador):", value=st.session_state.termo_pesquisa)
     with col_btn:
         st.write("")
         st.write("")
@@ -1243,11 +1243,30 @@ elif st.session_state.aba_ativa == "busca":
 
     if st.session_state.termo_pesquisa:
         termo_busca = st.session_state.termo_pesquisa.lower().strip()
+        
+        # 🔥 Aqui ele busca na coluna combinada que inclui a MÁQUINA, a OBSERVAÇÃO e a CATEGORIA NLP!
         df_resultado = df[df["TEXTO_BUSCA"].str.contains(termo_busca, na=False)]
         
         st.markdown(f"**Registros encontrados:** {len(df_resultado):,} de {len(df):,}".replace(",", "."))
         
         if len(df_resultado) > 0:
+            st.dataframe(df_resultado, use_container_width=True, hide_index=True)
+            
+            st.markdown("---")
+            col_r1, col_r2 = st.columns([2, 1])
+            with col_r1:
+                st.write(f"Gerar relatório executivo automatizado por Inteligência Artificial para os resultados de **'{st.session_state.termo_pesquisa}'**?")
+            with col_r2:
+                if st.button("🤖 Gerar Relatório IA", use_container_width=True):
+                    with st.spinner("Gerando relatório com IA via Groq..."):
+                        relatorio_gerado = gerar_relatorio_ia(st.session_state.termo_pesquisa, df_resultado, groq_api_key_input)
+                        st.session_state.relatorio_gerado = relatorio_gerado
+                        st.session_state.termo_relatorio = st.session_state.termo_pesquisa
+
+        if "relatorio_gerado" in st.session_state:
+            st.markdown("---")
+            st.markdown(f"### 📋 Relatório Executivo da IA para: *{st.session_state.get('termo_relatorio', '')}*")
+            st.markdown(st.session_state.relatorio_gerado)
             col_r1, col_r2 = st.columns([1, 2])
             
             with col_r1:
