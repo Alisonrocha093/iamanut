@@ -778,31 +778,46 @@ if df is not None:
             df_filtrado_dashboard = df_filtrado_dashboard[df_filtrado_dashboard["STATUS"] == status_escolhido]
 
     # ==========================================
-    # NOVO FILTRO: Tipo de Manutenção / Serviço
-    # (Corretiva Programada, Corretiva Emergencial, Checklist, Roteiro, Melhoria)
+    # FILTRO ROBUSTO PARA TIPO DE MANUTENÇÃO (Baseado na sua planilha)
     # ==========================================
+    # Localiza a coluna correta independentemente de espaços ou pontos extras
     col_tipo_servico = None
-    for c in ["TIPO", "TIPO DE MANUTENÇÃO", "TIPO_MANUTENCAO", "CLASSIFICAÇÃO", "CLASSIFICACAO", "TIPO DE SERVIÇO"]:
-        if c in df.columns:
+    for c in df.columns:
+        c_limpo = c.strip().upper()
+        if "TIPO DE MANUT" in c_limpo or c_limpo == "TIPO DE MANUT." or c_limpo == "TIPO":
             col_tipo_servico = c
             break
 
     if col_tipo_servico:
-        # Opções padronizadas solicitadas
-        tipos_desejados = ["Corretiva Programada", "Corretiva Emergencial", "Checklist", "Roteiro", "Melhoria"]
-        
-        # Pega os valores reais disponíveis na coluna para mapear sem quebrar caso haja variações de maiúsculas/minúsculas
-        valores_unicos_base = df[col_tipo_servico].dropna().astype(str).unique()
-        
-        lista_tipos = ["Todos"] + tipos_desejados
-        tipo_escolhido = st.sidebar.selectbox("Filtrar por Tipo", lista_tipos)
+        tipos_desejados = ["Todos", "Corretiva Programada", "Corretiva Emergencial", "Checklist", "Roteiro", "Melhoria"]
+        tipo_escolhido = st.sidebar.selectbox("Filtrar por Tipo", tipos_desejados)
         
         if tipo_escolhido != "Todos":
-            # Filtro flexível que busca correspondência parcial (case-insensitive) para garantir que encontre o termo mesmo com pequenas variações
-            termo_busca = tipo_escolhido.lower()
-            df_filtrado_dashboard = df_filtrado_dashboard[
-                df_filtrado_dashboard[col_tipo_servico].astype(str).str.lower().str.contains(termo_busca, na=False)
-            ]
+            termo = tipo_escolhido.lower()
+            
+            # Tratamento inteligente para abranger variações como "ROTEIRO - PERIÓDICA"
+            if "corretiva programada" in termo:
+                df_filtrado_dashboard = df_filtrado_dashboard[
+                    df_filtrado_dashboard[col_tipo_servico].astype(str).str.lower().str.contains("corretiva", na=False) &
+                    df_filtrado_dashboard[col_tipo_servico].astype(str).str.lower().str.contains("program", na=False)
+                ]
+            elif "corretiva emergencial" in termo:
+                df_filtrado_dashboard = df_filtrado_dashboard[
+                    df_filtrado_dashboard[col_tipo_servico].astype(str).str.lower().str.contains("corretiva", na=False) &
+                    df_filtrado_dashboard[col_tipo_servico].astype(str).str.lower().str.contains("emerg|urg", na=False)
+                ]
+            elif "roteiro" in termo:
+                df_filtrado_dashboard = df_filtrado_dashboard[
+                    df_filtrado_dashboard[col_tipo_servico].astype(str).str.lower().str.contains("roteiro", na=False)
+                ]
+            elif "melhoria" in termo:
+                df_filtrado_dashboard = df_filtrado_dashboard[
+                    df_filtrado_dashboard[col_tipo_servico].astype(str).str.lower().str.contains("melhoria", na=False)
+                ]
+            elif "checklist" in termo:
+                df_filtrado_dashboard = df_filtrado_dashboard[
+                    df_filtrado_dashboard[col_tipo_servico].astype(str).str.lower().str.contains("check", na=False)
+                ]
     else:
         st.sidebar.info("Coluna de Tipo de Manutenção não encontrada na base.")
 
