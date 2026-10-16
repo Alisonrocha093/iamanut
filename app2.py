@@ -757,7 +757,7 @@ if df is not None:
             with st.spinner(f"Processando algoritmo de classificação NLP em {len(df):,} registros..."):
                 df = classificar_texto_nlp(df, coluna_comentario)
 
-        # Identifica corretamente a coluna de máquinas na planilha
+       # Identifica corretamente a coluna de máquinas na planilha
 col_maquinas_ref = None
 for c in df.columns:
     c_limpo = c.strip().upper()
@@ -766,28 +766,28 @@ for c in df.columns:
         break
 
 # Constrói o texto de busca combinando Observação, Máquina/Equipamento e Categoria NLP
-    if col_maquinas_ref:
-        df["TEXTO_BUSCA"] = (
+if col_maquinas_ref:
+    df["TEXTO_BUSCA"] = (
         df[coluna_comentario].astype(str).str.lower().fillna("") + " " + 
         df[col_maquinas_ref].astype(str).str.lower().fillna("") + " " +
         df["CATEGORIA_NLP"].astype(str).str.lower().fillna("")
     )
 else:
-        df["TEXTO_BUSCA"] = (
+    df["TEXTO_BUSCA"] = (
         df[coluna_comentario].astype(str).str.lower().fillna("") + " " + 
         df["CATEGORIA_NLP"].astype(str).str.lower().fillna("")
     )
 
-        st.sidebar.markdown("---")
-        st.sidebar.subheader("🎯 Filtros Dashboard")
-        
-        df_filtrado_dashboard = df.copy()
-        
-    if "STATUS" in df.columns:
-        lista_status = ["Todos"] + list(df["STATUS"].dropna().unique())
-        status_escolhido = st.sidebar.selectbox("Filtrar por Status", lista_status)
-        if status_escolhido != "Todos":
-            df_filtrado_dashboard = df_filtrado_dashboard[df_filtrado_dashboard["STATUS"] == status_escolhido]
+st.sidebar.markdown("---")
+st.sidebar.subheader("🎯 Filtros Dashboard")
+
+df_filtrado_dashboard = df.copy()
+
+if "STATUS" in df.columns:
+    lista_status = ["Todos"] + list(df["STATUS"].dropna().unique())
+    status_escolhido = st.sidebar.selectbox("Filtrar por Status", lista_status)
+    if status_escolhido != "Todos":
+        df_filtrado_dashboard = df_filtrado_dashboard[df_filtrado_dashboard["STATUS"] == status_escolhido]
 
    # ==========================================
     # FILTRO POR TIPO DE MANUTENÇÃO (AJUSTADO PARA OS CHECKLISTS)
