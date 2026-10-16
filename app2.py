@@ -1076,7 +1076,7 @@ if st.session_state.aba_ativa == "dash":
         else:
             st.info("Coluna de data não encontrada na base.")
 
-   with col_g4:
+    with col_g4:
         st.markdown("### 🏢 Pendências por Setor / Máquinas (Clique na barra para ver o Pareto)")
         col_setor = "SETOR" if "SETOR" in df_filtrado_dashboard.columns else ("MÁQUINA" if "MÁQUINA" in df_filtrado_dashboard.columns else None)
         
