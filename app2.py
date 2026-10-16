@@ -769,7 +769,7 @@ if df is not None:
         st.sidebar.markdown("---")
         st.sidebar.subheader("🎯 Filtros Dashboard")
         
-       df_filtrado_dashboard = df.copy()
+        df_filtrado_dashboard = df.copy()
         
     if "STATUS" in df.columns:
         lista_status = ["Todos"] + list(df["STATUS"].dropna().unique())
