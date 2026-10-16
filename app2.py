@@ -1022,19 +1022,18 @@ if st.session_state.aba_ativa == "dash":
         conf_str = "N/A"
         backlog_str = "N/A"
 
-    # Cálculo corrigido do Tempo Médio de Atendimento
+    # Cálculo do Tempo Médio de Atendimento usando EXEC. PREVISTA e FINALIZAÇÃO
     tempo_medio_str = "N/A"
-    col_data_abertura = "ABERTO EM" if "ABERTO EM" in df_filtrado_dashboard.columns else None
-    # Aponta diretamente para a coluna "FINALIZAÇÃO" que aparece na sua planilha
+    col_data_inicio = "EXEC. PREVISTA" if "EXEC. PREVISTA" in df_filtrado_dashboard.columns else None
     col_data_fechamento = "FINALIZAÇÃO" if "FINALIZAÇÃO" in df_filtrado_dashboard.columns else ("FECHADO EM" if "FECHADO EM" in df_filtrado_dashboard.columns else None)
     
-    if col_data_abertura and col_data_fechamento:
+    if col_data_inicio and col_data_fechamento:
         try:
-            # Filtra apenas o subset de OS que possuem data de fechamento preenchida para o cálculo
-            df_fechadas = df_filtrado_dashboard.dropna(subset=[col_data_abertura, col_data_fechamento]).copy()
+            # Filtra apenas o subset de OS que possuem ambas as datas preenchidas para o cálculo
+            df_fechadas = df_filtrado_dashboard.dropna(subset=[col_data_inicio, col_data_fechamento]).copy()
             
             if len(df_fechadas) > 0:
-                dt_ini = pd.to_datetime(df_fechadas[col_data_abertura], errors='coerce')
+                dt_ini = pd.to_datetime(df_fechadas[col_data_inicio], errors='coerce')
                 dt_fim = pd.to_datetime(df_fechadas[col_data_fechamento], errors='coerce')
                 diff_dias = (dt_fim - dt_ini).dt.total_seconds() / 86400
                 media_dias = diff_dias[diff_dias >= 0].mean()
