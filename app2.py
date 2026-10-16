@@ -610,13 +610,47 @@ def extrair_dados_tabela_markdown(relatorio_texto: str) -> pd.DataFrame:
     except Exception:
         pass
     return None
-# Padroniza as colunas e trata os valores vazios para não descartar os checklists
+
+
+# ==========================================
+# CARREGAMENTO DO ARQUIVO (ONEDRIVE / MANUAL) + TRATAMENTO DE VAZIOS
+# ==========================================
+caminho_padrao_onedrive = os.path.expanduser(r"~\OneDrive\base_os.csv")
+df = None
+
+if os.path.exists(caminho_padrao_onedrive):
+    try:
+        df = pd.read_csv(caminho_padrao_onedrive, sep=None, engine='python')
+        st.sidebar.success("📁 Base carregada do OneDrive!")
+    except Exception:
+        pass
+
+if df is None:
+    st.sidebar.markdown("### 📂 Carregar Dados Manualmente")
+    uploaded_file = st.sidebar.file_uploader("Envie sua base (CSV / Excel)", type=["csv", "xlsx", "xls"])
+    if uploaded_file is not None:
+        try:
+            if uploaded_file.name.endswith('.csv'):
+                df = pd.read_csv(uploaded_file, sep=None, engine='python')
+            else:
+                df = pd.read_excel(uploaded_file)
+        except Exception as e:
+            st.error(f"Erro ao carregar o arquivo: {e}")
+            st.stop()
+    else:
+        st.warning("⚠️ Envie a base de dados na barra lateral para iniciar.")
+        st.stop()
+
+# Padroniza as colunas da base
 df.columns = [str(c).strip().upper() for c in df.columns]
 
-# Substitui células vazias de observação por um texto padrão para preservar os checklists na base
+# 👉 AJUSTE CRUCIAL: Preenche as observações vazias para não descartar os Checklists
 coluna_comentario = "OBSERVAÇÃO ABERTURA" if "OBSERVAÇÃO ABERTURA" in df.columns else (df.columns[0] if len(df.columns) > 0 else "")
 if coluna_comentario in df.columns:
     df[coluna_comentario] = df[coluna_comentario].fillna("Sem observação de abertura")
+
+df = classificar_texto_nlp(df, coluna_comentario)
+
 
 df = classificar_texto_nlp(df, coluna_comentario)
 # ==========================================
