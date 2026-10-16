@@ -97,6 +97,7 @@ st.markdown("""
     }
     </style>
 """, unsafe_allow_html=True)
+
 # ==========================================
 # SISTEMA DE LOGIN MÚLTIPLO (CAIXA REDUZIDA)
 # ==========================================
@@ -106,7 +107,6 @@ def verificar_autenticacao():
         st.session_state.usuario_atual = ""
 
     if not st.session_state.autenticado:
-        # Cria colunas para centralizar e limitar a largura da caixa de login
         col_esq, col_centro, col_dir = st.columns([1, 1.2, 1])
         
         with col_centro:
@@ -116,8 +116,7 @@ def verificar_autenticacao():
             with st.form("form_login"):
                 usuario_input = st.text_input("Usuário").strip()
                 senha_input = st.text_input("Senha", type="password")
-                # use_container_width=True faz o botão ocupar a largura da caixa menor
-                submit = st.form_submit_button("Entrar", use_container_width=True)
+                submit = st.form_submit_button("Entrar", width='stretch')
                 
                 if submit:
                     usuarios_cadastrados = {}
@@ -127,7 +126,6 @@ def verificar_autenticacao():
                     except Exception:
                         pass
                     
-                    # Valida se o usuário existe e se a senha está correta
                     if usuario_input in usuarios_cadastrados and senha_input == usuarios_cadastrados[usuario_input]:
                         st.session_state.autenticado = True
                         st.session_state.usuario_atual = usuario_input
@@ -137,7 +135,6 @@ def verificar_autenticacao():
         return False
     return True
 
-# Executa a verificação de login antes de carregar o app
 if not verificar_autenticacao():
     st.stop()
 
@@ -198,7 +195,7 @@ def classificar_texto_nlp(df: pd.DataFrame, coluna_texto: str) -> pd.DataFrame:
             "válvula", "valvula", "hydra", "descarga",
             "bacia sanitária", "vaso sanitário", "vaso sanitario",
             "pia", "chuveiro", "bebedouro", "caixa d'água",
-            "caixa dagua", "reservatório", "reservatorio", "caixa dagua",
+            "caixa dagua", "reservatório", "reservatorio",
             "bomba d'água", "bomba dagua", "boia", "boia de nível",
             "pressão da água", "pressao da agua", "entupimento",
             "entupido", "infiltração hidráulica", "infiltracao hidraulica"
@@ -244,7 +241,7 @@ def classificar_texto_nlp(df: pd.DataFrame, coluna_texto: str) -> pd.DataFrame:
             "cerâmica", "ceramica", "azulejo",
             "forro", "teto", "telhado", "cobertura",
             "calha", "rufo", "fachada", "infiltração", "infiltracao", 
-             "trinca", "rachadura", "fissura",
+            "trinca", "rachadura", "fissura",
             "porta", "janela", "batente", "fechadura",
             "dobradiça", "dobradica", "vidro", "umidade",
             "espelho", "divisória", "divisoria",
@@ -611,8 +608,84 @@ def extrair_dados_tabela_markdown(relatorio_texto: str) -> pd.DataFrame:
         pass
     return None
 
+# ==========================================
+# CARREGAMENTO E FILTRAGEM INTEGRAL DOS DADOS
+# ==========================================
+st.sidebar.markdown("### 📂 Fonte de Dados")
+uploaded_file = st.sidebar.file_uploader("Carregar Base (CSV / Excel)", type=["csv", "xlsx", "xls"])
 
+if uploaded_file is not None:
+    try:
+        if uploaded_file.name.endswith('.csv'):
+            df = pd.read_csv(uploaded_file, sep=None, engine='python')
+        else:
+            df = pd.read_excel(uploaded_file)
+    except Exception as e:
+        st.error(f"Erro ao carregar o arquivo: {e}")
+        st.stop()
+else:
+    try:
+        df = pd.read_csv("base_os.csv")
+    except Exception:
+        st.warning("⚠️ Envie um arquivo de dados na barra lateral para iniciar o dashboard.")
+        st.stop()
 
+# Padroniza as colunas e processa a base inteira
+df.columns = [str(c).strip().upper() for c in df.columns]
+coluna_comentario = "OBSERVAÇÃO ABERTURA" if "OBSERVAÇÃO ABERTURA" in df.columns else (df.columns[0] if len(df.columns) > 0 else "")
+df = classificar_texto_nlp(df, coluna_comentario)
+
+st.sidebar.markdown("---")
+st.sidebar.markdown("### 🔍 Filtros Executivos")
+df_filtrado_dashboard = df.copy()
+
+# 1. Filtro por Status
+if "STATUS" in df.columns:
+    lista_status = ["Todos"] + sorted(list(df["STATUS"].dropna().astype(str).unique()))
+    status_escolhido = st.sidebar.selectbox("Filtrar por Status", lista_status)
+    if status_escolhido != "Todos":
+        df_filtrado_dashboard = df_filtrado_dashboard[df_filtrado_dashboard["STATUS"].astype(str) == status_escolhido]
+
+# 2. Filtro Abrangente por Tipo de Manutenção (Garante a leitura de todos os registros e checklists)
+col_tipo_servico = None
+for c in df.columns:
+    c_limpo = c.strip().upper()
+    if "TIPO DE MANUT" in c_limpo or c_limpo == "TIPO DE MANUT." or c_limpo == "TIPO":
+        col_tipo_servico = c
+        break
+
+if col_tipo_servico:
+    tipos_desejados = ["Todos", "Corretiva Programada", "Corretiva Emergencial", "Checklist", "Roteiro", "Melhoria"]
+    tipo_escolhido = st.sidebar.selectbox("Filtrar por Tipo", tipos_desejados)
+    
+    if tipo_escolhido != "Todos":
+        termo = tipo_escolhido.lower()
+        if "corretiva programada" in termo:
+            df_filtrado_dashboard = df_filtrado_dashboard[
+                df_filtrado_dashboard[col_tipo_servico].astype(str).str.lower().str.contains("corretiva", na=False) &
+                df_filtrado_dashboard[col_tipo_servico].astype(str).str.lower().str.contains("program|prevent|planej", na=False)
+            ]
+        elif "corretiva emergencial" in termo:
+            df_filtrado_dashboard = df_filtrado_dashboard[
+                df_filtrado_dashboard[col_tipo_servico].astype(str).str.lower().str.contains("corretiva", na=False) &
+                df_filtrado_dashboard[col_tipo_servico].astype(str).str.lower().str.contains("emerg|urg", na=False)
+            ]
+        elif "roteiro" in termo:
+            df_filtrado_dashboard = df_filtrado_dashboard[
+                df_filtrado_dashboard[col_tipo_servico].astype(str).str.lower().str.contains("roteiro|rot", na=False)
+            ]
+        elif "melhoria" in termo:
+            df_filtrado_dashboard = df_filtrado_dashboard[
+                df_filtrado_dashboard[col_tipo_servico].astype(str).str.lower().str.contains("melhoria|melhor", na=False)
+            ]
+        elif "checklist" in termo:
+            df_filtrado_dashboard = df_filtrado_dashboard[
+                df_filtrado_dashboard[col_tipo_servico].astype(str).str.lower().str.contains("check|chk|vistor|inspec", na=False)
+            ]
+else:
+    st.sidebar.info("Coluna de Tipo de Manutenção não encontrada na base.")
+
+st.sidebar.markdown("---")
 # ==========================================
 # INTERFACE GRÁFICA (BARRA LATERAL)
 # ==========================================
