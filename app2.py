@@ -253,7 +253,7 @@ def classificar_texto_nlp(df: pd.DataFrame, coluna_texto: str) -> pd.DataFrame:
         ]):
             return "Civil / Edificações"
 
-             elif any(w in texto for w in [
+        elif any(w in texto for w in [
             "acabamento", "tinta", "massa corrida", "massa acrílica",
             "pintura", "textura", "gesso", "mofo"
         ]):
