@@ -894,6 +894,39 @@ with col_b4:
         st.rerun()
 
 st.markdown("---")
+# ==========================================
+# 📅 FILTRO DE PERÍODO (Na Barra Lateral)
+# ==========================================
+st.sidebar.markdown("---")
+st.sidebar.markdown("### 📅 Filtro de Período")
+
+coluna_data = "ABERTO EM" # Confirme se é este o nome exato da coluna de data na sua planilha
+
+if coluna_data in df.columns:
+    df[coluna_data] = pd.to_datetime(df[coluna_data], errors='coerce')
+    data_minima = df[coluna_data].min()
+    data_maxima = df[coluna_data].max()
+    
+    if pd.notna(data_minima) and pd.notna(data_maxima):
+        periodo_selecionado = st.sidebar.date_input(
+            "Selecione o intervalo de datas:",
+            value=(data_minima.date(), data_maxima.date()),
+            min_value=data_minima.date(),
+            max_value=data_maxima.date()
+        )
+        
+        if isinstance(periodo_selecionado, tuple) and len(periodo_selecionado) == 2:
+            data_inicio, data_fim = periodo_selecionado
+            mask_periodo = (df[coluna_data].dt.date >= data_inicio) & (df[coluna_data].dt.date <= data_fim)
+            df_filtrado_dashboard = df[mask_periodo].copy()
+        else:
+            df_filtrado_dashboard = df.copy()
+    else:
+        df_filtrado_dashboard = df.copy()
+else:
+    # Caso a coluna de data não exista, o dashboard usa o df completo para não travar
+    df_filtrado_dashboard = df.copy()
+
 
 # ==========================================
 # CONTEÚDO DE CADA SEÇÃO (BASEADO NO BOTÃO CLICADO)
@@ -994,36 +1027,7 @@ if st.session_state.aba_ativa == "dash":
         if st.button("🔄 Limpar Filtro do KPI"):
             st.session_state.filtro_kpi_ativo = "geral"
             st.rerun()
-            
-            st.sidebar.markdown("---")
-            st.sidebar.markdown("### 📅 Filtro de Período")
 
-coluna_data = "ABERTO EM" # Confirme se é este o nome exato da coluna de data na sua planilha
-
-if coluna_data in df.columns:
-    df[coluna_data] = pd.to_datetime(df[coluna_data], errors='coerce')
-    data_minima = df[coluna_data].min()
-    data_maxima = df[coluna_data].max()
-    
-    if pd.notna(data_minima) and pd.notna(data_maxima):
-        periodo_selecionado = st.sidebar.date_input(
-            "Selecione o intervalo de datas:",
-            value=(data_minima.date(), data_maxima.date()),
-            min_value=data_minima.date(),
-            max_value=data_maxima.date()
-        )
-        
-        if isinstance(periodo_selecionado, tuple) and len(periodo_selecionado) == 2:
-            data_inicio, data_fim = periodo_selecionado
-            mask_periodo = (df[coluna_data].dt.date >= data_inicio) & (df[coluna_data].dt.date <= data_fim)
-            df_filtrado_dashboard = df[mask_periodo].copy()
-        else:
-            df_filtrado_dashboard = df.copy()
-    else:
-        df_filtrado_dashboard = df.copy()
-else:
-    # Caso a coluna de data não exista, o dashboard usa o df completo para não travar
-    df_filtrado_dashboard = df.copy()
   # ==========================================
     # NOVOS INDICADORES EXECUTIVOS (CARDS ADICIONAIS)
     # ==========================================
