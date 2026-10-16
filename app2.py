@@ -769,19 +769,42 @@ if df is not None:
         st.sidebar.markdown("---")
         st.sidebar.subheader("🎯 Filtros Dashboard")
         
-        df_filtrado_dashboard = df.copy()
+       df_filtrado_dashboard = df.copy()
         
-        if "STATUS" in df.columns:
-            lista_status = ["Todos"] + list(df["STATUS"].dropna().unique())
-            status_escolhido = st.sidebar.selectbox("Filtrar por Status", lista_status)
-            if status_escolhido != "Todos":
-                df_filtrado_dashboard = df_filtrado_dashboard[df_filtrado_dashboard["STATUS"] == status_escolhido]
+    if "STATUS" in df.columns:
+        lista_status = ["Todos"] + list(df["STATUS"].dropna().unique())
+        status_escolhido = st.sidebar.selectbox("Filtrar por Status", lista_status)
+        if status_escolhido != "Todos":
+            df_filtrado_dashboard = df_filtrado_dashboard[df_filtrado_dashboard["STATUS"] == status_escolhido]
 
-        if "CATEGORIA_NLP" in df.columns:
-            lista_cat = ["Todas"] + list(df["CATEGORIA_NLP"].dropna().unique())
-            cat_escolhida = st.sidebar.selectbox("Filtrar por Categoria NLP", lista_cat)
-            if cat_escolhida != "Todas":
-                df_filtrado_dashboard = df_filtrado_dashboard[df_filtrado_dashboard["CATEGORIA_NLP"] == cat_escolhida]
+    # ==========================================
+    # NOVO FILTRO: Tipo de Manutenção / Serviço
+    # (Corretiva Programada, Corretiva Emergencial, Checklist, Roteiro, Melhoria)
+    # ==========================================
+    col_tipo_servico = None
+    for c in ["TIPO", "TIPO DE MANUTENÇÃO", "TIPO_MANUTENCAO", "CLASSIFICAÇÃO", "CLASSIFICACAO", "TIPO DE SERVIÇO"]:
+        if c in df.columns:
+            col_tipo_servico = c
+            break
+
+    if col_tipo_servico:
+        # Opções padronizadas solicitadas
+        tipos_desejados = ["Corretiva Programada", "Corretiva Emergencial", "Checklist", "Roteiro", "Melhoria"]
+        
+        # Pega os valores reais disponíveis na coluna para mapear sem quebrar caso haja variações de maiúsculas/minúsculas
+        valores_unicos_base = df[col_tipo_servico].dropna().astype(str).unique()
+        
+        lista_tipos = ["Todos"] + tipos_desejados
+        tipo_escolhido = st.sidebar.selectbox("Filtrar por Tipo", lista_tipos)
+        
+        if tipo_escolhido != "Todos":
+            # Filtro flexível que busca correspondência parcial (case-insensitive) para garantir que encontre o termo mesmo com pequenas variações
+            termo_busca = tipo_escolhido.lower()
+            df_filtrado_dashboard = df_filtrado_dashboard[
+                df_filtrado_dashboard[col_tipo_servico].astype(str).str.lower().str.contains(termo_busca, na=False)
+            ]
+    else:
+        st.sidebar.info("Coluna de Tipo de Manutenção não encontrada na base.")
 
         st.markdown("---")
         
