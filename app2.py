@@ -198,7 +198,7 @@ def classificar_texto_nlp(df: pd.DataFrame, coluna_texto: str) -> pd.DataFrame:
             "válvula", "valvula", "hydra", "descarga",
             "bacia sanitária", "vaso sanitário", "vaso sanitario",
             "pia", "chuveiro", "bebedouro", "caixa d'água",
-            "caixa dagua", "reservatório", "reservatorio",
+            "caixa dagua", "reservatório", "reservatorio", "caixa dagua",
             "bomba d'água", "bomba dagua", "boia", "boia de nível",
             "pressão da água", "pressao da agua", "entupimento",
             "entupido", "infiltração hidráulica", "infiltracao hidraulica"
@@ -243,16 +243,21 @@ def classificar_texto_nlp(df: pd.DataFrame, coluna_texto: str) -> pd.DataFrame:
             "cimento", "concreto", "piso", "revestimento",
             "cerâmica", "ceramica", "azulejo",
             "forro", "teto", "telhado", "cobertura",
-            "calha", "rufo", "fachada", "pintura",
-            "infiltração", "infiltracao", "umidade",
-            "mofo", "trinca", "rachadura", "fissura",
+            "calha", "rufo", "fachada", "infiltração", "infiltracao", 
+             "trinca", "rachadura", "fissura",
             "porta", "janela", "batente", "fechadura",
-            "dobradiça", "dobradica", "vidro",
+            "dobradiça", "dobradica", "vidro", "umidade",
             "espelho", "divisória", "divisoria",
-            "drywall", "gesso", "granito", "mármore",
+            "drywall", "granito", "mármore",
             "marcenaria", "carpintaria", "serralheria"
         ]):
             return "Civil / Edificações"
+
+             elif any(w in texto for w in [
+            "acabamento", "tinta", "massa corrida", "massa acrílica",
+            "pintura", "textura", "gesso", "mofo"
+        ]):
+            return "Pintura / acabamento"
 
         elif any(w in texto for w in [
             "motor", "redutor", "engrenagem", "rolamento",
