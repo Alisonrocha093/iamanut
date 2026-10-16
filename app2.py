@@ -809,12 +809,14 @@ else:
 st.sidebar.markdown("---")
 st.sidebar.subheader("🎯 Filtros Dashboard")
 
+# Inicializa o dataframe filtrado apenas uma vez no topo
+df_filtrado_dashboard = df.copy()
+
 if "STATUS" in df.columns:
     lista_status = ["Todos"] + list(df["STATUS"].dropna().unique())
     status_escolhido = st.sidebar.selectbox("Filtrar por Status", lista_status)
     if status_escolhido != "Todos":
         df_filtrado_dashboard = df_filtrado_dashboard[df_filtrado_dashboard["STATUS"] == status_escolhido]
-
 
 # ==========================================
 # 🛠️ FILTRO POR TIPO DE MANUTENÇÃO (AJUSTADO PARA OS CHECKLISTS)
@@ -874,19 +876,14 @@ if coluna_data in df.columns:
         
         if isinstance(periodo_selecionado, tuple) and len(periodo_selecionado) == 2:
             data_inicio, data_fim = periodo_selecionado
-            mask_periodo = (df[coluna_data].dt.date >= data_inicio) & (df[coluna_data].dt.date <= data_fim)
-            df_filtrado_dashboard = df[mask_periodo].copy()
+            # Aplica o filtro de período em cima do que já foi filtrado anteriormente
+            mask_periodo = (df_filtrado_dashboard[coluna_data].dt.date >= data_inicio) & (df_filtrado_dashboard[coluna_data].dt.date <= data_fim)
+            df_filtrado_dashboard = df_filtrado_dashboard[mask_periodo].copy()
             
             # Pequeno informativo opcional na barra lateral mostrando o período ativo
             st.sidebar.success(f"Período: {data_inicio.strftime('%d/%m/%Y')} até {data_fim.strftime('%d/%m/%Y')}")
-        else:
-            df_filtrado_dashboard = df.copy()
-    else:
-        df_filtrado_dashboard = df.copy()
 else:
-    df_filtrado_dashboard = df.copy()
-
-df_filtrado_dashboard = df.copy()
+    st.sidebar.info("Coluna de Data ('ABERTO EM') não encontrada na base.")
 
            # ==========================================
 # NAVEGAÇÃO POR BOTÕES (SUBSTITUINDO AS ABAS)
