@@ -1117,16 +1117,20 @@ if st.session_state.aba_ativa == "dash":
             st.info("Coluna de data não encontrada na base.")
 
     with col_g4:
-        st.markdown("### 🏢 Pendências por Setor / Máquinas")
-        col_setor = "SETOR" if "SETOR" in df_filtrado_dashboard.columns else ("MÁQUINA" if "MÁQUINA" in df_filtrado_dashboard.columns else None)
+        st.markdown("### 🏢 Pendências por Máquinas / Edificações")
+        col_setor = "MÁQUINA" if "MÁQUINA" in df_filtrado_dashboard.columns else ("SETOR" if "SETOR" in df_filtrado_dashboard.columns else None)
         
         if col_setor:
-            df_setor = df_filtrado_dashboard[col_setor].value_counts().head(10).reset_index()
+            # REMOVIDO O .head(10) PARA MOSTRAR TODOS OS DADOS DOS FILTROS (Ex: 3000+ checklists)
+            df_setor = df_filtrado_dashboard[col_setor].value_counts().reset_index()
             df_setor.columns = ["Setor/Máquina", "Quantidade"]
-            df_setor["Texto_Fmt"] = df_setor["Quantidade"].apply(lambda x: f"{x:,}".replace(",", "."))
+            
+            # Se forem muitos itens (como 3000), exibe os top 20 ou permite rolar, mas computa a base inteira
+            df_setor_exibicao = df_setor.head(20).copy() 
+            df_setor_exibicao["Texto_Fmt"] = df_setor_exibicao["Quantidade"].apply(lambda x: f"{x:,}".replace(",", "."))
             
             fig_horiz = px.bar(
-                df_setor, 
+                df_setor_exibicao, 
                 y="Setor/Máquina", 
                 x="Quantidade", 
                 orientation="h", 
@@ -1136,12 +1140,11 @@ if st.session_state.aba_ativa == "dash":
             )
             fig_horiz.update_layout(
                 margin=dict(t=10, b=10, l=10, r=10), 
-                height=350, 
+                height=450, 
                 yaxis={'categoryorder':'total ascending'}, 
                 separators=',.'
             )
             
-            # Gráfico de barras com suporte a cliques
             evento_grafico = st.plotly_chart(
                 fig_horiz, 
                 width='stretch', 
@@ -1149,7 +1152,6 @@ if st.session_state.aba_ativa == "dash":
                 key="grafico_barras_setor_pareto"
             )
             
-            # Captura o clique na barra
             try:
                 selection_points = evento_grafico.get("selection", {}).get("points", [])
                 if selection_points:
@@ -1157,15 +1159,15 @@ if st.session_state.aba_ativa == "dash":
             except Exception:
                 pass
 
-            # Alternativa via menu suspenso para garantir funcionamento imediato
-            lista_maquinas_pareto = ["-- Ou selecione a máquina aqui --"] + sorted(df_filtrado_dashboard[col_setor].dropna().unique().astype(str))
+            # Lista completa de máquinas para o Pareto sem cortes
+            lista_maquinas_pareto = ["-- Selecione a máquina para ver o Pareto --"] + sorted(df_filtrado_dashboard[col_setor].dropna().unique().astype(str))
             maquina_escolhida = st.selectbox(
-                "📊 Seleção rápida para o Diagrama de Pareto:",
+                f"📊 Filtrado: {len(df_filtrado_dashboard):,} registros encontrados. Selecione para Pareto:",
                 options=lista_maquinas_pareto,
                 key="select_maquina_pareto_direto"
             )
             
-            if maquina_escolhida and maquina_escolhida != "-- Ou selecione a máquina aqui --":
+            if maquina_escolhida and maquina_escolhida != "-- Selecione a máquina para ver o Pareto --":
                 st.session_state["maquina_pareto_ativa"] = maquina_escolhida
 
         else:
