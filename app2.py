@@ -97,7 +97,6 @@ st.markdown("""
     }
     </style>
 """, unsafe_allow_html=True)
-
 # ==========================================
 # SISTEMA DE LOGIN MÚLTIPLO (CAIXA REDUZIDA)
 # ==========================================
@@ -107,6 +106,7 @@ def verificar_autenticacao():
         st.session_state.usuario_atual = ""
 
     if not st.session_state.autenticado:
+        # Cria colunas para centralizar e limitar a largura da caixa de login
         col_esq, col_centro, col_dir = st.columns([1, 1.2, 1])
         
         with col_centro:
@@ -116,7 +116,8 @@ def verificar_autenticacao():
             with st.form("form_login"):
                 usuario_input = st.text_input("Usuário").strip()
                 senha_input = st.text_input("Senha", type="password")
-                submit = st.form_submit_button("Entrar", width='stretch')
+                # use_container_width=True faz o botão ocupar a largura da caixa menor
+                submit = st.form_submit_button("Entrar", use_container_width=True)
                 
                 if submit:
                     usuarios_cadastrados = {}
@@ -126,6 +127,7 @@ def verificar_autenticacao():
                     except Exception:
                         pass
                     
+                    # Valida se o usuário existe e se a senha está correta
                     if usuario_input in usuarios_cadastrados and senha_input == usuarios_cadastrados[usuario_input]:
                         st.session_state.autenticado = True
                         st.session_state.usuario_atual = usuario_input
@@ -135,6 +137,7 @@ def verificar_autenticacao():
         return False
     return True
 
+# Executa a verificação de login antes de carregar o app
 if not verificar_autenticacao():
     st.stop()
 
@@ -195,7 +198,7 @@ def classificar_texto_nlp(df: pd.DataFrame, coluna_texto: str) -> pd.DataFrame:
             "válvula", "valvula", "hydra", "descarga",
             "bacia sanitária", "vaso sanitário", "vaso sanitario",
             "pia", "chuveiro", "bebedouro", "caixa d'água",
-            "caixa dagua", "reservatório", "reservatorio",
+            "caixa dagua", "reservatório", "reservatorio", "caixa dagua",
             "bomba d'água", "bomba dagua", "boia", "boia de nível",
             "pressão da água", "pressao da agua", "entupimento",
             "entupido", "infiltração hidráulica", "infiltracao hidraulica"
@@ -241,7 +244,7 @@ def classificar_texto_nlp(df: pd.DataFrame, coluna_texto: str) -> pd.DataFrame:
             "cerâmica", "ceramica", "azulejo",
             "forro", "teto", "telhado", "cobertura",
             "calha", "rufo", "fachada", "infiltração", "infiltracao", 
-            "trinca", "rachadura", "fissura",
+             "trinca", "rachadura", "fissura",
             "porta", "janela", "batente", "fechadura",
             "dobradiça", "dobradica", "vidro", "umidade",
             "espelho", "divisória", "divisoria",
@@ -609,84 +612,6 @@ def extrair_dados_tabela_markdown(relatorio_texto: str) -> pd.DataFrame:
     return None
 
 # ==========================================
-# CARREGAMENTO E FILTRAGEM INTEGRAL DOS DADOS
-# ==========================================
-st.sidebar.markdown("### 📂 Fonte de Dados")
-uploaded_file = st.sidebar.file_uploader("Carregar Base (CSV / Excel)", type=["csv", "xlsx", "xls"])
-
-if uploaded_file is not None:
-    try:
-        if uploaded_file.name.endswith('.csv'):
-            df = pd.read_csv(uploaded_file, sep=None, engine='python')
-        else:
-            df = pd.read_excel(uploaded_file)
-    except Exception as e:
-        st.error(f"Erro ao carregar o arquivo: {e}")
-        st.stop()
-else:
-    try:
-        df = pd.read_csv("base_os.csv")
-    except Exception:
-        st.warning("⚠️ Envie um arquivo de dados na barra lateral para iniciar o dashboard.")
-        st.stop()
-
-# Padroniza as colunas e processa a base inteira
-df.columns = [str(c).strip().upper() for c in df.columns]
-coluna_comentario = "OBSERVAÇÃO ABERTURA" if "OBSERVAÇÃO ABERTURA" in df.columns else (df.columns[0] if len(df.columns) > 0 else "")
-df = classificar_texto_nlp(df, coluna_comentario)
-
-st.sidebar.markdown("---")
-st.sidebar.markdown("### 🔍 Filtros Executivos")
-df_filtrado_dashboard = df.copy()
-
-# 1. Filtro por Status
-if "STATUS" in df.columns:
-    lista_status = ["Todos"] + sorted(list(df["STATUS"].dropna().astype(str).unique()))
-    status_escolhido = st.sidebar.selectbox("Filtrar por Status", lista_status)
-    if status_escolhido != "Todos":
-        df_filtrado_dashboard = df_filtrado_dashboard[df_filtrado_dashboard["STATUS"].astype(str) == status_escolhido]
-
-# 2. Filtro Abrangente por Tipo de Manutenção (Garante a leitura de todos os registros e checklists)
-col_tipo_servico = None
-for c in df.columns:
-    c_limpo = c.strip().upper()
-    if "TIPO DE MANUT" in c_limpo or c_limpo == "TIPO DE MANUT." or c_limpo == "TIPO":
-        col_tipo_servico = c
-        break
-
-if col_tipo_servico:
-    tipos_desejados = ["Todos", "Corretiva Programada", "Corretiva Emergencial", "Checklist", "Roteiro", "Melhoria"]
-    tipo_escolhido = st.sidebar.selectbox("Filtrar por Tipo", tipos_desejados)
-    
-    if tipo_escolhido != "Todos":
-        termo = tipo_escolhido.lower()
-        if "corretiva programada" in termo:
-            df_filtrado_dashboard = df_filtrado_dashboard[
-                df_filtrado_dashboard[col_tipo_servico].astype(str).str.lower().str.contains("corretiva", na=False) &
-                df_filtrado_dashboard[col_tipo_servico].astype(str).str.lower().str.contains("program|prevent|planej", na=False)
-            ]
-        elif "corretiva emergencial" in termo:
-            df_filtrado_dashboard = df_filtrado_dashboard[
-                df_filtrado_dashboard[col_tipo_servico].astype(str).str.lower().str.contains("corretiva", na=False) &
-                df_filtrado_dashboard[col_tipo_servico].astype(str).str.lower().str.contains("emerg|urg", na=False)
-            ]
-        elif "roteiro" in termo:
-            df_filtrado_dashboard = df_filtrado_dashboard[
-                df_filtrado_dashboard[col_tipo_servico].astype(str).str.lower().str.contains("roteiro|rot", na=False)
-            ]
-        elif "melhoria" in termo:
-            df_filtrado_dashboard = df_filtrado_dashboard[
-                df_filtrado_dashboard[col_tipo_servico].astype(str).str.lower().str.contains("melhoria|melhor", na=False)
-            ]
-        elif "checklist" in termo:
-            df_filtrado_dashboard = df_filtrado_dashboard[
-                df_filtrado_dashboard[col_tipo_servico].astype(str).str.lower().str.contains("check|chk|vistor|inspec", na=False)
-            ]
-else:
-    st.sidebar.info("Coluna de Tipo de Manutenção não encontrada na base.")
-
-st.sidebar.markdown("---")
-# ==========================================
 # INTERFACE GRÁFICA (BARRA LATERAL)
 # ==========================================
 st.sidebar.title("⚙️ Configurações")
@@ -846,59 +771,19 @@ if df is not None:
         
         df_filtrado_dashboard = df.copy()
         
-    if "STATUS" in df.columns:
-        lista_status = ["Todos"] + list(df["STATUS"].dropna().unique())
-        status_escolhido = st.sidebar.selectbox("Filtrar por Status", lista_status)
-        if status_escolhido != "Todos":
-            df_filtrado_dashboard = df_filtrado_dashboard[df_filtrado_dashboard["STATUS"] == status_escolhido]
+        if "STATUS" in df.columns:
+            lista_status = ["Todos"] + list(df["STATUS"].dropna().unique())
+            status_escolhido = st.sidebar.selectbox("Filtrar por Status", lista_status)
+            if status_escolhido != "Todos":
+                df_filtrado_dashboard = df_filtrado_dashboard[df_filtrado_dashboard["STATUS"] == status_escolhido]
 
-    # ==========================================
-    # FILTRO COMPLETO E ABRANGENTE PARA TIPO DE MANUTENÇÃO
-    # ==========================================
-    col_tipo_servico = None
-    for c in df.columns:
-        c_limpo = c.strip().upper()
-        if "TIPO DE MANUT" in c_limpo or c_limpo == "TIPO DE MANUT." or c_limpo == "TIPO":
-            col_tipo_servico = c
-            break
+        if "CATEGORIA_NLP" in df.columns:
+            lista_cat = ["Todas"] + list(df["CATEGORIA_NLP"].dropna().unique())
+            cat_escolhida = st.sidebar.selectbox("Filtrar por Categoria NLP", lista_cat)
+            if cat_escolhida != "Todas":
+                df_filtrado_dashboard = df_filtrado_dashboard[df_filtrado_dashboard["CATEGORIA_NLP"] == cat_escolhida]
 
-    if col_tipo_servico:
-        tipos_desejados = ["Todos", "Corretiva Programada", "Corretiva Emergencial", "Checklist", "Roteiro", "Melhoria"]
-        tipo_escolhido = st.sidebar.selectbox("Filtrar por Tipo", tipos_desejados)
-        
-        if tipo_escolhido != "Todos":
-            termo = tipo_escolhido.lower()
-            
-            if "corretiva programada" in termo:
-                # Procura qualquer variação que contenha corretiva e programada/preventiva/planejada
-                df_filtrado_dashboard = df_filtrado_dashboard[
-                    df_filtrado_dashboard[col_tipo_servico].astype(str).str.lower().str.contains("corretiva", na=False) &
-                    df_filtrado_dashboard[col_tipo_servico].astype(str).str.lower().str.contains("program|prevent|planej", na=False)
-                ]
-            elif "corretiva emergencial" in termo:
-                # Procura qualquer variação de corretiva com emergencial/urgente/corretiva pura se não houver especificação
-                df_filtrado_dashboard = df_filtrado_dashboard[
-                    df_filtrado_dashboard[col_tipo_servico].astype(str).str.lower().str.contains("corretiva", na=False) &
-                    df_filtrado_dashboard[col_tipo_servico].astype(str).str.lower().str.contains("emerg|urg|nao prog|não prog", na=False)
-                ]
-            elif "roteiro" in termo:
-                # Captura "ROTEIRO - PERIÓDICA" e quaisquer outras variações de roteiro
-                df_filtrado_dashboard = df_filtrado_dashboard[
-                    df_filtrado_dashboard[col_tipo_servico].astype(str).str.lower().str.contains("roteiro|rot", na=False)
-                ]
-            elif "melhoria" in termo:
-                df_filtrado_dashboard = df_filtrado_dashboard[
-                    df_filtrado_dashboard[col_tipo_servico].astype(str).str.lower().str.contains("melhoria|melhor", na=False)
-                ]
-            elif "checklist" in termo:
-                # Ampla varredura para garantir que todos os checklists da base apareçam (check, chk, vistoria, etc.)
-                df_filtrado_dashboard = df_filtrado_dashboard[
-                    df_filtrado_dashboard[col_tipo_servico].astype(str).str.lower().str.contains("check|chk|vistor|inspec", na=False)
-                ]
-    else:
-        st.sidebar.info("Coluna de Tipo de Manutenção não encontrada na base.")
-
-    st.markdown("---")
+        st.markdown("---")
         
            # ==========================================
 # NAVEGAÇÃO POR BOTÕES (SUBSTITUINDO AS ABAS)
@@ -1033,7 +918,7 @@ if st.session_state.aba_ativa == "dash":
             st.session_state.filtro_kpi_ativo = "geral"
             st.rerun()
 
-   # ==========================================
+    # ==========================================
     # NOVOS INDICADORES EXECUTIVOS (CARDS ADICIONAIS)
     # ==========================================
     col_ind1, col_ind2, col_ind3 = st.columns(3)
@@ -1089,52 +974,7 @@ if st.session_state.aba_ativa == "dash":
 
     st.markdown("<br>", unsafe_allow_html=True)
 
-   # ==========================================
-    # GARANTINDO A DEFINIÇÃO DAS VARIÁVEIS DE DATA
-    # ==========================================
-    col_data = "ABERTO EM" if "ABERTO EM" in df_filtrado_dashboard.columns else ("DATA" if "DATA" in df_filtrado_dashboard.columns else None)
-    col_data_fechamento = "FECHADO EM" if "FECHADO EM" in df_filtrado_dashboard.columns else ("DATA FECHAMENTO" if "DATA FECHAMENTO" in df_filtrado_dashboard.columns else None)
-
-    # ==========================================
-    # 1. EVOLUÇÃO TEMPORAL EMPILHADA (Abertas, Pendentes, Programadas, Finalizadas)
-    # ==========================================
-    st.markdown("### 📊 Evolução Temporal das OS por Status (Finalizadas, Pendentes, Programadas)")
-    if col_data and "STATUS" in df_filtrado_dashboard.columns:
-        df_evolucao = df_filtrado_dashboard.copy()
-        df_evolucao["MES_ANO"] = pd.to_datetime(df_evolucao[col_data], errors='coerce').dt.to_period("M").astype(str)
-        
-        # Categorização detalhada para o gráfico de barras
-        def categorizar_status_detalhado(val):
-            v = str(val).lower()
-            if any(term in v for term in ["concluíd", "concluid", "fechad", "encerrad", "finalizad"]):
-                return "Finalizadas"
-            elif any(term in v for term in ["program", "planejad"]):
-                return "Programadas"
-            else:
-                return "Pendentes / Abertas"
-                
-        df_evolucao["STATUS_DETALHE"] = df_evolucao["STATUS"].apply(categorizar_status_detalhado)
-        df_group_evol = df_evolucao.groupby(["MES_ANO", "STATUS_DETALHE"]).size().reset_index(name="Quantidade")
-        
-        fig_evolucao_bar = px.bar(
-            df_group_evol, 
-            x="MES_ANO", 
-            y="Quantidade", 
-            color="STATUS_DETALHE", 
-            text="Quantidade",
-            barmode="stack",
-            color_discrete_map={"Finalizadas": "#059669", "Programadas": "#2563EB", "Pendentes / Abertas": "#DC2626"}
-        )
-        fig_evolucao_bar.update_layout(margin=dict(t=10, b=10, l=10, r=10), height=380, separators=',.', legend_title="Status das OS")
-        st.plotly_chart(fig_evolucao_bar, use_container_width=True)
-    else:
-        st.info("Colunas de data ou status indisponíveis para gerar a evolução temporal detalhada.")
-
-    st.markdown("---")
-
-    # ==========================================
     # 2. Gráficos: OS Abertas x Concluídas & Categoria NLP
-    # ==========================================
     col_g1, col_g2 = st.columns(2)
     
     with col_g1:
@@ -1170,13 +1010,12 @@ if st.session_state.aba_ativa == "dash":
 
     st.markdown("---")
 
-    # ==========================================
-    # 3. Gráficos: Linha Temporal & Pendências por Setor (Com Diagrama de Pareto Interativo)
-    # ==========================================
+    # 3. Gráficos: Linha Temporal & Pendências por Setor
     col_g3, col_g4 = st.columns(2)
     
     with col_g3:
         st.markdown("### 📈 Evolução de Ocorrências ao Longo do Tempo (Linhas)")
+        col_data = "ABERTO EM" if "ABERTO EM" in df_filtrado_dashboard.columns else ("DATA" if "DATA" in df_filtrado_dashboard.columns else None)
         if col_data:
             try:
                 df_temp = df_filtrado_dashboard.copy()
@@ -1192,118 +1031,169 @@ if st.session_state.aba_ativa == "dash":
             st.info("Coluna de data não encontrada na base.")
 
     with col_g4:
-        st.markdown("### 🏢 Pendências por Máquinas / Edificações")
-        col_setor = "MÁQUINA" if "MÁQUINA" in df_filtrado_dashboard.columns else ("SETOR" if "SETOR" in df_filtrado_dashboard.columns else None)
-        
+        st.markdown("### 🏢 Pendências por Setor / Máquinas")
+        col_setor = "SETOR" if "SETOR" in df_filtrado_dashboard.columns else ("MÁQUINA" if "MÁQUINA" in df_filtrado_dashboard.columns else None)
         if col_setor:
-            # REMOVIDO O .head(10) PARA MOSTRAR TODOS OS DADOS DOS FILTROS (Ex: 3000+ checklists)
-            df_setor = df_filtrado_dashboard[col_setor].value_counts().reset_index()
+            df_setor = df_filtrado_dashboard[col_setor].value_counts().head(10).reset_index()
             df_setor.columns = ["Setor/Máquina", "Quantidade"]
+            df_setor["Texto_Fmt"] = df_setor["Quantidade"].apply(lambda x: f"{x:,}".replace(",", "."))
             
-            # Se forem muitos itens (como 3000), exibe os top 20 ou permite rolar, mas computa a base inteira
-            df_setor_exibicao = df_setor.head(20).copy() 
-            df_setor_exibicao["Texto_Fmt"] = df_setor_exibicao["Quantidade"].apply(lambda x: f"{x:,}".replace(",", "."))
-            
-            fig_horiz = px.bar(
-                df_setor_exibicao, 
-                y="Setor/Máquina", 
-                x="Quantidade", 
-                orientation="h", 
-                text="Texto_Fmt", 
-                color="Quantidade", 
-                color_continuous_scale="Blues"
-            )
-            fig_horiz.update_layout(
-                margin=dict(t=10, b=10, l=10, r=10), 
-                height=450, 
-                yaxis={'categoryorder':'total ascending'}, 
-                separators=',.'
-            )
-            
-            evento_grafico = st.plotly_chart(
-                fig_horiz, 
-                width='stretch', 
-                on_select="rerun", 
-                key="grafico_barras_setor_pareto"
-            )
-            
-            try:
-                selection_points = evento_grafico.get("selection", {}).get("points", [])
-                if selection_points:
-                    st.session_state["maquina_pareto_ativa"] = selection_points[0].get("y")
-            except Exception:
-                pass
-
-            # Lista completa de máquinas para o Pareto sem cortes
-            lista_maquinas_pareto = ["-- Selecione a máquina para ver o Pareto --"] + sorted(df_filtrado_dashboard[col_setor].dropna().unique().astype(str))
-            maquina_escolhida = st.selectbox(
-                f"📊 Filtrado: {len(df_filtrado_dashboard):,} registros encontrados. Selecione para Pareto:",
-                options=lista_maquinas_pareto,
-                key="select_maquina_pareto_direto"
-            )
-            
-            if maquina_escolhida and maquina_escolhida != "-- Selecione a máquina para ver o Pareto --":
-                st.session_state["maquina_pareto_ativa"] = maquina_escolhida
-
+            fig_horiz = px.bar(df_setor, y="Setor/Máquina", x="Quantidade", orientation="h", text="Texto_Fmt", color="Quantidade", color_continuous_scale="Blues")
+            fig_horiz.update_layout(margin=dict(t=10, b=10, l=10, r=10), height=350, yaxis={'categoryorder':'total ascending'}, separators=',.')
+            st.plotly_chart(fig_horiz, use_container_width=True)
         else:
             st.info("Coluna de Setor ou Máquina não encontrada.")
 
-    # ==========================================
-    # EXIBIÇÃO DO DIAGRAMA DE PARETO
-    # ==========================================
-    if "maquina_pareto_ativa" in st.session_state and st.session_state["maquina_pareto_ativa"]:
-        maq_ativa = st.session_state["maquina_pareto_ativa"]
-        st.markdown("---")
+elif st.session_state.aba_ativa == "busca":
+    st.subheader("🔍 Pesquisa Textual & Geração de Relatórios por IA")
+    
+    col_search, col_btn = st.columns([4, 1])
+    with col_search:
+        termo = st.text_input("Digite um termo para pesquisar nas observações (ex: ar condicionado, vazamento, bomba):", value=st.session_state.termo_pesquisa)
+    with col_btn:
+        st.write("")
+        st.write("")
+        if st.button("🔎 Buscar"):
+            st.session_state.termo_pesquisa = termo
+            limpar_pesquisa()
+
+    if st.session_state.termo_pesquisa:
+        termo_busca = st.session_state.termo_pesquisa.lower().strip()
+        df_resultado = df[df["TEXTO_BUSCA"].str.contains(termo_busca, na=False)]
         
-        col_t1, col_t2 = st.columns([4, 1])
-        with col_t1:
-            st.markdown(f"### 📊 Diagrama de Pareto de Falhas — Máquina: `{maq_ativa}`")
-        with col_t2:
-            if st.button("❌ Fechar Pareto", key="btn_fechar_pareto"):
-                st.session_state["maquina_pareto_ativa"] = None
-                st.rerun()
-
-        col_maq_filtro = None
-        for c in ["MÁQUINA", "MAQUINA", "MÁQUINAS", "MAQUINAS", "SETOR"]:
-            if c in df_filtrado_dashboard.columns:
-                col_maq_filtro = c
-                break
-
-        if col_maq_filtro:
-            df_pareto_base = df_filtrado_dashboard[df_filtrado_dashboard[col_maq_filtro].astype(str) == str(maq_ativa)]
+        st.markdown(f"**Registros encontrados:** {len(df_resultado):,} de {len(df):,}".replace(",", "."))
+        
+        if len(df_resultado) > 0:
+            col_r1, col_r2 = st.columns([1, 2])
             
-            col_falha = None
-            for c in ["CATEGORIA_NLP", "FALHA", "PROBLEMA", coluna_comentario]:
-                if c and c in df_pareto_base.columns:
-                    col_falha = c
+            with col_r1:
+                st.markdown("#### 📄 Ações com a Seleção")
+                if st.button("🤖 Gerar Relatório Executivo com IA"):
+                    with st.spinner("Analisando dados e gerando relatório executivo via Groq..."):
+                        relatorio = gerar_relatorio_ia(termo_busca, df_resultado[coluna_comentario].tolist(), groq_api_key_input)
+                        st.session_state.relatorio_gerado = relatorio
+                        st.session_state.termo_relatorio = termo_busca
+
+            if "relatorio_gerado" in st.session_state and st.session_state.get("termo_relatorio") == termo_busca:
+                st.markdown("---")
+                st.markdown(f"### 📋 Relatório IA para '{termo_busca.upper()}'")
+                st.markdown(st.session_state.relatorio_gerado)
+                
+                serie_tabela = extrair_dados_tabela_markdown(st.session_state.relatorio_gerado)
+                if serie_tabela is not None and not serie_tabela.empty:
+                    st.markdown("#### 📊 Gráfico extraído do Relatório")
+                    fig_rel = px.bar(x=serie_tabela.index, y=serie_tabela.values, labels={'x': 'Área/Problema', 'y': 'Frequência'})
+                    fig_rel.update_layout(separators=',.')
+                    st.plotly_chart(fig_rel, use_container_width=True)
+
+            st.markdown("---")
+            st.markdown("#### 📋 Listagem das OS Encontradas")
+            cols_exibir = [c for c in ["CÓDIGO", "ABERTO EM", "STATUS", "SETOR", "MÁQUINA", "CATEGORIA_NLP", coluna_comentario] if c in df_resultado.columns]
+            st.dataframe(df_resultado[cols_exibir], use_container_width=True)
+        else:
+            st.warning("Nenhuma Ordem de Serviço encontrada com o termo informado.")
+
+elif st.session_state.aba_ativa == "nlp":
+    st.subheader("🔍 Detalhamento por Categoria e Equipamentos")
+
+    if "CATEGORIA_NLP" in df.columns:
+        categorias_disponiveis = ["-- Selecione uma categoria --", "Todas"] + sorted(df["CATEGORIA_NLP"].dropna().unique())
+        
+        cat_selecionada = st.selectbox(
+            "Selecione uma Categoria para abrir e ver os itens:", 
+            options=categorias_disponiveis, 
+            index=0
+        )
+        
+        if cat_selecionada and cat_selecionada != "-- Selecione uma categoria --":
+            if cat_selecionada == "Todas":
+                df_cat = df.copy()
+                st.write(f"Exibindo registros de **Todas** as categorias: **{len(df_cat):,}**")
+            else:
+                df_cat = df[df["CATEGORIA_NLP"] == cat_selecionada]
+                st.write(f"Total de registros na categoria **{cat_selecionada}**: **{len(df_cat):,}**")
+            
+            col_maq = None
+            for c in ["MÁQUINAS", "MAQUINAS", "MÁQUINA", "MAQUINA"]:
+                if c in df.columns:
+                    col_maq = c
                     break
             
-            if col_falha and not df_pareto_base.empty:
-                df_pareto = df_pareto_base[col_falha].value_counts().reset_index()
-                df_pareto.columns = ["Falha / Ocorrência", "Quantidade"]
-                df_pareto["Acumulado_%"] = (df_pareto["Quantidade"].cumsum() / df_pareto["Quantidade"].sum()) * 100
+            if col_maq:
+                st.markdown(f"##### ⚙️ Equipamentos / Ativos relacionados (Coluna: `{col_maq}`)")
                 
-                fig_pareto = px.bar(
-                    df_pareto, 
-                    x="Falha / Ocorrência", 
-                    y="Quantidade", 
-                    text="Quantidade", 
-                    title=f"Análise de Pareto para {maq_ativa}"
+                df_ranking_maq = df_cat[col_maq].value_counts().reset_index()
+                df_ranking_maq.columns = ["Equipamento / Máquina", "Quantidade"]
+                
+                evento_tabela = st.dataframe(
+                    df_ranking_maq, 
+                    use_container_width=True, 
+                    hide_index=True,
+                    selection_mode="single-row",
+                    on_select="rerun",
+                    key=f"tabela_ranking_{cat_selecionada}"
                 )
-                fig_pareto.add_scatter(
-                    x=df_pareto["Falha / Ocorrência"], 
-                    y=df_pareto["Acumulado_%"], 
-                    mode="lines+markers", 
-                    name="Acumulado %", 
-                    yaxis="y2"
+                
+                linhas_selecionadas = evento_tabela.get("selection", {}).get("rows", [])
+                
+                maquina_via_tabela = None
+                if linhas_selecionadas:
+                    idx_linha = linhas_selecionadas[0]
+                    maquina_via_tabela = str(df_ranking_maq.iloc[idx_linha]["Equipamento / Máquina"])
+
+                st.markdown("---")
+                st.markdown("#### 📋 Ordens de Serviço Específicas por Máquina/Equipamento")
+                
+                lista_maquinas_cat = ["-- Selecione uma Máquina/Equipamento --"] + sorted(df_cat[col_maq].dropna().unique().astype(str))
+                
+                index_inicial = 0
+                if maquina_via_tabela and maquina_via_tabela in lista_maquinas_cat:
+                    index_inicial = lista_maquinas_cat.index(maquina_via_tabela)
+
+                maquina_selecionada = st.selectbox(
+                    "Selecione uma Máquina/Equipamento para ver as Ordens de Serviço detalhadas:", 
+                    lista_maquinas_cat,
+                    index=index_inicial,
+                    key=f"select_maq_{cat_selecionada}"
                 )
-                fig_pareto.update_layout(
-                    xaxis=dict(tickangle=-45),
-                    yaxis=dict(title="Quantidade de Falhas"),
-                    yaxis2=dict(title="Acumulado (%)", overlaying="y", side="right", range=[0, 105]),
-                    height=400,
-                    margin=dict(t=40, b=40, l=40, r=40)
-                )
-                st.plotly_chart(fig_pareto, width='stretch')
-            else:
-                st.warning(f"Não há dados detalhados suficientes de falhas para a máquina '{maq_ativa}'.")
+                
+                maquina_ativa = maquina_via_tabela if maquina_via_tabela else maquina_selecionada
+
+                if maquina_ativa and maquina_ativa != "-- Selecione uma Máquina/Equipamento --":
+                    df_os_maquina = df_cat[df_cat[col_maq].astype(str) == maquina_ativa]
+                    
+                    st.info(f"Exibindo **{len(df_os_maquina)}** Ordem(ns) de Serviço para o equipamento: **{maquina_ativa}**")
+                    
+                    col_exec_prevista = None
+                    for c in ["EXEC. PREVISTA", "EXEC_PREVISTA", "DATA EXEC PREVISTA", "PREVISÃO", "PREVISAO"]:
+                        if c in df.columns:
+                            col_exec_prevista = c
+                            break
+                    
+                    candidatos_cols = ["CÓDIGO", "ABERTO EM", col_exec_prevista, "STATUS", "SETOR", col_maq, coluna_comentario, "CUSTO COM MATERIAIS"]
+                    cols_mostrar = [c for c in candidatos_cols if c and c in df_os_maquina.columns]
+                    
+                    st.dataframe(df_os_maquina[cols_mostrar], use_container_width=True, hide_index=True)
+                else:
+                    st.info("👈 Clique em uma linha na tabela acima ou selecione um equipamento no menu para carregar as Ordens de Serviço específicas.")
+
+elif st.session_state.aba_ativa == "chat":
+    st.subheader("💬 Chat Inteligente sobre a Base de Dados")
+    st.write("Faça perguntas diretas em linguagem natural sobre qualquer informação da planilha.")
+    
+    for msg in st.session_state.mensagens_chat:
+        with st.chat_message(msg["role"]):
+            st.write(msg["content"])
+
+    pergunta = st.chat_input("Ex: Qual o setor com mais chamados abertos? Quantos vazamentos tivemos?")
+    
+    if pergunta:
+        st.session_state.mensagens_chat.append({"role": "user", "content": pergunta})
+        with st.chat_message("user"):
+            st.write(pergunta)
+        
+        with st.chat_message("assistant"):
+            with st.spinner("Consultando dados da planilha via Groq..."):
+                resposta = responder_pergunta_livre_com_todo_arquivo(pergunta, df, groq_api_key_input)
+                st.write(resposta)
+                st.session_state.mensagens_chat.append({"role": "assistant", "content": resposta})
