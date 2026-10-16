@@ -1243,18 +1243,14 @@ if st.session_state.aba_ativa == "dash":
 elif st.session_state.aba_ativa == "busca":
     st.subheader("🔍 Pesquisa Textual & Geração de Relatórios por IA")
     
-    col_search, col_btn = st.columns([4, 1])
-    with col_search:
-        termo = st.text_input("Digite um termo para pesquisar nas observações ou máquinas (ex: ar condicionado, vazamento, bomba, gerador):", value=st.session_state.termo_pesquisa)
-    with col_btn:
-        st.write("")
-        st.write("")
-        if st.button("🔎 Buscar"):
-            st.session_state.termo_pesquisa = termo
-            limpar_pesquisa()
+    # Usamos a key="termo_pesquisa" para que o Streamlit gerencie o valor automaticamente
+    termo_pesquisa = st.text_input(
+        "Digite um termo para pesquisar nas observações ou máquinas (ex: ar condicionado, vazamento, bomba, gerador):",
+        key="termo_pesquisa"
+    )
 
-    if st.session_state.termo_pesquisa:
-        termo_busca = st.session_state.termo_pesquisa.lower().strip()
+    if termo_pesquisa:
+        termo_busca = termo_pesquisa.lower().strip()
         
         # 🔥 Aqui ele busca na coluna combinada que inclui a MÁQUINA, a OBSERVAÇÃO e a CATEGORIA NLP!
         df_resultado = df[df["TEXTO_BUSCA"].str.contains(termo_busca, na=False)]
@@ -1267,13 +1263,13 @@ elif st.session_state.aba_ativa == "busca":
             st.markdown("---")
             col_r1, col_r2 = st.columns([2, 1])
             with col_r1:
-                st.write(f"Gerar relatório executivo automatizado por Inteligência Artificial para os resultados de **'{st.session_state.termo_pesquisa}'**?")
+                st.write(f"Gerar relatório executivo automatizado por Inteligência Artificial para os resultados de **'{termo_pesquisa}'**?")
             with col_r2:
                 if st.button("🤖 Gerar Relatório IA", use_container_width=True):
                     with st.spinner("Gerando relatório com IA via Groq..."):
-                        relatorio_gerado = gerar_relatorio_ia(st.session_state.termo_pesquisa, df_resultado, groq_api_key_input)
+                        relatorio_gerado = gerar_relatorio_ia(termo_pesquisa, df_resultado, groq_api_key_input)
                         st.session_state.relatorio_gerado = relatorio_gerado
-                        st.session_state.termo_relatorio = st.session_state.termo_pesquisa
+                        st.session_state.termo_relatorio = termo_pesquisa
 
         if "relatorio_gerado" in st.session_state:
             st.markdown("---")
