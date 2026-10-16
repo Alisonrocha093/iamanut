@@ -771,18 +771,55 @@ if df is not None:
         
         df_filtrado_dashboard = df.copy()
         
-        if "STATUS" in df.columns:
-            lista_status = ["Todos"] + list(df["STATUS"].dropna().unique())
-            status_escolhido = st.sidebar.selectbox("Filtrar por Status", lista_status)
-            if status_escolhido != "Todos":
-                df_filtrado_dashboard = df_filtrado_dashboard[df_filtrado_dashboard["STATUS"] == status_escolhido]
+    if "STATUS" in df.columns:
+        lista_status = ["Todos"] + list(df["STATUS"].dropna().unique())
+        status_escolhido = st.sidebar.selectbox("Filtrar por Status", lista_status)
+        if status_escolhido != "Todos":
+            df_filtrado_dashboard = df_filtrado_dashboard[df_filtrado_dashboard["STATUS"] == status_escolhido]
 
-        if "CATEGORIA_NLP" in df.columns:
-            lista_cat = ["Todas"] + list(df["CATEGORIA_NLP"].dropna().unique())
-            cat_escolhida = st.sidebar.selectbox("Filtrar por Categoria NLP", lista_cat)
-            if cat_escolhida != "Todas":
-                df_filtrado_dashboard = df_filtrado_dashboard[df_filtrado_dashboard["CATEGORIA_NLP"] == cat_escolhida]
+    # ==========================================
+    # FILTRO ROBUSTO PARA TIPO DE MANUTENÇÃO (Baseado na sua planilha)
+    # ==========================================
+    # Localiza a coluna correta independentemente de espaços ou pontos extras
+    col_tipo_servico = None
+    for c in df.columns:
+        c_limpo = c.strip().upper()
+        if "TIPO DE MANUT" in c_limpo or c_limpo == "TIPO DE MANUT." or c_limpo == "TIPO":
+            col_tipo_servico = c
+            break
 
+    if col_tipo_servico:
+        tipos_desejados = ["Todos", "Corretiva Programada", "Corretiva Emergencial", "Checklist", "Roteiro", "Melhoria"]
+        tipo_escolhido = st.sidebar.selectbox("Filtrar por Tipo", tipos_desejados)
+        
+        if tipo_escolhido != "Todos":
+            termo = tipo_escolhido.lower()
+            
+            # Tratamento inteligente para abranger variações como "ROTEIRO - PERIÓDICA"
+            if "corretiva programada" in termo:
+                df_filtrado_dashboard = df_filtrado_dashboard[
+                    df_filtrado_dashboard[col_tipo_servico].astype(str).str.lower().str.contains("corretiva", na=False) &
+                    df_filtrado_dashboard[col_tipo_servico].astype(str).str.lower().str.contains("program", na=False)
+                ]
+            elif "corretiva emergencial" in termo:
+                df_filtrado_dashboard = df_filtrado_dashboard[
+                    df_filtrado_dashboard[col_tipo_servico].astype(str).str.lower().str.contains("corretiva", na=False) &
+                    df_filtrado_dashboard[col_tipo_servico].astype(str).str.lower().str.contains("emerg|urg", na=False)
+                ]
+            elif "roteiro" in termo:
+                df_filtrado_dashboard = df_filtrado_dashboard[
+                    df_filtrado_dashboard[col_tipo_servico].astype(str).str.lower().str.contains("roteiro", na=False)
+                ]
+            elif "melhoria" in termo:
+                df_filtrado_dashboard = df_filtrado_dashboard[
+                    df_filtrado_dashboard[col_tipo_servico].astype(str).str.lower().str.contains("melhoria", na=False)
+                ]
+            elif "checklist" in termo:
+                df_filtrado_dashboard = df_filtrado_dashboard[
+                    df_filtrado_dashboard[col_tipo_servico].astype(str).str.lower().str.contains("check", na=False)
+                ]
+    else:
+        st.sidebar.info("Coluna de Tipo de Manutenção não encontrada na base.")
         st.markdown("---")
         
            # ==========================================
