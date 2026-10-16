@@ -854,40 +854,38 @@ if coluna_data in df.columns:
 else:
     df_filtrado_dashboard = df.copy()
 
-    
-   # ==========================================
-    # FILTRO POR TIPO DE MANUTENÇÃO (AJUSTADO PARA OS CHECKLISTS)
-    # ==========================================
-    col_tipo_servico = None
-    for c in df.columns:
-        c_limpo = c.strip().upper()
-        if "TIPO DE MANUT" in c_limpo or c_limpo == "TIPO":
-            col_tipo_servico = c
-            break
+# ==========================================
+# 🛠️ FILTRO POR TIPO DE MANUTENÇÃO (AJUSTADO PARA OS CHECKLISTS)
+# ==========================================
+col_tipo_servico = None
+for c in df.columns:
+    c_limpo = c.strip().upper()
+    if "TIPO DE MANUT" in c_limpo or c_limpo == "TIPO":
+        col_tipo_servico = c
+        break
 
-    if col_tipo_servico:
-        tipos_desejados = ["Corretiva Programada", "Corretiva Emergencial", "Checklist", "Roteiro", "Melhoria"]
-        lista_tipos = ["Todos"] + tipos_desejados
-        tipo_escolhido = st.sidebar.selectbox("Filtrar por Tipo", lista_tipos)
+if col_tipo_servico:
+    tipos_desejados = ["Corretiva Programada", "Corretiva Emergencial", "Checklist", "Roteiro", "Melhoria"]
+    lista_tipos = ["Todos"] + tipos_desejados
+    tipo_escolhido = st.sidebar.selectbox("Filtrar por Tipo", lista_tipos)
+    
+    if tipo_escolhido != "Todos":
+        termo = tipo_escolhido.strip().lower()
+        coluna_str = df_filtrado_dashboard[col_tipo_servico].astype(str).str.strip().str.lower()
         
-        if tipo_escolhido != "Todos":
-            termo = tipo_escolhido.strip().lower()
-            coluna_str = df_filtrado_dashboard[col_tipo_servico].astype(str).str.strip().str.lower()
-            
-            if termo == "checklist":
-                # Filtra de forma exata e segura os checklists, ignorando campos vazios em outras colunas
-                df_filtrado_dashboard = df_filtrado_dashboard[coluna_str == "checklist"]
-            elif "corretiva programada" in termo:
-                df_filtrado_dashboard = df_filtrado_dashboard[coluna_str.str.contains("corretiva", na=False) & coluna_str.str.contains("program", na=False)]
-            elif "corretiva emergencial" in termo:
-                df_filtrado_dashboard = df_filtrado_dashboard[coluna_str.str.contains("corretiva", na=False) & coluna_str.str.contains("emerg|urg", na=False)]
-            elif "roteiro" in termo:
-                df_filtrado_dashboard = df_filtrado_dashboard[coluna_str.str.contains("roteiro|rot", na=False)]
-            elif "melhoria" in termo:
-                df_filtrado_dashboard = df_filtrado_dashboard[coluna_str.str.contains("melhoria|melhor", na=False)]
-    else:
-        st.sidebar.info("Coluna de Tipo de Manutenção não encontrada na base.")
-        
+        if termo == "checklist":
+            # Filtra de forma exata e segura os checklists, ignorando campos vazios em outras colunas
+            df_filtrado_dashboard = df_filtrado_dashboard[coluna_str == "checklist"]
+        elif "corretiva programada" in termo:
+            df_filtrado_dashboard = df_filtrado_dashboard[coluna_str.str.contains("corretiva", na=False) & coluna_str.str.contains("program", na=False)]
+        elif "corretiva emergencial" in termo:
+            df_filtrado_dashboard = df_filtrado_dashboard[coluna_str.str.contains("corretiva", na=False) & coluna_str.str.contains("emerg|urg", na=False)]
+        elif "roteiro" in termo:
+            df_filtrado_dashboard = df_filtrado_dashboard[coluna_str.str.contains("roteiro|rot", na=False)]
+        elif "melhoria" in termo:
+            df_filtrado_dashboard = df_filtrado_dashboard[coluna_str.str.contains("melhoria|melhor", na=False)]
+else:
+    st.sidebar.info("Coluna de Tipo de Manutenção não encontrada na base.")
            # ==========================================
 # NAVEGAÇÃO POR BOTÕES (SUBSTITUINDO AS ABAS)
 # ==========================================
