@@ -806,6 +806,44 @@ else:
         df["CATEGORIA_NLP"].astype(str).str.lower().fillna("")
     )
 
+# ==========================================
+# 📅 FILTRO DE PERÍODO (Em Português)
+# ==========================================
+st.sidebar.markdown("---")
+st.sidebar.markdown("### 📅 Filtrar por Período")
+
+coluna_data = "ABERTO EM" # Confirme se é este o nome exato da coluna de data na sua planilha
+
+if coluna_data in df.columns:
+    df[coluna_data] = pd.to_datetime(df[coluna_data], errors='coerce')
+    data_minima = df[coluna_data].min()
+    data_maxima = df[coluna_data].max()
+    
+    if pd.notna(data_minima) and pd.notna(data_maxima):
+        # Exibe as datas mínima e máxima formatadas em português na ajuda/rótulo se desejar
+        periodo_selecionado = st.sidebar.date_input(
+            label="Selecione o intervalo (Início / Fim):",
+            value=(data_minima.date(), data_maxima.date()),
+            min_value=data_minima.date(),
+            max_value=data_maxima.date(),
+            format="DD/MM/YYYY"  # Força o formato de data brasileiro no input
+        )
+        
+        if isinstance(periodo_selecionado, tuple) and len(periodo_selecionado) == 2:
+            data_inicio, data_fim = periodo_selecionado
+            mask_periodo = (df[coluna_data].dt.date >= data_inicio) & (df[coluna_data].dt.date <= data_fim)
+            df_filtrado_dashboard = df[mask_periodo].copy()
+            
+            # Pequeno informativo opcional na barra lateral mostrando o período ativo
+            st.sidebar.success(f"Período: {data_inicio.strftime('%d/%m/%Y')} até {data_fim.strftime('%d/%m/%Y')}")
+        else:
+            df_filtrado_dashboard = df.copy()
+    else:
+        df_filtrado_dashboard = df.copy()
+else:
+    df_filtrado_dashboard = df.copy()
+
+
 st.sidebar.markdown("---")
 st.sidebar.subheader("🎯 Filtros Dashboard")
 
@@ -894,43 +932,6 @@ with col_b4:
         st.rerun()
 
 st.markdown("---")
-# ==========================================
-# 📅 FILTRO DE PERÍODO (Em Português)
-# ==========================================
-st.sidebar.markdown("---")
-st.sidebar.markdown("### 📅 Filtrar por Período")
-
-coluna_data = "ABERTO EM" # Confirme se é este o nome exato da coluna de data na sua planilha
-
-if coluna_data in df.columns:
-    df[coluna_data] = pd.to_datetime(df[coluna_data], errors='coerce')
-    data_minima = df[coluna_data].min()
-    data_maxima = df[coluna_data].max()
-    
-    if pd.notna(data_minima) and pd.notna(data_maxima):
-        # Exibe as datas mínima e máxima formatadas em português na ajuda/rótulo se desejar
-        periodo_selecionado = st.sidebar.date_input(
-            label="Selecione o intervalo (Início / Fim):",
-            value=(data_minima.date(), data_maxima.date()),
-            min_value=data_minima.date(),
-            max_value=data_maxima.date(),
-            format="DD/MM/YYYY"  # Força o formato de data brasileiro no input
-        )
-        
-        if isinstance(periodo_selecionado, tuple) and len(periodo_selecionado) == 2:
-            data_inicio, data_fim = periodo_selecionado
-            mask_periodo = (df[coluna_data].dt.date >= data_inicio) & (df[coluna_data].dt.date <= data_fim)
-            df_filtrado_dashboard = df[mask_periodo].copy()
-            
-            # Pequeno informativo opcional na barra lateral mostrando o período ativo
-            st.sidebar.success(f"Período: {data_inicio.strftime('%d/%m/%Y')} até {data_fim.strftime('%d/%m/%Y')}")
-        else:
-            df_filtrado_dashboard = df.copy()
-    else:
-        df_filtrado_dashboard = df.copy()
-else:
-    df_filtrado_dashboard = df.copy()
-
 
 # ==========================================
 # CONTEÚDO DE CADA SEÇÃO (BASEADO NO BOTÃO CLICADO)
