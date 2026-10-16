@@ -778,45 +778,45 @@ if df is not None:
             df_filtrado_dashboard = df_filtrado_dashboard[df_filtrado_dashboard["STATUS"] == status_escolhido]
 
     # ==========================================
-    # FILTRO ROBUSTO PARA TIPO DE MANUTENÇÃO (Baseado na sua planilha)
+    # NOVO FILTRO: Tipo de Manutenção / Serviço (Ajustado e Robusto)
     # ==========================================
-    # Localiza a coluna correta independentemente de espaços ou pontos extras
     col_tipo_servico = None
+    # Inclui a coluna exata encontrada no seu CSV ("TIPO DE MANUT. ")
     for c in df.columns:
         c_limpo = c.strip().upper()
-        if "TIPO DE MANUT" in c_limpo or c_limpo == "TIPO DE MANUT." or c_limpo == "TIPO":
+        if "TIPO DE MANUT" in c_limpo or c_limpo == "TIPO" or c in ["TIPO", "TIPO DE MANUTENÇÃO", "TIPO_MANUTENCAO", "CLASSIFICAÇÃO", "CLASSIFICACAO", "TIPO DE SERVIÇO"]:
             col_tipo_servico = c
             break
 
     if col_tipo_servico:
-        tipos_desejados = ["Todos", "Corretiva Programada", "Corretiva Emergencial", "Checklist", "Roteiro", "Melhoria"]
-        tipo_escolhido = st.sidebar.selectbox("Filtrar por Tipo", tipos_desejados)
+        tipos_desejados = ["Corretiva Programada", "Corretiva Emergencial", "Checklist", "Roteiro", "Melhoria"]
+        lista_tipos = ["Todos"] + tipos_desejados
+        tipo_escolhido = st.sidebar.selectbox("Filtrar por Tipo", lista_tipos)
         
         if tipo_escolhido != "Todos":
             termo = tipo_escolhido.lower()
             
-            # Tratamento inteligente para abranger variações como "ROTEIRO - PERIÓDICA"
-            if "corretiva programada" in termo:
+            # Tratamento inteligente por palavra-chave ampla para resgatar todos os registos
+            if "checklist" in termo:
+                # Procura por "check", "chk", "vistor" ou "inspec" para não perder nenhum dos 3.000 registos
+                df_filtrado_dashboard = df_filtrado_dashboard[
+                    df_filtrado_dashboard[col_tipo_servico].astype(str).str.lower().str.contains("check|chk|vistor|inspec", na=False)
+                ]
+            elif "corretiva programada" in termo:
                 df_filtrado_dashboard = df_filtrado_dashboard[
                     df_filtrado_dashboard[col_tipo_servico].astype(str).str.lower().str.contains("corretiva", na=False) &
-                    df_filtrado_dashboard[col_tipo_servico].astype(str).str.lower().str.contains("program", na=False)
+                    df_filtrado_dashboard[col_tipo_servico].astype(str).str.lower().str.contains("program|prevent|planej", na=False)
                 ]
             elif "corretiva emergencial" in termo:
                 df_filtrado_dashboard = df_filtrado_dashboard[
                     df_filtrado_dashboard[col_tipo_servico].astype(str).str.lower().str.contains("corretiva", na=False) &
                     df_filtrado_dashboard[col_tipo_servico].astype(str).str.lower().str.contains("emerg|urg", na=False)
                 ]
-            elif "roteiro" in termo:
+            else:
+                # Para Roteiro e Melhoria
+                termo_busca = tipo_escolhido.lower().split()[0]
                 df_filtrado_dashboard = df_filtrado_dashboard[
-                    df_filtrado_dashboard[col_tipo_servico].astype(str).str.lower().str.contains("roteiro", na=False)
-                ]
-            elif "melhoria" in termo:
-                df_filtrado_dashboard = df_filtrado_dashboard[
-                    df_filtrado_dashboard[col_tipo_servico].astype(str).str.lower().str.contains("melhoria", na=False)
-                ]
-            elif "checklist" in termo:
-                df_filtrado_dashboard = df_filtrado_dashboard[
-                    df_filtrado_dashboard[col_tipo_servico].astype(str).str.lower().str.contains("check", na=False)
+                    df_filtrado_dashboard[col_tipo_servico].astype(str).str.lower().str.contains(termo_busca, na=False)
                 ]
     else:
         st.sidebar.info("Coluna de Tipo de Manutenção não encontrada na base.")
