@@ -610,17 +610,6 @@ def extrair_dados_tabela_markdown(relatorio_texto: str) -> pd.DataFrame:
     except Exception:
         pass
     return None
-
-
-
-# Padroniza as colunas da base
-df.columns = [str(c).strip().upper() for c in df.columns]
-
-# 👉 AJUSTE CRUCIAL: Preenche as observações vazias para não descartar os Checklists
-coluna_comentario = "OBSERVAÇÃO ABERTURA" if "OBSERVAÇÃO ABERTURA" in df.columns else (df.columns[0] if len(df.columns) > 0 else "")
-if coluna_comentario in df.columns:
-df[coluna_comentario] = df[coluna_comentario].fillna("Sem observação de abertura")
-df = classificar_texto_nlp(df, coluna_comentario)
 # ==========================================
 # INTERFACE GRÁFICA (BARRA LATERAL)
 # ==========================================
