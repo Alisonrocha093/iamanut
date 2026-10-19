@@ -812,7 +812,7 @@ st.sidebar.subheader("🎯 Filtros Dashboard")
 
 # Inicializa o dataframe filtrado apenas uma vez no topo
 df_filtrado_dashboard = df.copy()
-
+ 
 if "STATUS" in df.columns:
     lista_status = ["Todos"] + list(df["STATUS"].dropna().unique())
     status_escolhido = st.sidebar.selectbox("Filtrar por Status", lista_status)
