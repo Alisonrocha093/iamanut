@@ -697,6 +697,60 @@ unidade_escolhida = st.sidebar.selectbox("Escolha a Unidade", lista_unidades)
 st.sidebar.markdown("---")
 arquivo_carregado = st.sidebar.file_uploader("Enviar manualmente ", type=["csv", "xls", "xlsx"])
 # ==========================================
+# FUNÇÃO DE CARREGAMENTO COM CACHE (OTIMIZAÇÃO DE PERFORMANCE)
+# ==========================================
+@st.cache_data(ttl=1800) # Mantém os dados cacheados por 30 minutos
+def carregar_dados_unidade(url, arquivo_submetido, nome_unidade):
+    df_temp = None
+    if url:
+        try:
+            link_download = url
+            if "?" in link_download and "download=1" not in link_download:
+                link_download += "&download=1"
+            elif "?" not in link_download:
+                link_download += "?download=1"
+
+            headers = {'User-Agent': 'Mozilla/5.0'}
+            response = requests.get(link_download, headers=headers)
+            
+            if response.status_code == 200:
+                if ".csv" in link_download.lower():
+                    df_temp = pd.read_csv(io.BytesIO(response.content))
+                else:
+                    df_temp = pd.read_excel(io.BytesIO(response.content))
+                st.success(f"✅ Dados da unidade **{nome_unidade}** carregados com sucesso ({len(df_temp):,} registros)!")
+            else:
+                st.error(f"❌ Erro HTTP {response.status_code} ao acessar o link do OneDrive para `{nome_unidade}`.")
+        except Exception as e:
+            st.error(f"❌ Erro ao baixar dados da unidade: {e}")
+            
+    elif arquivo_submetido is not None:
+        try:
+            if arquivo_submetido.name.endswith('.csv'):
+                df_temp = pd.read_csv(arquivo_submetido)
+            else:
+                df_temp = pd.read_excel(arquivo_submetido)
+            st.success(f"✅ Arquivo `{arquivo_submetido.name}` carregado com sucesso ({len(df_temp):,} registros)!")
+        except Exception as e:
+            st.error(f"❌ Erro ao ler o arquivo enviado: {e}")
+            
+    elif os.path.exists(f"{nome_unidade}.csv"):
+        try:
+            df_temp = pd.read_csv(f"{nome_unidade}.csv")
+            st.info(f"ℹ️ Usando arquivo local: `{nome_unidade}.csv` ({len(df_temp):,} registros)")
+        except Exception as e:
+            st.error(f"❌ Erro ao ler o arquivo local: {e}")
+            
+    elif os.path.exists(f"{nome_unidade}.xls"):
+        try:
+            df_temp = pd.read_excel(f"{nome_unidade}.xls")
+            st.info(f"ℹ️ Usando arquivo local: `{nome_unidade}.xls` ({len(df_temp):,} registros)")
+        except Exception as e:
+            st.error(f"❌ Erro ao ler o arquivo local: {e}")
+            
+    return df_temp
+
+# ==========================================
 # CORPO PRINCIPAL DO APLICATIVO
 # ==========================================
 st.markdown('<p class="main-header">🛠️ Gestão da Manutenção - Visão Geral & Painel Analítico</p>', unsafe_allow_html=True)
@@ -714,11 +768,9 @@ def limpar_pesquisa():
     if "termo_relatorio" in st.session_state:
         del st.session_state.termo_relatorio
 
-# Carregamento do arquivo (Via Secrets mapeando por Unidade -> Upload Manual -> Arquivo Local)
-df = None
 coluna_comentario = "OBSERVAÇÃO ABERTURA"
 
-# Busca a URL específica da unidade nos segredos (ex: st.secrets["UNIDADES"]["SENAC CENTRO"])
+# Busca a URL específica da unidade nos segredos
 url_unidade = ""
 try:
     if hasattr(st, "secrets") and "UNIDADES" in st.secrets and unidade_escolhida in st.secrets["UNIDADES"]:
@@ -726,50 +778,8 @@ try:
 except Exception:
     pass
 
-if url_unidade:
-    try:
-        link_download = url_unidade
-        if "?" in link_download and "download=1" not in link_download:
-            link_download += "&download=1"
-        elif "?" not in link_download:
-            link_download += "?download=1"
-
-        headers = {'User-Agent': 'Mozilla/5.0'}
-        response = requests.get(link_download, headers=headers)
-        
-        if response.status_code == 200:
-            if ".csv" in link_download.lower():
-                df = pd.read_csv(io.BytesIO(response.content))
-            else:
-                df = pd.read_excel(io.BytesIO(response.content))
-            st.success(f"✅ Dados da unidade **{unidade_escolhida}** carregados com sucesso ({len(df):,} registros)!")
-        else:
-            st.error(f"❌ Erro HTTP {response.status_code} ao acessar o link do OneDrive para `{unidade_escolhida}`.")
-    except Exception as e:
-        st.error(f"❌ Erro ao baixar dados da unidade: {e}")
-elif arquivo_carregado is not None:
-    try:
-        if arquivo_carregado.name.endswith('.csv'):
-            df = pd.read_csv(arquivo_carregado)
-        else:
-            df = pd.read_excel(arquivo_carregado)
-        st.success(f"✅ Arquivo `{arquivo_carregado.name}` carregado com sucesso ({len(df):,} registros)!")
-    except Exception as e:
-        st.error(f"❌ Erro ao ler o arquivo enviado: {e}")
-elif os.path.exists(f"{unidade_escolhida}.csv"):
-    try:
-        df = pd.read_csv(f"{unidade_escolhida}.csv")
-        st.info(f"ℹ️ Usando arquivo local: `{unidade_escolhida}.csv` ({len(df):,} registros)")
-    except Exception as e:
-        st.error(f"❌ Erro ao ler o arquivo local: {e}")
-elif os.path.exists(f"{unidade_escolhida}.xls"):
-    try:
-        df = pd.read_excel(f"{unidade_escolhida}.xls")
-        st.info(f"ℹ️ Usando arquivo local: `{unidade_escolhida}.xls` ({len(df):,} registros)")
-    except Exception as e:
-        st.error(f"❌ Erro ao ler o arquivo local: {e}")
-else:
-    st.warning(f"⚠️ Configure os links das unidades em `secrets.toml` ou envie uma planilha para a unidade **{unidade_escolhida}**.")
+# Carrega os dados utilizando a função com cache
+df = carregar_dados_unidade(url_unidade, arquivo_carregado, unidade_escolhida)
 
 if df is not None:
     df.columns = [str(c).strip().upper() for c in df.columns]
@@ -778,7 +788,6 @@ if df is not None:
         st.error(f"❌ A coluna obrigatória **'{coluna_comentario}'** não foi encontrada na planilha.")
         st.write(f"📋 **Colunas disponíveis na planilha:** `{list(df.columns)}`")
     else:
-        # Substitui todos os valores vazios/nulos nas colunas de texto por uma string padrão
         df = df.fillna("N/A")
         df = df.dropna(subset=[coluna_comentario]).copy()
 
@@ -786,38 +795,40 @@ if df is not None:
             with st.spinner(f"Processando algoritmo de classificação NLP em {len(df):,} registros..."):
                 df = classificar_texto_nlp(df, coluna_comentario)
 
-       # Identifica corretamente a coluna de máquinas na planilha
+# Identifica corretamente a coluna de máquinas na planilha
 col_maquinas_ref = None
-for c in df.columns:
-    c_limpo = c.strip().upper()
-    if c_limpo in ["MÁQUINAS", "MAQUINAS", "MÁQUINA", "MAQUINA", "EQUIPAMENTO"]:
-        col_maquinas_ref = c
-        break
+if df is not None:
+    for c in df.columns:
+        c_limpo = c.strip().upper()
+        if c_limpo in ["MÁQUINAS", "MAQUINAS", "MÁQUINA", "MAQUINA", "EQUIPAMENTO"]:
+            col_maquinas_ref = c
+            break
 
-# Constrói o texto de busca combinando Observação, Máquina/Equipamento e Categoria NLP
-if col_maquinas_ref:
-    df["TEXTO_BUSCA"] = (
-        df[coluna_comentario].astype(str).str.lower().fillna("") + " " + 
-        df[col_maquinas_ref].astype(str).str.lower().fillna("") + " " +
-        df["CATEGORIA_NLP"].astype(str).str.lower().fillna("")
-    )
-else:
-    df["TEXTO_BUSCA"] = (
-        df[coluna_comentario].astype(str).str.lower().fillna("") + " " + 
-        df["CATEGORIA_NLP"].astype(str).str.lower().fillna("")
-    )
+    # Constrói o texto de busca combinando Observação, Máquina/Equipamento e Categoria NLP
+    if col_maquinas_ref:
+        df["TEXTO_BUSCA"] = (
+            df[coluna_comentario].astype(str).str.lower().fillna("") + " " + 
+            df[colmaquinas_ref if 'colmaquinas_ref' in locals() else col_maquinas_ref].astype(str).str.lower().fillna("") + " " +
+            df["CATEGORIA_NLP"].astype(str).str.lower().fillna("")
+        )
+    else:
+        df["TEXTO_BUSCA"] = (
+            df[coluna_comentario].astype(str).str.lower().fillna("") + " " + 
+            df["CATEGORIA_NLP"].astype(str).str.lower().fillna("")
+        )
 
 st.sidebar.markdown("---")
 st.sidebar.subheader("🎯 Filtros Dashboard")
 
 # Inicializa o dataframe filtrado apenas uma vez no topo
-df_filtrado_dashboard = df.copy()
- 
-if "STATUS" in df.columns:
-    lista_status = ["Todos"] + list(df["STATUS"].dropna().unique())
-    status_escolhido = st.sidebar.selectbox("Filtrar por Status", lista_status)
-    if status_escolhido != "Todos":
-        df_filtrado_dashboard = df_filtrado_dashboard[df_filtrado_dashboard["STATUS"] == status_escolhido]
+if df is not None:
+    df_filtrado_dashboard = df.copy()
+
+    if "STATUS" in df.columns:
+        lista_status = ["Todos"] + list(df["STATUS"].dropna().unique())
+        status_escolhido = st.sidebar.selectbox("Filtrar por Status", lista_status)
+        if status_escolhido != "Todos":
+            df_filtrado_dashboard = df_filtrado_dashboard[df_filtrado_dashboard["STATUS"] == status_escolhido]
 
 # ==========================================
 # 🛠️ FILTRO POR TIPO DE MANUTENÇÃO (AJUSTADO PARA OS CHECKLISTS)
