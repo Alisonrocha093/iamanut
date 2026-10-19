@@ -1163,8 +1163,23 @@ if st.session_state.aba_ativa == "dash":
             df_status_comp["Texto_Fmt"] = df_status_comp["Quantidade"].apply(lambda x: f"{x:,}".replace(",", "."))
             
             fig_abertas_conc = px.bar(df_status_comp, x="Status", y="Quantidade", text="Texto_Fmt", color="Status", color_discrete_sequence=["#059669", "#DC2626"])
-            fig_abertas_conc.update_layout(margin=dict(t=10, b=10, l=10, r=10), height=350, showlegend=False, separators=',.')
-            st.plotly_chart(fig_abertas_conc, use_container_width=True)
+            
+            # ADICIONADO: fixedrange nos eixos para impedir zoom por arraste
+            fig_abertas_conc.update_layout(
+                margin=dict(t=10, b=10, l=10, r=10), 
+                height=350, 
+                showlegend=False, 
+                separators=',.',
+                xaxis=dict(fixedrange=True),
+                yaxis=dict(fixedrange=True)
+            )
+            
+            # ADICIONADO: config para desativar barra de ferramentas e zoom por scroll
+            st.plotly_chart(
+                fig_abertas_conc, 
+                use_container_width=True,
+                config={'displayModeBar': False, 'scrollZoom': False}
+            )
         else:
             st.info("Coluna de status não disponível para comparação.")
 
@@ -1176,8 +1191,22 @@ if st.session_state.aba_ativa == "dash":
             df_cat["Texto_Fmt"] = df_cat["Quantidade"].apply(lambda x: f"{x:,}".replace(",", "."))
             
             fig_cat = px.bar(df_cat, x="Quantidade", y="Categoria", orientation="h", text="Texto_Fmt", color="Quantidade", color_continuous_scale="Tealgrn")
-            fig_cat.update_layout(margin=dict(t=10, b=10, l=10, r=10), height=350, yaxis={'categoryorder':'total ascending'}, separators=',.')
-            st.plotly_chart(fig_cat, use_container_width=True)
+            
+            # ADICIONADO: fixedrange nos eixos
+            fig_cat.update_layout(
+                margin=dict(t=10, b=10, l=10, r=10), 
+                height=350, 
+                yaxis={'categoryorder':'total ascending', 'fixedrange': True}, 
+                xaxis=dict(fixedrange=True),
+                separators=',.'
+            )
+            
+            # ADICIONADO: config para desativar barra de ferramentas e zoom por scroll
+            st.plotly_chart(
+                fig_cat, 
+                use_container_width=True,
+                config={'displayModeBar': False, 'scrollZoom': False}
+            )
         else:
             st.info("Dado de categoria NLP não disponível.")
 
@@ -1196,9 +1225,24 @@ if st.session_state.aba_ativa == "dash":
                 df_temp["DATA_FORMATADA"] = pd.to_datetime(df_temp[col_data], errors='coerce').dt.to_period("M").astype(str)
                 df_line = df_temp["DATA_FORMATADA"].value_counts().sort_index().reset_index()
                 df_line.columns = ["Mês/Ano", "Total OS"]
+                
                 fig_line = px.line(df_line, x="Mês/Ano", y="Total OS", markers=True, line_shape="linear")
-                fig_line.update_layout(margin=dict(t=10, b=10, l=10, r=10), height=350, separators=',.')
-                st.plotly_chart(fig_line, use_container_width=True)
+                
+                # ADICIONADO: fixedrange nos eixos para impedir zoom por arraste
+                fig_line.update_layout(
+                    margin=dict(t=10, b=10, l=10, r=10), 
+                    height=350, 
+                    separators=',.',
+                    xaxis=dict(fixedrange=True),
+                    yaxis=dict(fixedrange=True)
+                )
+                
+                # ADICIONADO: config para desativar barra de ferramentas e zoom por scroll
+                st.plotly_chart(
+                    fig_line, 
+                    use_container_width=True, 
+                    config={'displayModeBar': False, 'scrollZoom': False}
+                )
             except Exception:
                 st.info("Formato de data inválido para montagem do gráfico temporal.")
         else:
@@ -1222,19 +1266,23 @@ if st.session_state.aba_ativa == "dash":
                 color="Quantidade", 
                 color_continuous_scale="Blues"
             )
+            
+            # ADICIONADO: fixedrange nos eixos
             fig_horiz.update_layout(
                 margin=dict(t=10, b=10, l=10, r=10), 
                 height=350, 
-                yaxis={'categoryorder':'total ascending'}, 
+                yaxis={'categoryorder':'total ascending', 'fixedrange': True}, 
+                xaxis=dict(fixedrange=True),
                 separators=',.'
             )
             
-            # Gráfico de barras com suporte a cliques
+            # Gráfico de barras com suporte a cliques, mas sem zoom/barra superior
             evento_grafico = st.plotly_chart(
                 fig_horiz, 
                 width='stretch', 
                 on_select="rerun", 
-                key="grafico_barras_setor_pareto"
+                key="grafico_barras_setor_pareto",
+                config={'displayModeBar': False, 'scrollZoom': False}
             )
             
             # Captura o clique na barra
