@@ -571,38 +571,53 @@ def responder_pergunta_livre_com_todo_arquivo(pergunta_usuario: str, df_filtrado
 
     col_status = "STATUS" if "STATUS" in df_filtrado.columns else None
     col_setor = "SETOR" if "SETOR" in df_filtrado.columns else None
+    col_data = "ABERTO EM" if "ABERTO EM" in df_filtrado.columns else None
+    col_codigo = "CÓDIGO" if "CÓDIGO" in df_filtrado.columns else (df_filtrado.columns[1] if len(df_filtrado.columns) > 1 else None)
 
-    # Estatísticas e Rankings consolidados do DataFrame atual (mesma lógica do relatório)
+    # 1. Estatísticas consolidadas
     resumo_status = dict(df_filtrado[col_status].value_counts().head(5)) if col_status else "Não disponível"
     resumo_setor = dict(df_filtrado[col_setor].value_counts().head(5)) if col_setor else "Não disponível"
     resumo_nlp = dict(df_filtrado["CATEGORIA_NLP"].value_counts().head(5)) if "CATEGORIA_NLP" in df_filtrado.columns else "Não disponível"
     resumo_maquinas = dict(df_filtrado[col_maq].value_counts().head(10)) if col_maq else "Não disponível"
 
-    # Extrai o ranking dos problemas mais frequentes baseados nas observações reais
+    # 2. Ranking de falhas textuais (mesmo do relatório)
     observacoes_reais = df_filtrado[col_obs].dropna().astype(str).str.strip()
     observacoes_reais = observacoes_reais[observacoes_reais.str.lower() != "n/a"]
-    
     top_falhas_str = "Não disponível"
     if len(observacoes_reais) > 0:
         top_falhas = observacoes_reais.str.lower().value_counts().head(10).reset_index()
         top_falhas.columns = ["Falha", "Qtd"]
         top_falhas_str = "\n".join([f"- {row['Falha']} (Ocorrências: {row['Qtd']})" for _, row in top_falhas.iterrows()])
 
-    # Prompt estruturado com contexto analítico completo
-    prompt = f"""Você é um analista especialista em gestão de manutenção. O usuário está consultando o painel de Ordens de Serviço (OS).
-Aqui estão os dados consolidados e estatísticas extraídas de todo o conjunto de dados filtrado no momento ({total_linhas} registros):
+    # 3. Amostra detalhada robusta (Até 30 registros para a IA inspecionar diretamente)
+    colunas_visiveis = [c for c in [col_codigo, col_data, col_status, col_maq, "CATEGORIA_NLP", col_obs] if c in df_filtrado.columns]
+    df_amostra = df_filtrado[colunas_visiveis].head(30).copy()
+    
+    # Trunca textos longos de observação para caber bem no prompt sem estourar tokens
+    if col_obs in df_amostra.columns:
+        df_amostra[col_obs] = df_amostra[col_obs].astype(str).str.slice(0, 100)
+        
+    tabela_amostra_str = df_amostra.to_string(index=False)
 
---- ESTATÍSTICAS DO FILTRO ATUAL ---
-- Total de OS no escopo: {total_linhas}
+    # Prompt unificado com visão estatística + dados tabulares reais
+    prompt = f"""Você é um analista especialista em gestão de manutenção de Ordens de Serviço (OS).
+O usuário está consultando o painel. Abaixo estão os dados consolidados do filtro atual ({total_linhas} registros no total) e uma amostra detalhada dos chamados recentes:
+
+--- ESTATÍSTICAS GLOBAIS DO FILTRO ---
+- Total de OS: {total_linhas}
 - Distribuição por Status: {resumo_status}
 - Top Categorias NLP: {resumo_nlp}
-- Top Máquinas/Equipamentos Afetados: {resumo_maquinas}
+- Top Máquinas/Equipamentos: {resumo_maquinas}
 - Top Setores: {resumo_setor}
-- Principais Relatos / Descrições de Falhas Frequentes:
+- Principais Relatos / Falhas Frequentes:
 {top_falhas_str}
 -------------------------------------
 
-Responda à pergunta do usuário de forma analítica, direta, utilizando dados precisos dos rankings acima e estruturando a resposta de maneira clara (com tabelas em Markdown ou listas quando necessário):
+--- AMOSTRA DETALHADA DOS CHAMADOS RECENTES ---
+{tabela_amostra_str}
+---------------------------------------------
+
+Responda à pergunta do usuário de forma analítica, precisa e fundamentada nos dados acima. Utilize tabelas em Markdown se precisar detalhar itens específicos.
 Pergunta: {pergunta_usuario}"""
 
     try:
@@ -610,7 +625,7 @@ Pergunta: {pergunta_usuario}"""
             messages=[{"role": "user", "content": prompt}],
             model=modelo_ativo,
             temperature=0.2,
-            max_tokens=800,
+            max_tokens=900,
         )
         return response.choices[0].message.content
     except Exception as e:
