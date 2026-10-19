@@ -675,6 +675,7 @@ st.sidebar.subheader("📂 Seleção de Unidade")
 
 # Lista de unidades disponíveis
 lista_unidades = [
+    "OS CASA DO COMERCIO",
     "HOTEL BARREIRA ROXA",
     "CHECKLIST - DIRETORIA - HOTEL",
     "SENAC CENTRO", 
