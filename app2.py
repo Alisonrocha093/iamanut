@@ -911,14 +911,14 @@ with col_b2:
         st.session_state.aba_ativa = "busca"
         st.rerun()
 
-with col_b3:
+'''with col_b3:
     if st.button("🏷️ Classificação (NLP)", use_container_width=True, type="primary" if st.session_state.aba_ativa == "nlp" else "secondary"):
         st.session_state.aba_ativa = "nlp"
         # Limpa a pesquisa ao sair
         st.session_state.termo_pesquisa = ""
         if "relatorio_gerado" in st.session_state:
             del st.session_state.relatorio_gerado
-        st.rerun()
+        st.rerun() '''
 
 with col_b4:
     if st.button("💬 Chat Inteligente", use_container_width=True, type="primary" if st.session_state.aba_ativa == "chat" else "secondary"):
