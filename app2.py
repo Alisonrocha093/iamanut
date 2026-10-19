@@ -217,7 +217,8 @@ def classificar_texto_nlp(df: pd.DataFrame, coluna_texto: str) -> pd.DataFrame:
             "energia eletrica", "contator", "relé", "rele",
             "fusível", "fusivel", "barramento",
             "aterramento", "dr", "dps", "inversor",
-            "distribuição elétrica", "distribuicao eletrica"
+            "distribuição elétrica", "distribuicao eletrica",
+            "subestação", "transformador", "poste", "cabo pp"
         ]):
             return "Elétrica"
 
