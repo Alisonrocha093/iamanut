@@ -618,10 +618,10 @@ def responder_pergunta_livre_com_todo_arquivo(pergunta_usuario: str, df_filtrado
 
     # 3. Tabela de Amostra Expandida (Até 80 linhas para detalhes)
     colunas_visiveis = [c for c in [col_codigo, col_data, col_status, col_maq, "CATEGORIA_NLP", col_obs] if c in df_alvo.columns]
-    df_amostra = df_alvo[colunas_visiveis].head(80).copy()
+    df_amostra = df_alvo[colunas_visiveis].head(50).copy()
     
     if col_obs in df_amostra.columns:
-        df_amostra[col_obs] = df_amostra[col_obs].astype(str).str.slice(0, 120)
+        df_amostra[col_obs] = df_amostra[col_obs].astype(str).str.slice(0, 80)
         
     tabela_dados_str = df_amostra.to_string(index=False) if len(df_amostra) > 0 else "Nenhum registro encontrado."
 
