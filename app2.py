@@ -1433,8 +1433,8 @@ elif st.session_state.aba_ativa == "busca":
 elif st.session_state.aba_ativa == "nlp":
     st.subheader("🔍 Detalhamento por Categoria e Equipamentos")
 
-    if "CATEGORIA_NLP" in df.columns:
-        categorias_disponiveis = ["-- Selecione uma categoria --", "Todas"] + sorted(df["CATEGORIA_NLP"].dropna().unique())
+    if "CATEGORIA_NLP" in df_filtrado_dashboard.columns:
+        categorias_disponiveis = ["-- Selecione uma categoria --", "Todas"] + sorted(df_filtrado_dashboard["CATEGORIA_NLP"].dropna().unique())
         
         cat_selecionada = st.selectbox(
             "Selecione uma Categoria para abrir e ver os itens:", 
@@ -1444,15 +1444,15 @@ elif st.session_state.aba_ativa == "nlp":
         
         if cat_selecionada and cat_selecionada != "-- Selecione uma categoria --":
             if cat_selecionada == "Todas":
-                df_cat = df.copy()
-                st.write(f"Exibindo registros de **Todas** as categorias: **{len(df_cat):,}**")
+                df_cat = df_filtrado_dashboard.copy()
+                st.write(f"Exibindo registros de **Todas** as categorias (filtradas): **{len(df_cat):,}**")
             else:
-                df_cat = df[df["CATEGORIA_NLP"] == cat_selecionada]
+                df_cat = df_filtrado_dashboard[df_filtrado_dashboard["CATEGORIA_NLP"] == cat_selecionada]
                 st.write(f"Total de registros na categoria **{cat_selecionada}**: **{len(df_cat):,}**")
             
             col_maq = None
             for c in ["MÁQUINAS", "MAQUINAS", "MÁQUINA", "MAQUINA"]:
-                if c in df.columns:
+                if c in df_filtrado_dashboard.columns:
                     col_maq = c
                     break
             
@@ -1503,7 +1503,7 @@ elif st.session_state.aba_ativa == "nlp":
                     
                     col_exec_prevista = None
                     for c in ["EXEC. PREVISTA", "EXEC_PREVISTA", "DATA EXEC PREVISTA", "PREVISÃO", "PREVISAO"]:
-                        if c in df.columns:
+                        if c in df_filtrado_dashboard.columns:
                             col_exec_prevista = c
                             break
                     
@@ -1513,7 +1513,9 @@ elif st.session_state.aba_ativa == "nlp":
                     st.dataframe(df_os_maquina[cols_mostrar], use_container_width=True, hide_index=True)
                 else:
                     st.info("👈 Clique em uma linha na tabela acima ou selecione um equipamento no menu para carregar as Ordens de Serviço específicas.")
-
+    else:
+        st.info("Dado de categoria NLP não disponível na base filtrada.")
+        
 elif st.session_state.aba_ativa == "chat":
     st.subheader("💬 Chat Inteligente sobre a Base de Dados")
     st.write("Faça perguntas diretas em linguagem natural sobre qualquer informação da planilha.")
