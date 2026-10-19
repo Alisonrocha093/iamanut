@@ -1137,13 +1137,27 @@ if st.session_state.aba_ativa == "dash":
             barmode="stack",
             color_discrete_map={"Finalizadas": "#059669", "Programadas": "#2563EB", "Pendentes / Abertas": "#DC2626"}
         )
-        fig_evolucao_bar.update_layout(margin=dict(t=10, b=10, l=10, r=10), height=380, separators=',.', legend_title="Status das OS")
-        st.plotly_chart(fig_evolucao_bar, use_container_width=True)
+        
+        # Trava os eixos para impedir o zoom por clique e arraste
+        fig_evolucao_bar.update_layout(
+            margin=dict(t=10, b=10, l=10, r=10), 
+            height=380, 
+            separators=',.', 
+            legend_title="Status das OS",
+            xaxis=dict(fixedrange=True),
+            yaxis=dict(fixedrange=True)
+        )
+        
+        # Remove a barra de ferramentas (menu) e desativa o zoom por scroll do mouse
+        st.plotly_chart(
+            fig_evolucao_bar, 
+            use_container_width=True,
+            config={'displayModeBar': False, 'scrollZoom': False}
+        )
     else:
         st.info("Colunas de data ou status indisponíveis para gerar a evolução temporal detalhada.")
 
     st.markdown("---")
-
     # ==========================================
     # 2. Gráficos: OS Abertas x Concluídas & Categoria NLP
     # ==========================================
