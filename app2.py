@@ -546,7 +546,7 @@ Escreva um relatório executivo detalhado em português contendo:
         return response.choices[0].message.content
     except Exception as e:
         return f"❌ Erro ao gerar relatório com a IA: {e}"
-def responder_pergunta_livre_com_todo_arquivo(pergunta_usuario: str, df: pd.DataFrame, api_key: str) -> str:
+def responder_pergunta_livre_com_todo_arquivo(pergunta_usuario: str, df_filtrado: pd.DataFrame, api_key: str) -> str:
     if not api_key:
         return "⚠️ Chave da Groq não configurada! Insira sua chave na barra lateral."
     try:
@@ -555,56 +555,54 @@ def responder_pergunta_livre_com_todo_arquivo(pergunta_usuario: str, df: pd.Data
         return f"❌ Erro ao inicializar o cliente Groq: {e}"
 
     modelo_ativo = obter_modelo_ativo(client, api_key)
-    total_linhas = len(df)
+    total_linhas = len(df_filtrado)
     
-    resumo_status = dict(df["STATUS"].value_counts().head(5)) if "STATUS" in df.columns else "Não disponível"
-    col_setor = "SETOR" if "SETOR" in df.columns else ("MÁQUINA" if "MÁQUINA" in df.columns else None)
-    resumo_setor = dict(df[col_setor].value_counts().head(5)) if col_setor else "Não disponível"
-    resumo_nlp = dict(df["CATEGORIA_NLP"].value_counts().head(5)) if "CATEGORIA_NLP" in df.columns else "Não disponível"
+    if total_linhas == 0:
+        return "⚠️ Não há registros disponíveis no filtro atual para responder à pergunta."
+
+    # Identifica colunas-chave dinamicamente
+    col_obs = "OBSERVAÇÃO ABERTURA" if "OBSERVAÇÃO ABERTURA" in df_filtrado.columns else df_filtrado.columns[0]
     
-    periodo_dados = "Não disponível"
-    col_data_ref = "ABERTO EM" if "ABERTO EM" in df.columns else ("DATA" if "DATA" in df.columns else None)
-    if col_data_ref:
-        try:
-            dt_min = pd.to_datetime(df[col_data_ref], errors='coerce').min().strftime('%d/%m/%Y')
-            dt_max = pd.to_datetime(df[col_data_ref], errors='coerce').max().strftime('%d/%m/%Y')
-            periodo_dados = f"De {dt_min} até {dt_max}"
-        except Exception:
-            pass
+    col_maq = None
+    for c in df_filtrado.columns:
+        if c in ["MÁQUINAS", "MAQUINAS", "MÁQUINA", "MAQUINA", "EQUIPAMENTO"]:
+            col_maq = c
+            break
 
-    pergunta_lower = pergunta_usuario.lower()
-    palavras_chave = [p for p in pergunta_lower.split() if len(p) > 3]
+    col_status = "STATUS" if "STATUS" in df_filtrado.columns else None
+    col_setor = "SETOR" if "SETOR" in df_filtrado.columns else None
+
+    # Estatísticas e Rankings consolidados do DataFrame atual (mesma lógica do relatório)
+    resumo_status = dict(df_filtrado[col_status].value_counts().head(5)) if col_status else "Não disponível"
+    resumo_setor = dict(df_filtrado[col_setor].value_counts().head(5)) if col_setor else "Não disponível"
+    resumo_nlp = dict(df_filtrado["CATEGORIA_NLP"].value_counts().head(5)) if "CATEGORIA_NLP" in df_filtrado.columns else "Não disponível"
+    resumo_maquinas = dict(df_filtrado[col_maq].value_counts().head(10)) if col_maq else "Não disponível"
+
+    # Extrai o ranking dos problemas mais frequentes baseados nas observações reais
+    observacoes_reais = df_filtrado[col_obs].dropna().astype(str).str.strip()
+    observacoes_reais = observacoes_reais[observacoes_reais.str.lower() != "n/a"]
     
-    df_relevante = df
-    col_obs = "OBSERVAÇÃO ABERTURA" if "OBSERVAÇÃO ABERTURA" in df.columns else df.columns[0]
-    if palavras_chave:
-        filtro = df[col_obs].astype(str).str.lower().apply(lambda x: any(p in x for p in palavras_chave))
-        df_filtrado_ia = df[filtro]
-        if len(df_filtrado_ia) > 0:
-            df_relevante = df_filtrado_ia
+    top_falhas_str = "Não disponível"
+    if len(observacoes_reais) > 0:
+        top_falhas = observacoes_reais.str.lower().value_counts().head(10).reset_index()
+        top_falhas.columns = ["Falha", "Qtd"]
+        top_falhas_str = "\n".join([f"- {row['Falha']} (Ocorrências: {row['Qtd']})" for _, row in top_falhas.iterrows()])
 
-    df_amostra = df_relevante.head(5).copy()
-    if col_obs in df_amostra.columns:
-        df_amostra[col_obs] = df_amostra[col_obs].astype(str).str.slice(0, 60)
+    # Prompt estruturado com contexto analítico completo
+    prompt = f"""Você é um analista especialista em gestão de manutenção. O usuário está consultando o painel de Ordens de Serviço (OS).
+Aqui estão os dados consolidados e estatísticas extraídas de todo o conjunto de dados filtrado no momento ({total_linhas} registros):
 
-    colunas_visiveis = [c for c in ["CÓDIGO", "ABERTO EM", "STATUS", "MÁQUINA", "CATEGORIA_NLP", col_obs] if c in df_amostra.columns]
-    amostra_relevante = df_amostra[colunas_visiveis].to_string(index=False)
-
-    prompt = f"""Você é um analista especialista em gestão de manutenção. A planilha foi processada com NLP e possui os seguintes dados consolidados:
-
---- ESTATÍSTICAS GLOBAIS DA PLANILHA ({total_linhas} registros) ---
-- Total de registros: {total_linhas}
-- Período coberto: {periodo_dados}
-- Top Categorias NLP: {resumo_nlp}
+--- ESTATÍSTICAS DO FILTRO ATUAL ---
+- Total de OS no escopo: {total_linhas}
 - Distribuição por Status: {resumo_status}
-- Top Setores/Máquinas: {resumo_setor}
-------------------------------------------------------------
+- Top Categorias NLP: {resumo_nlp}
+- Top Máquinas/Equipamentos Afetados: {resumo_maquinas}
+- Top Setores: {resumo_setor}
+- Principais Relatos / Descrições de Falhas Frequentes:
+{top_falhas_str}
+-------------------------------------
 
---- AMOSTRA RELEVANTE ({len(df_relevante)} correspondências) ---
-{amostra_relevante}
-------------------------------------------------------------
-
-Responda objetivamente e de forma precisa em português:
+Responda à pergunta do usuário de forma analítica, direta, utilizando dados precisos dos rankings acima e estruturando a resposta de maneira clara (com tabelas em Markdown ou listas quando necessário):
 Pergunta: {pergunta_usuario}"""
 
     try:
@@ -612,7 +610,7 @@ Pergunta: {pergunta_usuario}"""
             messages=[{"role": "user", "content": prompt}],
             model=modelo_ativo,
             temperature=0.2,
-            max_tokens=600,
+            max_tokens=800,
         )
         return response.choices[0].message.content
     except Exception as e:
