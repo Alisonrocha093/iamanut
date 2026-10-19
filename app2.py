@@ -886,16 +886,15 @@ if coluna_data in df.columns:
             st.sidebar.success(f"Período: {data_inicio.strftime('%d/%m/%Y')} até {data_fim.strftime('%d/%m/%Y')}")
 else:
     st.sidebar.info("Coluna de Data ('ABERTO EM') não encontrada na base.")
-           # ==========================================
-# NAVEGAÇÃO POR BOTÕES (SUBSTITUINDO AS ABAS)
-# ==========================================
-
+    
 # Inicializa a aba ativa no session_state se não existir
+# ==========================================
+# NAVEGAÇÃO POR BOTÕES (COM LIMPEZA DE ESTADO)
+# ==========================================
 if "aba_ativa" not in st.session_state:
     st.session_state.aba_ativa = "dash"
 
-# Ajustado para 3 colunas
-col_b1, col_b2, col_b3 = st.columns(3)
+col_b1, col_b2, col_b3, col_b4 = st.columns(4)
 
 with col_b1:
     if st.button("📊 Dashboard Geral", use_container_width=True, type="primary" if st.session_state.aba_ativa == "dash" else "secondary"):
@@ -912,6 +911,15 @@ with col_b2:
         st.rerun()
 
 with col_b3:
+    if st.button("🏷️ Classificação (NLP)", use_container_width=True, type="primary" if st.session_state.aba_ativa == "nlp" else "secondary"):
+        st.session_state.aba_ativa = "nlp"
+        # Limpa a pesquisa ao sair
+        st.session_state.termo_pesquisa = ""
+        if "relatorio_gerado" in st.session_state:
+            del st.session_state.relatorio_gerado
+        st.rerun()
+
+with col_b4:
     if st.button("💬 Chat Inteligente", use_container_width=True, type="primary" if st.session_state.aba_ativa == "chat" else "secondary"):
         st.session_state.aba_ativa = "chat"
         # Limpa a pesquisa ao sair
