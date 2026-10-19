@@ -560,7 +560,6 @@ def responder_pergunta_livre_com_todo_arquivo(pergunta_usuario: str, df_filtrado
     if total_linhas == 0:
         return "⚠️ Não há registros disponíveis no filtro atual para responder à pergunta."
 
-    # Identifica colunas-chave dinamicamente
     col_obs = "OBSERVAÇÃO ABERTURA" if "OBSERVAÇÃO ABERTURA" in df_filtrado.columns else df_filtrado.columns[0]
     
     col_maq = None
@@ -570,62 +569,65 @@ def responder_pergunta_livre_com_todo_arquivo(pergunta_usuario: str, df_filtrado
             break
 
     col_status = "STATUS" if "STATUS" in df_filtrado.columns else None
-    col_setor = "SETOR" if "SETOR" in df_filtrado.columns else None
     col_data = "ABERTO EM" if "ABERTO EM" in df_filtrado.columns else None
     col_codigo = "CÓDIGO" if "CÓDIGO" in df_filtrado.columns else (df_filtrado.columns[1] if len(df_filtrado.columns) > 1 else None)
 
-    # 1. Estatísticas consolidadas
-    resumo_status = dict(df_filtrado[col_status].value_counts().head(5)) if col_status else "Não disponível"
-    resumo_setor = dict(df_filtrado[col_setor].value_counts().head(5)) if col_setor else "Não disponível"
-    resumo_nlp = dict(df_filtrado["CATEGORIA_NLP"].value_counts().head(5)) if "CATEGORIA_NLP" in df_filtrado.columns else "Não disponível"
-    resumo_maquinas = dict(df_filtrado[col_maq].value_counts().head(10)) if col_maq else "Não disponível"
+    # 1. Varredura inteligente: Identifica termos importantes na pergunta do usuário
+    pergunta_lower = pergunta_usuario.lower()
+    # Remove palavras muito comuns para focar no assunto principal (ex: "subestação", "bomba", "vazamento")
+    palavras_chave = [p for p in pergunta_lower.split() if len(p) > 3 and p not in ["para", "como", "quais", "qual", "está", "estao", "sobre"]]
 
-    # 2. Ranking de falhas textuais (mesmo do relatório)
-    observacoes_reais = df_filtrado[col_obs].dropna().astype(str).str.strip()
-    observacoes_reais = observacoes_reais[observacoes_reais.str.lower() != "n/a"]
-    top_falhas_str = "Não disponível"
-    if len(observacoes_reais) > 0:
-        top_falhas = observacoes_reais.str.lower().value_counts().head(10).reset_index()
-        top_falhas.columns = ["Falha", "Qtd"]
-        top_falhas_str = "\n".join([f"- {row['Falha']} (Ocorrências: {row['Qtd']})" for _, row in top_falhas.iterrows()])
+    df_alvo = df_filtrado
+    termo_encontrado = ""
 
-    # 3. Amostra detalhada robusta (Até 30 registros para a IA inspecionar diretamente)
-    colunas_visiveis = [c for c in [col_codigo, col_data, col_status, col_maq, "CATEGORIA_NLP", col_obs] if c in df_filtrado.columns]
-    df_amostra = df_filtrado[colunas_visiveis].head(30).copy()
-    
-    # Trunca textos longos de observação para caber bem no prompt sem estourar tokens
-    if col_obs in df_amostra.columns:
-        df_amostra[col_obs] = df_amostra[col_obs].astype(str).str.slice(0, 100)
+    if palavras_chave:
+        # Cria uma máscara que busca as palavras-chave em TODAS as colunas de texto do DataFrame
+        texto_unificado = df_filtrado.astype(str).agg(' '.join, axis=1).str.lower()
+        mask_busca = texto_unificado.apply(lambda x: any(palavra in x for palavra in palavras_chave))
+        df_encontrado = df_filtrado[mask_busca]
         
-    tabela_amostra_str = df_amostra.to_string(index=False)
+        if len(df_encontrado) > 0:
+            df_alvo = df_encontrado
+            termo_encontrado = f" (Filtro aplicado por relevância para os termos: {', '.join(palavras_chave)} - Encontrados: {len(df_encontrado)} registros)"
 
-    # Prompt unificado com visão estatística + dados tabulares reais
-    prompt = f"""Você é um analista especialista em gestão de manutenção de Ordens de Serviço (OS).
-O usuário está consultando o painel. Abaixo estão os dados consolidados do filtro atual ({total_linhas} registros no total) e uma amostra detalhada dos chamados recentes:
+    # 2. Prepara a tabela de dados reais correspondentes para a IA ler
+    colunas_visiveis = [c for c in [col_codigo, col_data, col_status, col_maq, "CATEGORIA_NLP", col_obs] if c in df_alvo.columns]
+    
+    # Pega até 50 registros para garantir profundidade máxima
+    df_amostra = df_alvo[colunas_visiveis].head(50).copy()
+    
+    if col_obs in df_amostra.columns:
+        df_amostra[col_obs] = df_amostra[col_obs].astype(str).str.slice(0, 150) # Mantém uma descrição rica
+        
+    tabela_dados_str = df_amostra.to_string(index=False) if len(df_amostra) > 0 else "Nenhum registro correspondente encontrado."
 
---- ESTATÍSTICAS GLOBAIS DO FILTRO ---
-- Total de OS: {total_linhas}
-- Distribuição por Status: {resumo_status}
-- Top Categorias NLP: {resumo_nlp}
-- Top Máquinas/Equipamentos: {resumo_maquinas}
-- Top Setores: {resumo_setor}
-- Principais Relatos / Falhas Frequentes:
-{top_falhas_str}
--------------------------------------
+    # 3. Estatísticas gerais de apoio
+    resumo_status = dict(df_filtrado[col_status].value_counts().head(3)) if col_status else "N/A"
+    resumo_nlp = dict(df_filtrado["CATEGORIA_NLP"].value_counts().head(3)) if "CATEGORIA_NLP" in df_filtrado.columns else "N/A"
 
---- AMOSTRA DETALHADA DOS CHAMADOS RECENTES ---
-{tabela_amostra_str}
----------------------------------------------
+    # Prompt restrito e focado em evidências reais
+    prompt = f"""Você é um analista de dados especialista em Ordens de Serviço (OS). 
+O usuário fez uma pergunta específica sobre o banco de dados. 
+Contexto geral: {total_linhas} registros no total.{termo_encontrado}
 
-Responda à pergunta do usuário de forma analítica, precisa e fundamentada nos dados acima. Utilize tabelas em Markdown se precisar detalhar itens específicos.
-Pergunta: {pergunta_usuario}"""
+Abaixo estão os dados REAIS extraídos da base com base na pergunta do usuário:
+--- DADOS / REGISTROS ENCONTRADOS ({len(df_alvo)} registros) ---
+{tabela_dados_str}
+---------------------------------------------------------------
+
+Instruções estritas:
+1. Responda à pergunta do usuário baseando-se **apenas** nos dados da tabela acima.
+2. Se a tabela mostrar que não há registros correspondentes (ou se a lista estiver vazia), diga claramente e diretamente: "Não encontrei registros na base de dados para [assunto]". Não invente hipóteses ou teorias longas.
+3. Se houver registros, liste-os, cite códigos, datas e observações relevantes de forma clara e objetiva (utilize tabela em Markdown se ajudar).
+
+Pergunta do usuário: {pergunta_usuario}"""
 
     try:
         response = client.chat.completions.create(
             messages=[{"role": "user", "content": prompt}],
             model=modelo_ativo,
-            temperature=0.2,
-            max_tokens=900,
+            temperature=0.1,  # Temperatura baixa para evitar criatividade/alucinação
+            max_tokens=800,
         )
         return response.choices[0].message.content
     except Exception as e:
