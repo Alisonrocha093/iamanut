@@ -1150,20 +1150,51 @@ if st.session_state.aba_ativa == "dash":
     col_g1, col_g2 = st.columns(2)
     
     with col_g1:
-        st.markdown("### 🔄 OS Abertas x Concluídas")
+        st.markdown("### 🔄 OS por Status (Concluídas, Programadas e Pendentes)")
         if "STATUS" in df_filtrado_dashboard.columns:
             s_low = df_filtrado_dashboard["STATUS"].astype(str).str.lower()
-            cond_conc = s_low.str.contains("concluíd|concluid|fechad|encerrad|finalizad")
-            df_filtrado_dashboard["STATUS_AGRUPADO"] = "Concluídas / Fechadas"
-            df_filtrado_dashboard.loc[~cond_conc, "STATUS_AGRUPADO"] = "Pendentes / Abertas"
             
-            df_status_comp = df_filtrado_dashboard["STATUS_AGRUPADO"].value_counts().reset_index()
+            # Função para classificar cada registro em uma categoria
+            def classificar_status_agrupado(s):
+                if any(term in s for term in ["concluíd", "concluid", "fechad", "encerrad", "finalizad"]):
+                    return "Concluídas / Fechadas"
+                elif any(term in s for term in ["program", "planejad"]):
+                    return "Programadas"
+                elif "cancelad" in s:
+                    return "Canceladas"  # Opcional: não aparecerá se filtrarmos abaixo
+                else:
+                    return "Pendentes / Abertas"
+            
+            df_filtrado_dashboard["STATUS_AGRUPADO"] = s_low.apply(classificar_status_agrupado)
+            
+            # Filtra apenas as 3 categorias desejadas (remove canceladas da visualização principal)
+            df_status_filtrado = df_filtrado_dashboard[
+                df_filtrado_dashboard["STATUS_AGRUPADO"].isin([
+                    "Concluídas / Fechadas", "Programadas", "Pendentes / Abertas"
+                ])
+            ]
+            
+            df_status_comp = df_status_filtrado["STATUS_AGRUPADO"].value_counts().reset_index()
             df_status_comp.columns = ["Status", "Quantidade"]
             df_status_comp["Texto_Fmt"] = df_status_comp["Quantidade"].apply(lambda x: f"{x:,}".replace(",", "."))
             
-            fig_abertas_conc = px.bar(df_status_comp, x="Status", y="Quantidade", text="Texto_Fmt", color="Status", color_discrete_sequence=["#059669", "#DC2626"])
+            # Mapeamento de cores para cada barra
+            mapa_cores = {
+                "Concluídas / Fechadas": "#059669",  # Verde
+                "Programadas": "#2563EB",             # Azul
+                "Pendentes / Abertas": "#DC2626"      # Vermelho
+            }
             
-            # ADICIONADO: fixedrange nos eixos para impedir zoom por arraste
+            fig_abertas_conc = px.bar(
+                df_status_comp, 
+                x="Status", 
+                y="Quantidade", 
+                text="Texto_Fmt", 
+                color="Status", 
+                color_discrete_map=mapa_cores
+            )
+            
+            # Layout com eixos fixos
             fig_abertas_conc.update_layout(
                 margin=dict(t=10, b=10, l=10, r=10), 
                 height=350, 
@@ -1173,7 +1204,6 @@ if st.session_state.aba_ativa == "dash":
                 yaxis=dict(fixedrange=True)
             )
             
-            # ADICIONADO: config para desativar barra de ferramentas e zoom por scroll
             st.plotly_chart(
                 fig_abertas_conc, 
                 use_container_width=True,
