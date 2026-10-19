@@ -1038,15 +1038,21 @@ if st.session_state.aba_ativa == "dash":
     
     if "STATUS" in df_filtrado_dashboard.columns:
         status_txt = df_filtrado_dashboard["STATUS"].astype(str).str.lower()
+        
+        # 1. Conformidade (Concluídas / Encerradas)
         concluidas_count = status_txt.str.contains("concluíd|concluid|fechad|encerrad|finalizad").sum()
         conformidade_pct = (concluidas_count / total_os * 100) if total_os > 0 else 0.0
         conf_str = f"{conformidade_pct:.1f}".replace(".", ",") + "%"
         
-        # Máscara para considerar apenas os itens não concluídos (pendentes)
-        mask_nao_concluidas = ~status_txt.str.contains("concluíd|concluid|fechad|encerrad|finalizad")
-        backlog_count = mask_nao_concluidas.sum()
+        # 2. Backlog: Apenas itens que NÃO são concluídos E NÃO são programados/planejados
+        mask_concluidas = status_txt.str.contains("concluíd|concluid|fechad|encerrad|finalizad")
+        mask_programadas = status_txt.str.contains("program|planejad")
         
-        backlog_str = f"{backlog_count:,}".replace(",", ".")
+        # Considera apenas o que sobra (Pendentes / Abertas puras)
+        mask_apenas_pendentes = ~(mask_concluidas | mask_programadas)
+        backlog_count = mask_apenas_pendentes.sum()
+        
+        backlog_str = f"{backlog_count:,}".replace(".", ".")
     else:
         conf_str = "N/A"
         backlog_str = "N/A"
@@ -1094,7 +1100,6 @@ if st.session_state.aba_ativa == "dash":
         """, unsafe_allow_html=True)
 
     st.markdown("<br>", unsafe_allow_html=True)
-
     # ==========================================
     # GARANTINDO A DEFINIÇÃO DAS VARIÁVEIS DE DATA
     # ==========================================
