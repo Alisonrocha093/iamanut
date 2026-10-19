@@ -1044,12 +1044,13 @@ if st.session_state.aba_ativa == "dash":
         conformidade_pct = (concluidas_count / total_os * 100) if total_os > 0 else 0.0
         conf_str = f"{conformidade_pct:.1f}".replace(".", ",") + "%"
         
-        # 2. Backlog: Apenas itens que NÃO são concluídos E NÃO são programados/planejados
+        # 2. Backlog: Apenas itens que NÃO são concluídos, programados e nem cancelados
         mask_concluidas = status_txt.str.contains("concluíd|concluid|fechad|encerrad|finalizad")
         mask_programadas = status_txt.str.contains("program|planejad")
+        mask_canceladas = status_txt.str.contains("cancelad")
         
         # Considera apenas o que sobra (Pendentes / Abertas puras)
-        mask_apenas_pendentes = ~(mask_concluidas | mask_programadas)
+        mask_apenas_pendentes = ~(mask_concluidas | mask_programadas | mask_canceladas)
         backlog_count = mask_apenas_pendentes.sum()
         
         backlog_str = f"{backlog_count:,}".replace(".", ".")
