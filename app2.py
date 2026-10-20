@@ -710,6 +710,7 @@ Regras:
 - modo "listar": a pergunta pede registros específicos (última/primeira/mais recente, quais OS, quando foi, o que foi feito, detalhes de um equipamento/local). Retorna as OS ordenadas.
 - modo "agregar": a pergunta pede contagem, soma, média, ranking ou evolução (use agrupar_por, metrica, coluna_metrica).
 - busca_todas: lista de CONCEITOS; TODOS precisam aparecer no texto da OS (E). Cada conceito é uma lista de sinônimos (OU). Escreva sem acentos e em minúsculas. Separe equipamento/problema do LOCAL/SETOR em conceitos diferentes (ex.: [["ar condicionado","split"],["sala de manutencao"]]). Use só as palavras essenciais.
+- Use termos curtos e simples, como o usuário digitaria na pesquisa textual (ex.: "ar condicionado", "vazamento", "bomba").
 - Perguntas "feita/realizada/executada/concluída": adicione filtro STATUS_GRUPO igual "Concluídas". "pendente/aberta": "Pendentes / Abertas".
 - "última/mais recente": ordenar_por = coluna de data de conclusão (FINALIZAÇÃO ou FECHADO EM, se existir; senão ABERTO EM), ordem "desc", limite 3. "primeira/mais antiga": ordem "asc".
 - op permitidos: igual, diferente, contem, em, maior, menor, entre (valor = [inicio, fim]; datas AAAA-MM-DD).
@@ -792,6 +793,53 @@ def registros_para_texto(d: pd.DataFrame, limite_txt: int = 400) -> str:
     return "\n".join(linhas) if linhas else "(nenhum registro)"
 
 
+STOPWORDS_PT = set("""
+a o as os um uma uns umas de do da dos das no na nos nas em para por com sem sobre entre ate ao aos que qual quais
+quanto quantos quantas quando onde como foi foram fez feita feito feitas feitos fazer ser esta estao tem temos tinha
+ultima ultimo ultimas ultimos primeira primeiro mais menos maior menor ja ainda todas todos toda todo me mostre
+mostra diga fale sobre existe existem houve manutencao manutencoes os.
+""".split())
+
+
+def extrair_termos_fallback(pergunta: str) -> list:
+    """Sem IA: pega as palavras relevantes da pergunta (como alguém digitaria na pesquisa textual)."""
+    palavras = re.findall(r"[a-zA-ZÀ-ÿ0-9\-]+", _norm(pergunta))
+    termos = [p for p in palavras if len(p) > 2 and p not in STOPWORDS_PT]
+    return termos[:4]
+
+
+def perfil_conjunto(d: pd.DataFrame) -> str:
+    """Resumo do conjunto de OS encontradas (para a IA analisar padrões, recorrências e custos)."""
+    if d.empty:
+        return "(nenhuma OS)"
+    p = [f"Total de OS encontradas: {len(d)}"]
+
+    if "ABERTO EM" in d.columns and d["ABERTO EM"].notna().any():
+        p.append(f"Período das OS: {d['ABERTO EM'].min():%d/%m/%Y} até {d['ABERTO EM'].max():%d/%m/%Y}")
+
+    for rotulo, col in [("Status", "STATUS"), ("Setores", "SETOR"), ("Máquinas", "MÁQUINA"),
+                        ("Máquinas", "MÁQUINAS"), ("Tipos de manutenção", "TIPO DE MANUTENÇÃO"),
+                        ("Tipos", "TIPO"), ("Categorias", "CATEGORIA_NLP")]:
+        if col in d.columns:
+            p.append(f"{rotulo}: {d[col].value_counts().head(8).to_dict()}")
+
+    if "ANO_MES" in d.columns:
+        p.append(f"OS por mês: {d['ANO_MES'].value_counts().sort_index().tail(18).to_dict()}")
+
+    col_obs = "OBSERVAÇÃO ABERTURA" if "OBSERVAÇÃO ABERTURA" in d.columns else None
+    if col_obs:
+        obs = d[col_obs].astype(str).str.strip().str.lower().str.slice(0, 90)
+        obs = obs[~obs.isin(["n/a", "nan", ""])]
+        if len(obs):
+            p.append(f"Relatos mais recorrentes: {obs.value_counts().head(10).to_dict()}")
+
+    if "CUSTO_TOTAL_NUM" in d.columns:
+        p.append(f"Custo total (materiais + mão de obra externa): {formatar_moeda_br(d['CUSTO_TOTAL_NUM'].sum())}")
+    if "TEMPO_ATENDIMENTO_DIAS" in d.columns and d["TEMPO_ATENDIMENTO_DIAS"].notna().any():
+        p.append(f"Tempo médio de atendimento: {d['TEMPO_ATENDIMENTO_DIAS'].mean():.1f} dias")
+    return "\n".join(p)
+
+
 COLUNAS_DATA_PADRAO = ["FINALIZAÇÃO", "FECHADO EM", "DATA FECHAMENTO", "ABERTO EM", "DATA"]
 
 
@@ -859,7 +907,7 @@ def executar_plano(d: pd.DataFrame, plano: dict):
         if col_ord:
             d = d.sort_values(col_ord, ascending=ascendente, na_position="last")
             desc.append(f"ordenado por {col_ord} ({'crescente' if ascendente else 'decrescente'})")
-        tabela = d[_colunas_exibicao(d)].head(limite)
+        tabela = d[_colunas_exibicao(d)].head(max(limite, 8))
         return d, tabela, desc, modo, aviso
 
     # ---- 3b) Modo AGREGAR ----
@@ -902,14 +950,15 @@ def buscar_linhas_relevantes(d: pd.DataFrame, pergunta: str, k: int = 15) -> pd.
 
 
 def responder_pergunta_livre_com_todo_arquivo(pergunta_usuario: str, df: pd.DataFrame,
-                                              api_key: str, historico=None):
-    """Retorna (resposta_texto, tabela_de_evidencias_ou_None)."""
+                                              api_key: str, historico=None, termo_busca=None):
+    """Pesquisa como a Pesquisa Textual e responde com inteligência.
+    Retorna (resposta_texto, tabela_de_OS_encontradas_ou_None, resumo_da_busca)."""
     if not api_key:
-        return "⚠️ Chave da Groq não configurada! Insira sua chave na barra lateral.", None
+        return "⚠️ Chave da Groq não configurada! Insira sua chave na barra lateral.", None, ""
     try:
         client = Groq(api_key=api_key)
     except Exception as e:
-        return f"❌ Erro ao inicializar o cliente Groq: {e}", None
+        return f"❌ Erro ao inicializar o cliente Groq: {e}", None, ""
 
     modelo = obter_modelo_chat(client)
 
@@ -919,42 +968,64 @@ def responder_pergunta_livre_com_todo_arquivo(pergunta_usuario: str, df: pd.Data
         stats_globais = montar_estatisticas_globais(d)
 
         plano = planejar_consulta(client, modelo, pergunta_usuario, esquema, historico)
+
+        if termo_busca and termo_busca.strip():
+            # Termo manual: pesquisa exatamente como na aba Pesquisa Textual
+            plano["busca_todas"] = [[termo_busca.strip()]]
+            plano.pop("busca_texto", None)
+            if plano.get("modo") not in ("listar", "agregar"):
+                plano["modo"] = "listar"
+        elif (not plano.get("busca_todas") and not plano.get("busca_texto") and not plano.get("filtros")
+              and not plano.get("agrupar_por") and (plano.get("metrica") or "contagem") == "contagem"):
+            # Plano vazio/falhou: usa as palavras da pergunta como termos de pesquisa
+            kws = extrair_termos_fallback(pergunta_usuario)
+            if kws:
+                plano["busca_todas"] = [[k] for k in kws]
+                plano["modo"] = "listar"
+
         d_filtrado, tabela, desc_filtros, modo, aviso = executar_plano(d, plano)
     except Exception as e:
-        return f"❌ Erro ao processar os dados: {e}", None
+        return f"❌ Erro ao processar os dados: {e}", None, ""
 
-    hist_txt = "\n".join(f"{m['role']}: {m['content'][:400]}" for m in (historico or [])[-4:])
+    busca_aplicada = any(x.startswith("contém") for x in desc_filtros)
     filtros_txt = "; ".join(desc_filtros) if desc_filtros else "nenhum"
+    hist_txt = "\n".join(f"{m['role']}: {m['content'][:400]}" for m in (historico or [])[-4:])
+
+    # ---- Blocos de dados do prompt ----
+    bloco_busca = f"""=== BUSCA REALIZADA (mesma lógica da Pesquisa Textual) ===
+Critérios: {filtros_txt}
+OS encontradas: {len(d_filtrado)}
+{('ATENÇÃO: ' + aviso) if aviso else ''}"""
+
+    bloco_perfil = ""
+    if busca_aplicada:
+        bloco_perfil = f"\n=== PERFIL DAS OS ENCONTRADAS ===\n{perfil_conjunto(d_filtrado)}\n"
 
     if modo == "listar":
-        bloco_dados = f"""=== REGISTROS ENCONTRADOS (já ordenados; o PRIMEIRO é o que responde "última/mais recente") ===
-Critérios aplicados: {filtros_txt}
-Total de OS que atendem aos critérios: {len(d_filtrado)}
-{('ATENÇÃO: ' + aviso) if aviso else ''}
+        bloco_dados = f"""=== REGISTROS (ordenados; o PRIMEIRO é o mais recente quando a ordem é decrescente) ===
 {registros_para_texto(tabela)}"""
-        regras_extra = """- Responda com base no PRIMEIRO registro quando a pergunta pedir "última/mais recente" (ou "primeira" com ordem crescente). Cite código da OS, datas, status, setor/máquina e o que foi feito (observações).
-- Mencione brevemente se existem outras OS no resultado (total acima).
-- Se houver ATENÇÃO informando que nenhuma OS atende todos os critérios, diga isso com clareza logo no início. Só depois, se útil, mencione os registros parciais como aproximação, deixando claro que NÃO são o que foi perguntado. Nunca apresente um registro que não bate com a pergunta como se fosse a resposta."""
+        regras_extra = """- Para "última/mais recente", baseie-se no PRIMEIRO registro: cite código da OS, datas, status, setor/máquina e o que foi feito (observações). Para "primeira", use a ordem crescente.
+- Para perguntas analíticas (problemas recorrentes, causas, custos, tendência, recomendações), use o PERFIL DAS OS ENCONTRADAS e os registros, identifique padrões e dê recomendações práticas.
+- Mencione brevemente quantas OS foram encontradas no total."""
     else:
         amostra = buscar_linhas_relevantes(d_filtrado, pergunta_usuario, k=15)
-        cols_am = _colunas_exibicao(amostra)
-        amostra_txt = registros_para_texto(amostra[cols_am], limite_txt=250) if len(amostra) else "(nenhuma OS correspondente)"
-        bloco_dados = f"""=== RESULTADO EXATO DA CONSULTA (calculado com pandas, é a fonte mais confiável para números) ===
-Critérios aplicados: {filtros_txt}
-Registros após filtros: {len(d_filtrado)}
-{('ATENÇÃO: ' + aviso) if aviso else ''}
+        amostra_txt = (registros_para_texto(amostra[_colunas_exibicao(amostra)], limite_txt=250)
+                       if len(amostra) else "(nenhuma OS correspondente)")
+        bloco_dados = f"""=== RESULTADO EXATO DA CONSULTA (calculado com pandas; fonte mais confiável para números) ===
 {tabela.to_string(index=False)}
 
 === OS MAIS RELEVANTES PARA A PERGUNTA ({len(amostra)} de {len(d_filtrado)}) ===
 {amostra_txt}"""
         regras_extra = """- Use os números do "RESULTADO EXATO" para contagens, somas e médias; não recalcule nem invente valores.
-- Se houver ATENÇÃO, informe a limitação ao usuário."""
+- Depois dos números, acrescente uma breve análise (o que chama atenção, possíveis causas, recomendação) quando fizer sentido."""
 
     prompt = f"""Você é um analista sênior de gestão de manutenção. Responda SOMENTE com base nos dados abaixo.
 
 === ESTATÍSTICAS GLOBAIS DA BASE ===
 {stats_globais}
 
+{bloco_busca}
+{bloco_perfil}
 {bloco_dados}
 
 === CONVERSA RECENTE ===
@@ -962,23 +1033,28 @@ Registros após filtros: {len(d_filtrado)}
 
 REGRAS:
 {regras_extra}
+- Se houver ATENÇÃO dizendo que nenhuma OS atende todos os critérios, diga isso com clareza no início; só depois, se útil, cite os registros parciais como aproximação, deixando claro que NÃO são exatamente o que foi perguntado.
 - Valores monetários em formato brasileiro (R$ 1.234,56).
-- Se a informação não estiver nos dados, diga claramente que não foi possível encontrar.
-- Seja objetivo; use tabela Markdown quando houver ranking ou comparação.
+- Se a informação não estiver nos dados, diga claramente que não foi possível encontrar. Nunca invente.
+- Seja objetivo e use tabela Markdown quando houver ranking ou comparação.
 - Responda em português.
 
 PERGUNTA: {pergunta_usuario}"""
+
+    evidencia = (d_filtrado[_colunas_exibicao(d_filtrado)].head(500)
+                 if (busca_aplicada or modo == "listar") else tabela)
+    resumo = f"{filtros_txt} → {len(d_filtrado)} OS" if desc_filtros else f"{len(d_filtrado)} OS"
 
     try:
         resp = client.chat.completions.create(
             messages=[{"role": "user", "content": prompt}],
             model=modelo,
-            temperature=0.1,
-            max_tokens=900,
+            temperature=0.15,
+            max_tokens=1000,
         )
-        return resp.choices[0].message.content, tabela
+        return resp.choices[0].message.content, evidencia, resumo
     except Exception as e:
-        return f"❌ Erro ao responder pergunta: {e}", None
+        return f"❌ Erro ao responder pergunta: {e}", None, resumo
 
 
 def extrair_dados_tabela_markdown(relatorio_texto: str) -> pd.DataFrame:
@@ -1904,32 +1980,39 @@ elif st.session_state.aba_ativa == "chat":
     base_chat = df_filtrado_dashboard if usar_filtros else df
     st.caption(f"Base consultada: **{len(base_chat):,}** registros".replace(",", "."))
 
-  # with st.expander("💡 Exemplos de perguntas"):
-  #      st.markdown(
-  #       "- Quantas OS pendentes temos por setor?\n"
-  #          "- Qual o custo total de materiais por categoria em 2025?\n"
-  #          "- Quais os 10 equipamentos com mais chamados de ar condicionado?\n"
-  #          "- Qual o tempo médio de atendimento por tipo de manutenção?\n"
-  #          "- Mostre a evolução mensal de OS de vazamento.\n"
-  #          "- Resuma os problemas mais frequentes dos últimos 3 meses."
-  #      )
+   # with st.expander("💡 Exemplos de perguntas"):
+   #     st.markdown(
+   #         "- Quantas OS pendentes temos por setor?\n"
+   #         "- Qual o custo total de materiais por categoria em 2025?\n"
+   #         "- Quais os 10 equipamentos com mais chamados de ar condicionado?\n"
+   #         "- Qual o tempo médio de atendimento por tipo de manutenção?\n"
+   #         "- Mostre a evolução mensal de OS de vazamento.\n"
+   #         "- Resuma os problemas mais frequentes dos últimos 3 meses."
+   #     )
 
     # ---- Campo de pergunta (sempre visível) ----
     with st.form("form_chat", clear_on_submit=True):
         pergunta = st.text_input(
             "✍️ Digite sua pergunta",
-            placeholder="Ex: Qual o setor com mais chamados abertos? Quantos vazamentos tivemos?"
+            placeholder="Ex: Qual foi a última manutenção do ar condicionado da sala de manutenção?"
+        )
+        termo_manual = st.text_input(
+            "🔎 Termo de pesquisa (opcional)",
+            placeholder="Ex: ar condicionado  → pesquisa exatamente como na aba Pesquisa & Relatórios"
         )
         enviado = st.form_submit_button("Enviar pergunta", use_container_width=True, type="primary")
 
     if enviado and pergunta.strip():
         historico_anterior = list(st.session_state.mensagens_chat)
         st.session_state.mensagens_chat.append({"role": "user", "content": pergunta.strip()})
-        with st.spinner("Analisando a base de dados..."):
-            resposta, evidencia = responder_pergunta_livre_com_todo_arquivo(
-                pergunta.strip(), base_chat, groq_api_key_input, historico=historico_anterior
+        with st.spinner("Pesquisando na base e analisando..."):
+            resposta, evidencia, resumo_busca = responder_pergunta_livre_com_todo_arquivo(
+                pergunta.strip(), base_chat, groq_api_key_input,
+                historico=historico_anterior, termo_busca=termo_manual
             )
-        st.session_state.mensagens_chat.append({"role": "assistant", "content": resposta, "evidencia": evidencia})
+        st.session_state.mensagens_chat.append(
+            {"role": "assistant", "content": resposta, "evidencia": evidencia, "busca": resumo_busca}
+        )
 
     # ---- Histórico da conversa ----
     st.markdown("---")
@@ -1937,10 +2020,11 @@ elif st.session_state.aba_ativa == "chat":
         st.info("Faça sua primeira pergunta acima 👆")
     for msg in st.session_state.mensagens_chat:
         with st.chat_message(msg["role"]):
+            if msg.get("busca"):
+                st.caption(f"🔎 Pesquisa aplicada: {msg['busca']}")
             st.markdown(msg["content"])
             ev = msg.get("evidencia")
             if ev is not None and len(ev) > 0:
-                with st.expander("🔎 Ver registros usados nesta resposta"):
+                with st.expander(f"📋 Ver as OS usadas nesta resposta ({len(ev)} exibidas)"):
                     st.dataframe(ev, use_container_width=True, hide_index=True)
 
- 
