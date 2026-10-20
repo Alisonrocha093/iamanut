@@ -546,16 +546,7 @@ Escreva um relatório executivo detalhado em português contendo:
         return response.choices[0].message.content
     except Exception as e:
         return f"❌ Erro ao gerar relatório com a IA: {e}"
-import unicodedata
-
-def normalizar_texto(texto: str) -> str:
-    """Remove acentos e converte para minúsculas para busca flexível."""
-    if not isinstance(texto, str):
-        texto = str(texto)
-    nfkd = unicodedata.normalize('NFD', texto)
-    return "".join([c for c in nfkd if not unicodedata.combining(c)]).lower().strip()
-
-def responder_pergunta_livre_com_todo_arquivo(pergunta_usuario: str, df_filtrado: pd.DataFrame, api_key: str) -> str:
+def responder_pergunta_livre_com_todo_arquivo(pergunta_usuario: str, df: pd.DataFrame, api_key: str) -> str:
     if not api_key:
         return "⚠️ Chave da Groq não configurada! Insira sua chave na barra lateral."
     try:
@@ -564,102 +555,64 @@ def responder_pergunta_livre_com_todo_arquivo(pergunta_usuario: str, df_filtrado
         return f"❌ Erro ao inicializar o cliente Groq: {e}"
 
     modelo_ativo = obter_modelo_ativo(client, api_key)
-    total_linhas = len(df_filtrado)
+    total_linhas = len(df)
     
-    if total_linhas == 0:
-        return "⚠️ Não há registros disponíveis no filtro atual para responder à pergunta."
+    resumo_status = dict(df["STATUS"].value_counts().head(5)) if "STATUS" in df.columns else "Não disponível"
+    col_setor = "SETOR" if "SETOR" in df.columns else ("MÁQUINA" if "MÁQUINA" in df.columns else None)
+    resumo_setor = dict(df[col_setor].value_counts().head(5)) if col_setor else "Não disponível"
+    resumo_nlp = dict(df["CATEGORIA_NLP"].value_counts().head(5)) if "CATEGORIA_NLP" in df.columns else "Não disponível"
+    
+    periodo_dados = "Não disponível"
+    col_data_ref = "ABERTO EM" if "ABERTO EM" in df.columns else ("DATA" if "DATA" in df.columns else None)
+    if col_data_ref:
+        try:
+            dt_min = pd.to_datetime(df[col_data_ref], errors='coerce').min().strftime('%d/%m/%Y')
+            dt_max = pd.to_datetime(df[col_data_ref], errors='coerce').max().strftime('%d/%m/%Y')
+            periodo_dados = f"De {dt_min} até {dt_max}"
+        except Exception:
+            pass
 
-    # Identificação dinâmica de colunas
-    col_obs = "OBSERVAÇÃO ABERTURA" if "OBSERVAÇÃO ABERTURA" in df_filtrado.columns else df_filtrado.columns[0]
-    col_maq = None
-    for c in df_filtrado.columns:
-        if c in ["MÁQUINAS", "MAQUINAS", "MÁQUINA", "MAQUINA", "EQUIPAMENTO"]:
-            col_maq = c
-            break
-
-    col_status = "STATUS" if "STATUS" in df_filtrado.columns else None
-    col_data = "ABERTO EM" if "ABERTO EM" in df_filtrado.columns else None
-    col_codigo = "CÓDIGO" if "CÓDIGO" in df_filtrado.columns else (df_filtrado.columns[1] if len(df_filtrado.columns) > 1 else None)
-
-    # 1. Normalização e Extração das Palavras-Chave da Pergunta
-    pergunta_norm = normalizar_texto(pergunta_usuario)
-    palavras_ignorar = {"para", "como", "quais", "qual", "esta", "estao", "sobre", "onde", "existe", "existem", "tem", "tudo", "todos", "item", "itens", "dados", "banco"}
-    palavras_chave = [p for p in pergunta_norm.split() if len(p) > 2 and p not in palavras_ignorar]
-
-    df_alvo = df_filtrado
-    filtro_aplicado_str = "Sem filtro específico (pesquisa geral na base)."
-
+    pergunta_lower = pergunta_usuario.lower()
+    palavras_chave = [p for p in pergunta_lower.split() if len(p) > 3]
+    
+    df_relevante = df
+    col_obs = "OBSERVAÇÃO ABERTURA" if "OBSERVAÇÃO ABERTURA" in df.columns else df.columns[0]
     if palavras_chave:
-        # Cria uma coluna temporária normalizada com todo o conteúdo de cada linha do DataFrame
-        texto_linha_norm = df_filtrado.astype(str).agg(' '.join, axis=1).apply(normalizar_texto)
-        
-        # Filtra linhas que contenham QUALQUER UMA das palavras-chave pesquisadas
-        mask_busca = texto_linha_norm.apply(lambda texto: any(palavra in texto for palavra in palavras_chave))
-        df_encontrado = df_filtrado[mask_busca]
-        
-        if len(df_encontrado) > 0:
-            df_alvo = df_encontrado
-            filtro_aplicado_str = f"Filtro aplicado para os termos: {', '.join(palavras_chave)} | Total exato encontrado na base: {len(df_encontrado)} OS"
+        filtro = df[col_obs].astype(str).str.lower().apply(lambda x: any(p in x for p in palavras_chave))
+        df_filtrado_ia = df[filtro]
+        if len(df_filtrado_ia) > 0:
+            df_relevante = df_filtrado_ia
 
-    total_encontrados = len(df_alvo)
-
-    # 2. Consolidação Completa de TODOS os itens encontrados (Agregação sem perdas)
-    resumo_maquinas_encontradas = dict(df_alvo[col_maq].value_counts().head(10)) if col_maq and len(df_alvo) > 0 else "N/A"
-    resumo_status_encontrados = dict(df_alvo[col_status].value_counts()) if col_status and len(df_alvo) > 0 else "N/A"
-    
-    # Extrai o ranking exato das descrições do resultado da pesquisa
-    obs_pesquisa = df_alvo[col_obs].dropna().astype(str).str.strip()
-    obs_pesquisa = obs_pesquisa[obs_pesquisa.str.lower() != "n/a"]
-    top_relatos_pesquisa = "Nenhum relato específico."
-    if len(obs_pesquisa) > 0:
-        relatos_count = obs_pesquisa.value_counts().head(15).reset_index()
-        relatos_count.columns = ["Descrição", "Ocorrências"]
-        top_relatos_pesquisa = "\n".join([f"- {row['Descrição']} (Qtd: {row['Ocorrências']})" for _, row in relatos_count.iterrows()])
-
-    # 3. Tabela de Amostra Expandida (Até 80 linhas para detalhes)
-    colunas_visiveis = [c for c in [col_codigo, col_data, col_status, col_maq, "CATEGORIA_NLP", col_obs] if c in df_alvo.columns]
-    df_amostra = df_alvo[colunas_visiveis].head(50).copy()
-    
+    df_amostra = df_relevante.head(5).copy()
     if col_obs in df_amostra.columns:
-        df_amostra[col_obs] = df_amostra[col_obs].astype(str).str.slice(0, 80)
-        
-    tabela_dados_str = df_amostra.to_string(index=False) if len(df_amostra) > 0 else "Nenhum registro encontrado."
+        df_amostra[col_obs] = df_amostra[col_obs].astype(str).str.slice(0, 60)
 
-    # 4. Prompt com Visão Completa
-    prompt = f"""Você é um analista especialista em Ordens de Serviço (OS).
-O usuário pesquisou no banco de dados.
+    colunas_visiveis = [c for c in ["CÓDIGO", "ABERTO EM", "STATUS", "MÁQUINA", "CATEGORIA_NLP", col_obs] if c in df_amostra.columns]
+    amostra_relevante = df_amostra[colunas_visiveis].to_string(index=False)
 
---- INFORMAÇÕES DA BUSCA REALIZADA ---
-- {filtro_aplicado_str}
-- Total total de registros pesquisados na planilha: {total_linhas}
-- Total de correspondências encontradas para a pesquisa: {total_encontrados}
----------------------------------------
+    prompt = f"""Você é um analista especialista em gestão de manutenção. A planilha foi processada com NLP e possui os seguintes dados consolidados:
 
---- CONSOLIDAÇÃO COMPLETA DE TODOS OS {total_encontrados} ITENS ENCONTRADOS ---
-- Distribuição por Status nos itens encontrados: {resumo_status_encontrados}
-- Equipamentos/Locais afetados nos itens encontrados: {resumo_maquinas_encontradas}
-- Relatos e Descrições de Falhas mais Frequentes nesta pesquisa:
-{top_relatos_pesquisa}
-------------------------------------------------------------------------
+--- ESTATÍSTICAS GLOBAIS DA PLANILHA ({total_linhas} registros) ---
+- Total de registros: {total_linhas}
+- Período coberto: {periodo_dados}
+- Top Categorias NLP: {resumo_nlp}
+- Distribuição por Status: {resumo_status}
+- Top Setores/Máquinas: {resumo_setor}
+------------------------------------------------------------
 
---- LISTA DETALHADA DOS REGISTROS (AMOSTRA DE ATÉ 80 ITENS) ---
-{tabela_dados_str}
-------------------------------------------------------------------
+--- AMOSTRA RELEVANTE ({len(df_relevante)} correspondências) ---
+{amostra_relevante}
+------------------------------------------------------------
 
-Instruções para a resposta:
-1. Informe claramente quantos itens EXATOS foram encontrados na base para o termo consultado ({total_encontrados} OS).
-2. Se o total for 0, declare honestamente que o termo não foi localizado na base.
-3. Apresente uma análise completa contendo o resumo das falhas, equipamentos envolvidos e o status dessas ordens de serviço.
-4. Utilize tabelas em Markdown para organizar a resposta quando apropriado.
-
-Pergunta do usuário: {pergunta_usuario}"""
+Responda objetivamente e de forma precisa em português:
+Pergunta: {pergunta_usuario}"""
 
     try:
         response = client.chat.completions.create(
             messages=[{"role": "user", "content": prompt}],
             model=modelo_ativo,
-            temperature=0.1,
-            max_tokens=1000,
+            temperature=0.2,
+            max_tokens=600,
         )
         return response.choices[0].message.content
     except Exception as e:
