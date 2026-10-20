@@ -5,5 +5,4 @@ groq
 scikit-learn
 xlrd
 plotly
-numpy
-json
+
