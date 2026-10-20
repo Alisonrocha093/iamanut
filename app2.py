@@ -1994,12 +1994,12 @@ elif st.session_state.aba_ativa == "chat":
     with st.form("form_chat", clear_on_submit=True):
         pergunta = st.text_input(
             "✍️ Digite sua pergunta",
-            placeholder="Ex: Qual foi a última manutenção do ar condicionado da sala de manutenção?"
+            placeholder="Ex: Digite sua pergunta aqui"
         )
-        termo_manual = st.text_input(
-            "🔎 Termo de pesquisa (opcional)",
-            placeholder="Ex: ar condicionado  → pesquisa exatamente como na aba Pesquisa & Relatórios"
-        )
+       # termo_manual = st.text_input(
+         #   "🔎 Termo de pesquisa (opcional)",
+         #   placeholder="Ex: ar condicionado  → pesquisa exatamente como na aba Pesquisa & Relatórios"
+     #   )
         enviado = st.form_submit_button("Enviar pergunta", use_container_width=True, type="primary")
 
     if enviado and pergunta.strip():
