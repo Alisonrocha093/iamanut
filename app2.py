@@ -2,6 +2,7 @@ import os
 import io
 import re
 import json
+import unicodedata
 import requests
 import numpy as np
 import pandas as pd
@@ -540,8 +541,14 @@ Escreva um relatório executivo detalhado em português contendo:
 
 
 # ==========================================
-# CHAT INTELIGENTE (PLANO DE CONSULTA + PANDAS + BUSCA TF-IDF)
+# CHAT INTELIGENTE (PLANO DE CONSULTA + PANDAS + BUSCA PRECISA)
 # ==========================================
+def _norm(txt) -> str:
+    """minúsculas e sem acentos (para 'manutenção' casar com 'manutencao')."""
+    t = unicodedata.normalize("NFKD", str(txt))
+    return "".join(ch for ch in t if not unicodedata.combining(ch)).lower().strip()
+
+
 def obter_modelo_chat(client) -> str:
     """Prefere um modelo maior (melhor para planejar consultas); cai para o 8b."""
     try:
@@ -555,12 +562,23 @@ def obter_modelo_chat(client) -> str:
 
 
 def preparar_df_chat(df: pd.DataFrame) -> pd.DataFrame:
-    """Cria colunas auxiliares (datas, custos numéricos, grupo de status, tempo)."""
+    """Cria colunas auxiliares (datas, custos, status, tempo) e um texto completo pesquisável."""
     d = df.copy()
 
     for col in d.columns:
         if col in ("ABERTO EM", "FECHADO EM", "FINALIZAÇÃO", "EXEC. PREVISTA", "DATA", "DATA FECHAMENTO"):
             d[col] = pd.to_datetime(d[col], errors="coerce")
+
+    # TEXTO_COMPLETO: junta TODAS as colunas de texto (setor, local, máquina, observações...), sem acentos
+    cols_txt = [c for c in d.columns
+                if c not in ("TEXTO_BUSCA", "TEXTO_COMPLETO")
+                and not pd.api.types.is_numeric_dtype(d[c])
+                and not pd.api.types.is_datetime64_any_dtype(d[c])]
+    texto = pd.Series("", index=d.index)
+    for c in cols_txt:
+        texto = texto + " " + d[c].astype(str)
+    d["TEXTO_COMPLETO"] = (texto.str.normalize("NFKD")
+                           .str.encode("ascii", "ignore").str.decode("ascii").str.lower())
 
     if "ABERTO EM" in d.columns:
         d["ANO_MES"] = d["ABERTO EM"].dt.to_period("M").astype(str).replace("NaT", np.nan)
@@ -599,7 +617,7 @@ def descrever_esquema(d: pd.DataFrame) -> str:
     """Resumo das colunas (nome, tipo e valores possíveis) para a IA planejar a consulta."""
     linhas = []
     for col in d.columns:
-        if col == "TEXTO_BUSCA":
+        if col in ("TEXTO_BUSCA", "TEXTO_COMPLETO"):
             continue
         serie = d[col]
         if pd.api.types.is_datetime64_any_dtype(serie):
@@ -677,25 +695,30 @@ PERGUNTA ATUAL: {pergunta}
 
 Responda APENAS com JSON neste formato (use somente colunas listadas acima):
 {{
-  "filtros": [{{"coluna": "STATUS_GRUPO", "op": "igual", "valor": "Pendentes / Abertas"}}],
-  "busca_texto": ["vazamento"],
-  "agrupar_por": ["SETOR"],
-  "metrica": "contagem",
-  "coluna_metrica": null,
+  "modo": "listar",
+  "busca_todas": [["ar condicionado", "ar-condicionado", "split"], ["sala de manutencao"]],
+  "filtros": [{{"coluna": "STATUS_GRUPO", "op": "igual", "valor": "Concluídas"}}],
+  "ordenar_por": "FINALIZAÇÃO",
   "ordem": "desc",
-  "limite": 10
+  "limite": 3,
+  "agrupar_por": [],
+  "metrica": "contagem",
+  "coluna_metrica": null
 }}
 
 Regras:
-- op permitidos: igual, diferente, contem, em, maior, menor, entre (valor = [inicio, fim]; datas no formato AAAA-MM-DD).
-- metrica: contagem, soma, media, max ou min. Se não for contagem, informe coluna_metrica numérica (ex.: CUSTO_TOTAL_NUM, CUSTO_MATERIAIS_NUM, MAO_DE_OBRA_NUM, TEMPO_ATENDIMENTO_DIAS).
-- busca_texto: palavras-chave (minúsculas) para procurar no texto das OS (ANY). Use quando a pergunta falar de um problema/equipamento específico.
-- agrupar_por: no máximo 2 colunas (use ANO_MES para evolução mensal, STATUS_GRUPO, CATEGORIA_NLP, SETOR etc.).
-- Se a pergunta não exigir filtro/agrupamento, deixe listas vazias.
-- Se a pergunta for conceitual (ex.: "o que significa..."), retorne tudo vazio."""
+- modo "listar": a pergunta pede registros específicos (última/primeira/mais recente, quais OS, quando foi, o que foi feito, detalhes de um equipamento/local). Retorna as OS ordenadas.
+- modo "agregar": a pergunta pede contagem, soma, média, ranking ou evolução (use agrupar_por, metrica, coluna_metrica).
+- busca_todas: lista de CONCEITOS; TODOS precisam aparecer no texto da OS (E). Cada conceito é uma lista de sinônimos (OU). Escreva sem acentos e em minúsculas. Separe equipamento/problema do LOCAL/SETOR em conceitos diferentes (ex.: [["ar condicionado","split"],["sala de manutencao"]]). Use só as palavras essenciais.
+- Perguntas "feita/realizada/executada/concluída": adicione filtro STATUS_GRUPO igual "Concluídas". "pendente/aberta": "Pendentes / Abertas".
+- "última/mais recente": ordenar_por = coluna de data de conclusão (FINALIZAÇÃO ou FECHADO EM, se existir; senão ABERTO EM), ordem "desc", limite 3. "primeira/mais antiga": ordem "asc".
+- op permitidos: igual, diferente, contem, em, maior, menor, entre (valor = [inicio, fim]; datas AAAA-MM-DD).
+- metrica: contagem, soma, media, max ou min; se não for contagem, informe coluna_metrica numérica (CUSTO_TOTAL_NUM, CUSTO_MATERIAIS_NUM, MAO_DE_OBRA_NUM, TEMPO_ATENDIMENTO_DIAS).
+- agrupar_por: no máximo 2 colunas (ANO_MES para evolução mensal, STATUS_GRUPO, CATEGORIA_NLP, SETOR etc.).
+- Pergunta conceitual (sem dados): modo "agregar" com tudo vazio."""
 
     kwargs = dict(messages=[{"role": "user", "content": prompt}], model=modelo,
-                  temperature=0.0, max_tokens=500)
+                  temperature=0.0, max_tokens=600)
     try:
         resp = client.chat.completions.create(response_format={"type": "json_object"}, **kwargs)
     except Exception:
@@ -713,16 +736,16 @@ def _aplicar_filtro(d: pd.DataFrame, f: dict) -> pd.DataFrame:
     s = d[col]
 
     if op in ("igual", "diferente", "contem", "em"):
-        txt = s.astype(str).str.lower().str.strip()
+        txt = s.astype(str).map(_norm)
         if op == "igual":
-            m = txt == str(val).lower().strip()
+            m = txt == _norm(val)
         elif op == "diferente":
-            m = txt != str(val).lower().strip()
+            m = txt != _norm(val)
         elif op == "contem":
-            m = txt.str.contains(re.escape(str(val).lower().strip()), na=False)
+            m = txt.str.contains(re.escape(_norm(val)), na=False)
         else:
             vals = val if isinstance(val, list) else [val]
-            m = txt.isin([str(v).lower().strip() for v in vals])
+            m = txt.isin([_norm(v) for v in vals])
         return d[m]
 
     is_data = pd.api.types.is_datetime64_any_dtype(s)
@@ -742,59 +765,135 @@ def _aplicar_filtro(d: pd.DataFrame, f: dict) -> pd.DataFrame:
     return d
 
 
-def executar_plano(d: pd.DataFrame, plano: dict):
-    """Executa o plano com pandas. Retorna (df_filtrado, tabela_resultado, descricao)."""
-    desc = []
-    for f in plano.get("filtros", []) or []:
-        antes = len(d)
-        d = _aplicar_filtro(d, f)
-        desc.append(f"{f.get('coluna')} {f.get('op')} {f.get('valor')} ({antes} → {len(d)})")
+def _colunas_exibicao(d: pd.DataFrame) -> list:
+    base = ["CÓDIGO", "ABERTO EM", "EXEC. PREVISTA", "FINALIZAÇÃO", "FECHADO EM", "STATUS",
+            "TIPO DE MANUTENÇÃO", "TIPO", "SETOR", "MÁQUINA", "MÁQUINAS", "CATEGORIA_NLP", "CUSTO_TOTAL_NUM"]
+    extras = [c for c in d.columns
+              if any(k in c for k in ("OBSERV", "DESCR", "SOLU", "SERVI", "LOCAL"))
+              and c not in base and c not in ("TEXTO_BUSCA", "TEXTO_COMPLETO")]
+    return [c for c in base + extras if c in d.columns]
 
-    termos = [str(t).lower() for t in (plano.get("busca_texto") or []) if str(t).strip()]
-    if termos and "TEXTO_BUSCA" in d.columns:
-        padrao = "|".join(re.escape(t) for t in termos)
+
+def registros_para_texto(d: pd.DataFrame, limite_txt: int = 400) -> str:
+    """Formata cada OS como uma linha 'campo: valor | campo: valor' (datas em dd/mm/aaaa)."""
+    linhas = []
+    for _, row in d.iterrows():
+        partes = []
+        for c in d.columns:
+            v = row[c]
+            if pd.isna(v) or str(v).strip().upper() in ("N/A", "NAN", "NAT", ""):
+                continue
+            if isinstance(v, pd.Timestamp):
+                v = v.strftime("%d/%m/%Y")
+            elif isinstance(v, float):
+                v = f"{v:.2f}"
+            partes.append(f"{c}: {str(v)[:limite_txt]}")
+        linhas.append("- " + " | ".join(partes))
+    return "\n".join(linhas) if linhas else "(nenhum registro)"
+
+
+COLUNAS_DATA_PADRAO = ["FINALIZAÇÃO", "FECHADO EM", "DATA FECHAMENTO", "ABERTO EM", "DATA"]
+
+
+def executar_plano(d: pd.DataFrame, plano: dict):
+    """Executa o plano com pandas. Retorna (df_filtrado, tabela_resultado, descricao, modo, aviso)."""
+    desc, aviso = [], ""
+    modo = plano.get("modo") if plano.get("modo") in ("listar", "agregar") else "agregar"
+
+    # ---- 1) Busca de texto: conceitos em E, sinônimos em OU (sem acentos) ----
+    grupos = plano.get("busca_todas") or []
+    if plano.get("busca_texto"):
+        grupos = list(grupos) + [plano["busca_texto"]]
+    padroes, rotulos = [], []
+    for g in grupos:
+        if isinstance(g, str):
+            g = [g]
+        termos = [_norm(x) for x in g if str(x).strip()]
+        if termos:
+            padroes.append("|".join(re.escape(t) for t in termos))
+            rotulos.append(" / ".join(termos))
+
+    col_txt = "TEXTO_COMPLETO" if "TEXTO_COMPLETO" in d.columns else "TEXTO_BUSCA"
+    d0 = d
+    for pad, rot in zip(padroes, rotulos):
         antes = len(d)
-        d = d[d["TEXTO_BUSCA"].str.contains(padrao, na=False)]
-        desc.append(f"texto contém {termos} ({antes} → {len(d)})")
+        d = d[d[col_txt].str.contains(pad, na=False)]
+        desc.append(f"contém [{rot}] ({antes} → {len(d)})")
+
+    # Nenhuma OS tem TODOS os conceitos: informa e mostra apenas correspondência parcial (rotulada)
+    if padroes and d.empty:
+        contagens = {rot: int(d0[col_txt].str.contains(pad, na=False).sum()) for pad, rot in zip(padroes, rotulos)}
+        aviso = (f"NENHUMA OS contém TODOS os conceitos pedidos {rotulos}. "
+                 f"Quantidade de OS que contém cada conceito isoladamente: {contagens}.")
+        score = sum(d0[col_txt].str.contains(pad, na=False).astype(int) for pad in padroes)
+        melhor = int(score.max()) if len(score) else 0
+        if melhor > 0:
+            d = d0[score == melhor]
+            aviso += (f" Os registros abaixo são CORRESPONDÊNCIA PARCIAL (contêm {melhor} de {len(padroes)} conceitos) "
+                      f"e NÃO atendem a pergunta por completo.")
+
+    # ---- 2) Filtros estruturados (se um filtro zerar o resultado, é ignorado e avisado) ----
+    for f in plano.get("filtros", []) or []:
+        novo = _aplicar_filtro(d, f)
+        if novo.empty and not d.empty:
+            aviso += f" O filtro {f.get('coluna')} {f.get('op')} {f.get('valor')} não encontrou nenhuma OS e foi ignorado."
+            desc.append(f"{f.get('coluna')} {f.get('op')} {f.get('valor')} (IGNORADO: zerava o resultado)")
+            continue
+        desc.append(f"{f.get('coluna')} {f.get('op')} {f.get('valor')} ({len(d)} → {len(novo)})")
+        d = novo
 
     d = d.copy()
+    try:
+        limite = int(plano.get("limite") or (5 if modo == "listar" else 15))
+    except Exception:
+        limite = 5 if modo == "listar" else 15
+    limite = max(1, min(limite, 30))
+    ascendente = (plano.get("ordem") == "asc")
+
+    # ---- 3a) Modo LISTAR: registros ordenados por data ----
+    if modo == "listar":
+        col_ord = plano.get("ordenar_por")
+        candidatas = ([col_ord] if col_ord in d.columns else []) + [c for c in COLUNAS_DATA_PADRAO if c in d.columns]
+        col_ord = next((c for c in candidatas
+                        if pd.api.types.is_datetime64_any_dtype(d[c]) and d[c].notna().any()), None)
+        if col_ord:
+            d = d.sort_values(col_ord, ascending=ascendente, na_position="last")
+            desc.append(f"ordenado por {col_ord} ({'crescente' if ascendente else 'decrescente'})")
+        tabela = d[_colunas_exibicao(d)].head(limite)
+        return d, tabela, desc, modo, aviso
+
+    # ---- 3b) Modo AGREGAR ----
     metrica = plano.get("metrica") or "contagem"
     colm = plano.get("coluna_metrica")
-    grupos = [g for g in (plano.get("agrupar_por") or []) if g in d.columns][:2]
-    ascendente = (plano.get("ordem") == "asc")
-    try:
-        limite = int(plano.get("limite") or 15)
-    except Exception:
-        limite = 15
-    limite = max(1, min(limite, 50))
+    grupos_col = [g for g in (plano.get("agrupar_por") or []) if g in d.columns][:2]
 
     if metrica != "contagem" and colm in d.columns:
         d[colm] = pd.to_numeric(d[colm], errors="coerce")
         func = {"soma": "sum", "media": "mean", "max": "max", "min": "min"}.get(metrica, "sum")
-        if grupos:
-            res = d.groupby(grupos)[colm].agg(func).reset_index().sort_values(colm, ascending=ascendente)
+        if grupos_col:
+            res = d.groupby(grupos_col)[colm].agg(func).reset_index().sort_values(colm, ascending=ascendente)
         else:
             res = pd.DataFrame({f"{metrica.upper()}_{colm}": [getattr(d[colm], func)()]})
     else:
-        if grupos:
-            res = d.groupby(grupos).size().reset_index(name="QUANTIDADE").sort_values("QUANTIDADE", ascending=ascendente)
+        if grupos_col:
+            res = d.groupby(grupos_col).size().reset_index(name="QUANTIDADE").sort_values("QUANTIDADE", ascending=ascendente)
         else:
             res = pd.DataFrame({"QUANTIDADE": [len(d)]})
 
-    if grupos and grupos[0] == "ANO_MES":
-        res = res.sort_values(grupos[0])
-    return d, res.head(limite if grupos else 1), desc
+    if grupos_col and grupos_col[0] == "ANO_MES":
+        res = res.sort_values(grupos_col[0])
+    return d, res.head(limite if grupos_col else 1), desc, modo, aviso
 
 
 def buscar_linhas_relevantes(d: pd.DataFrame, pergunta: str, k: int = 15) -> pd.DataFrame:
-    """TF-IDF: retorna as k OS mais parecidas com a pergunta."""
+    """TF-IDF: retorna as k OS mais parecidas com a pergunta (usado só no modo agregar)."""
     if d.empty:
         return d
-    base = d["TEXTO_BUSCA"] if "TEXTO_BUSCA" in d.columns else d.iloc[:, 0].astype(str)
+    base = d["TEXTO_COMPLETO"] if "TEXTO_COMPLETO" in d.columns else d.iloc[:, 0].astype(str)
     try:
         vec = TfidfVectorizer(max_features=3000, ngram_range=(1, 2), sublinear_tf=True)
         X = vec.fit_transform(base.astype(str))
-        q = vec.transform([pergunta.lower()])
+        q = vec.transform([_norm(pergunta)])
         scores = (X @ q.T).toarray().ravel()
         idx = [i for i in np.argsort(scores)[::-1][:k] if scores[i] > 0]
         return d.iloc[idx] if idx else d.head(k)
@@ -803,13 +902,14 @@ def buscar_linhas_relevantes(d: pd.DataFrame, pergunta: str, k: int = 15) -> pd.
 
 
 def responder_pergunta_livre_com_todo_arquivo(pergunta_usuario: str, df: pd.DataFrame,
-                                              api_key: str, historico=None) -> str:
+                                              api_key: str, historico=None):
+    """Retorna (resposta_texto, tabela_de_evidencias_ou_None)."""
     if not api_key:
-        return "⚠️ Chave da Groq não configurada! Insira sua chave na barra lateral."
+        return "⚠️ Chave da Groq não configurada! Insira sua chave na barra lateral.", None
     try:
         client = Groq(api_key=api_key)
     except Exception as e:
-        return f"❌ Erro ao inicializar o cliente Groq: {e}"
+        return f"❌ Erro ao inicializar o cliente Groq: {e}", None
 
     modelo = obter_modelo_chat(client)
 
@@ -819,43 +919,52 @@ def responder_pergunta_livre_com_todo_arquivo(pergunta_usuario: str, df: pd.Data
         stats_globais = montar_estatisticas_globais(d)
 
         plano = planejar_consulta(client, modelo, pergunta_usuario, esquema, historico)
-        d_filtrado, tabela, desc_filtros = executar_plano(d, plano)
-        tabela_txt = tabela.to_string(index=False)
-        amostra = buscar_linhas_relevantes(d_filtrado, pergunta_usuario, k=15)
+        d_filtrado, tabela, desc_filtros, modo, aviso = executar_plano(d, plano)
     except Exception as e:
-        return f"❌ Erro ao processar os dados: {e}"
-
-    col_obs = "OBSERVAÇÃO ABERTURA" if "OBSERVAÇÃO ABERTURA" in amostra.columns else amostra.columns[0]
-    cols_amostra = [c for c in ["CÓDIGO", "ABERTO EM", "STATUS", "TIPO DE MANUTENÇÃO", "SETOR", "MÁQUINA",
-                                "MÁQUINAS", "CATEGORIA_NLP", "CUSTO_TOTAL_NUM", col_obs] if c in amostra.columns]
-    amostra_fmt = amostra[cols_amostra].copy()
-    if col_obs in amostra_fmt.columns:
-        amostra_fmt[col_obs] = amostra_fmt[col_obs].astype(str).str.slice(0, 250)
-    amostra_txt = amostra_fmt.to_string(index=False) if len(amostra_fmt) else "(nenhuma OS correspondente)"
+        return f"❌ Erro ao processar os dados: {e}", None
 
     hist_txt = "\n".join(f"{m['role']}: {m['content'][:400]}" for m in (historico or [])[-4:])
+    filtros_txt = "; ".join(desc_filtros) if desc_filtros else "nenhum"
+
+    if modo == "listar":
+        bloco_dados = f"""=== REGISTROS ENCONTRADOS (já ordenados; o PRIMEIRO é o que responde "última/mais recente") ===
+Critérios aplicados: {filtros_txt}
+Total de OS que atendem aos critérios: {len(d_filtrado)}
+{('ATENÇÃO: ' + aviso) if aviso else ''}
+{registros_para_texto(tabela)}"""
+        regras_extra = """- Responda com base no PRIMEIRO registro quando a pergunta pedir "última/mais recente" (ou "primeira" com ordem crescente). Cite código da OS, datas, status, setor/máquina e o que foi feito (observações).
+- Mencione brevemente se existem outras OS no resultado (total acima).
+- Se houver ATENÇÃO informando que nenhuma OS atende todos os critérios, diga isso com clareza logo no início. Só depois, se útil, mencione os registros parciais como aproximação, deixando claro que NÃO são o que foi perguntado. Nunca apresente um registro que não bate com a pergunta como se fosse a resposta."""
+    else:
+        amostra = buscar_linhas_relevantes(d_filtrado, pergunta_usuario, k=15)
+        cols_am = _colunas_exibicao(amostra)
+        amostra_txt = registros_para_texto(amostra[cols_am], limite_txt=250) if len(amostra) else "(nenhuma OS correspondente)"
+        bloco_dados = f"""=== RESULTADO EXATO DA CONSULTA (calculado com pandas, é a fonte mais confiável para números) ===
+Critérios aplicados: {filtros_txt}
+Registros após filtros: {len(d_filtrado)}
+{('ATENÇÃO: ' + aviso) if aviso else ''}
+{tabela.to_string(index=False)}
+
+=== OS MAIS RELEVANTES PARA A PERGUNTA ({len(amostra)} de {len(d_filtrado)}) ===
+{amostra_txt}"""
+        regras_extra = """- Use os números do "RESULTADO EXATO" para contagens, somas e médias; não recalcule nem invente valores.
+- Se houver ATENÇÃO, informe a limitação ao usuário."""
 
     prompt = f"""Você é um analista sênior de gestão de manutenção. Responda SOMENTE com base nos dados abaixo.
 
 === ESTATÍSTICAS GLOBAIS DA BASE ===
 {stats_globais}
 
-=== RESULTADO EXATO DA CONSULTA (calculado com pandas, é a fonte mais confiável para números) ===
-Filtros aplicados: {'; '.join(desc_filtros) if desc_filtros else 'nenhum'}
-Registros após filtros: {len(d_filtrado)}
-{tabela_txt}
-
-=== OS MAIS RELEVANTES PARA A PERGUNTA ({len(amostra)} de {len(d_filtrado)}) ===
-{amostra_txt}
+{bloco_dados}
 
 === CONVERSA RECENTE ===
 {hist_txt or '(início da conversa)'}
 
 REGRAS:
-- Use os números do "RESULTADO EXATO" para contagens, somas e médias; não recalcule nem invente valores.
+{regras_extra}
 - Valores monetários em formato brasileiro (R$ 1.234,56).
 - Se a informação não estiver nos dados, diga claramente que não foi possível encontrar.
-- Seja objetivo; use tabela Markdown quando houver ranking ou comparação; cite códigos de OS quando útil.
+- Seja objetivo; use tabela Markdown quando houver ranking ou comparação.
 - Responda em português.
 
 PERGUNTA: {pergunta_usuario}"""
@@ -864,12 +973,12 @@ PERGUNTA: {pergunta_usuario}"""
         resp = client.chat.completions.create(
             messages=[{"role": "user", "content": prompt}],
             model=modelo,
-            temperature=0.2,
+            temperature=0.1,
             max_tokens=900,
         )
-        return resp.choices[0].message.content
+        return resp.choices[0].message.content, tabela
     except Exception as e:
-        return f"❌ Erro ao responder pergunta: {e}"
+        return f"❌ Erro ao responder pergunta: {e}", None
 
 
 def extrair_dados_tabela_markdown(relatorio_texto: str) -> pd.DataFrame:
@@ -1795,7 +1904,7 @@ elif st.session_state.aba_ativa == "chat":
     base_chat = df_filtrado_dashboard if usar_filtros else df
     st.caption(f"Base consultada: **{len(base_chat):,}** registros".replace(",", "."))
 
-    with st.expander("💡 Exemplos de perguntas"):
+  '''  with st.expander("💡 Exemplos de perguntas"):
         st.markdown(
             "- Quantas OS pendentes temos por setor?\n"
             "- Qual o custo total de materiais por categoria em 2025?\n"
@@ -1803,7 +1912,7 @@ elif st.session_state.aba_ativa == "chat":
             "- Qual o tempo médio de atendimento por tipo de manutenção?\n"
             "- Mostre a evolução mensal de OS de vazamento.\n"
             "- Resuma os problemas mais frequentes dos últimos 3 meses."
-        )
+        )'''
 
     # ---- Campo de pergunta (sempre visível) ----
     with st.form("form_chat", clear_on_submit=True):
@@ -1817,10 +1926,10 @@ elif st.session_state.aba_ativa == "chat":
         historico_anterior = list(st.session_state.mensagens_chat)
         st.session_state.mensagens_chat.append({"role": "user", "content": pergunta.strip()})
         with st.spinner("Analisando a base de dados..."):
-            resposta = responder_pergunta_livre_com_todo_arquivo(
+            resposta, evidencia = responder_pergunta_livre_com_todo_arquivo(
                 pergunta.strip(), base_chat, groq_api_key_input, historico=historico_anterior
             )
-        st.session_state.mensagens_chat.append({"role": "assistant", "content": resposta})
+        st.session_state.mensagens_chat.append({"role": "assistant", "content": resposta, "evidencia": evidencia})
 
     # ---- Histórico da conversa ----
     st.markdown("---")
@@ -1829,5 +1938,9 @@ elif st.session_state.aba_ativa == "chat":
     for msg in st.session_state.mensagens_chat:
         with st.chat_message(msg["role"]):
             st.markdown(msg["content"])
+            ev = msg.get("evidencia")
+            if ev is not None and len(ev) > 0:
+                with st.expander("🔎 Ver registros usados nesta resposta"):
+                    st.dataframe(ev, use_container_width=True, hide_index=True)
 
  
