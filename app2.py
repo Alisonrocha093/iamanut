@@ -1575,342 +1575,59 @@ elif st.session_state.aba_ativa == "nlp":
     else:
         st.info("Dado de categoria NLP não disponível na base filtrada.")
         
+    
+elif st.session_state.aba_ativa == "chat":
+    st.subheader("💬 Chat Inteligente sobre a Base de Dados")
+    st.write("Pergunte em linguagem natural: contagens, custos, rankings, evolução mensal, "
+             "problemas recorrentes, OS específicas, etc.")
  
-# ======================= FUNÇÕES =====================================
+    if df is None:
+        st.warning("⚠️ Nenhuma base carregada. Selecione uma unidade ou envie um arquivo na barra lateral.")
+        st.stop()
  
-def obter_modelo_chat(client) -> str:
-    """Prefere um modelo maior (melhor para planejar consultas); cai para o 8b."""
-    try:
-        ids = [m.id for m in client.models.list().data]
-        for preferido in ["llama-3.3-70b-versatile", "llama-3.1-70b-versatile"]:
-            if preferido in ids:
-                return preferido
-    except Exception:
-        pass
-    return obter_modelo_ativo(client, "ok")
+    col_c1, col_c2 = st.columns([3, 1])
+    with col_c1:
+        usar_filtros = st.checkbox("Usar os filtros do dashboard (status, tipo, período)", value=False)
+    with col_c2:
+        if st.button("🧹 Limpar conversa", use_container_width=True):
+            st.session_state.mensagens_chat = []
+            st.rerun()
  
+    base_chat = df_filtrado_dashboard if usar_filtros else df
+    st.caption(f"Base consultada: **{len(base_chat):,}** registros".replace(",", "."))
  
-def preparar_df_chat(df: pd.DataFrame) -> pd.DataFrame:
-    """Cria colunas auxiliares (datas, custos numéricos, grupo de status, tempo)."""
-    d = df.copy()
- 
-    # Datas
-    for col in d.columns:
-        if col in ("ABERTO EM", "FECHADO EM", "FINALIZAÇÃO", "EXEC. PREVISTA", "DATA", "DATA FECHAMENTO"):
-            d[col] = pd.to_datetime(d[col], errors="coerce")
- 
-    if "ABERTO EM" in d.columns:
-        d["ANO_MES"] = d["ABERTO EM"].dt.to_period("M").astype(str).replace("NaT", np.nan)
-        d["ANO"] = d["ABERTO EM"].dt.year
-        d["MES"] = d["ABERTO EM"].dt.month
- 
-    # Status agrupado
-    if "STATUS" in d.columns:
-        def _grupo(s):
-            s = str(s).lower()
-            if any(t in s for t in ["concluíd", "concluid", "fechad", "encerrad", "finalizad"]):
-                return "Concluídas"
-            if "cancelad" in s:
-                return "Canceladas"
-            if any(t in s for t in ["program", "planejad"]):
-                return "Programadas"
-            return "Pendentes / Abertas"
-        d["STATUS_GRUPO"] = d["STATUS"].apply(_grupo)
- 
-    # Custos numéricos
-    if "CUSTO COM MATERIAIS" in d.columns:
-        d["CUSTO_MATERIAIS_NUM"] = limpar_coluna_monetaria(d["CUSTO COM MATERIAIS"]).values
-    if "MÃO DE OBRA EXTERNA" in d.columns:
-        d["MAO_DE_OBRA_NUM"] = limpar_coluna_monetaria(d["MÃO DE OBRA EXTERNA"]).values
-    if "CUSTO_MATERIAIS_NUM" in d.columns or "MAO_DE_OBRA_NUM" in d.columns:
-        d["CUSTO_TOTAL_NUM"] = d.get("CUSTO_MATERIAIS_NUM", 0) + d.get("MAO_DE_OBRA_NUM", 0)
- 
-    # Tempo de atendimento (dias)
-    col_ini = "EXEC. PREVISTA" if "EXEC. PREVISTA" in d.columns else None
-    col_fim = "FINALIZAÇÃO" if "FINALIZAÇÃO" in d.columns else ("FECHADO EM" if "FECHADO EM" in d.columns else None)
-    if col_ini and col_fim:
-        dias = (d[col_fim] - d[col_ini]).dt.total_seconds() / 86400
-        d["TEMPO_ATENDIMENTO_DIAS"] = dias.where(dias >= 0)
- 
-    return d
- 
- 
-def descrever_esquema(d: pd.DataFrame) -> str:
-    """Resumo das colunas (nome, tipo e valores possíveis) para a IA planejar a consulta."""
-    linhas = []
-    for col in d.columns:
-        if col == "TEXTO_BUSCA":
-            continue
-        serie = d[col]
-        if pd.api.types.is_datetime64_any_dtype(serie):
-            tipo = "data"
-            exemplo = f"de {serie.min():%d/%m/%Y} até {serie.max():%d/%m/%Y}" if serie.notna().any() else "vazia"
-        elif pd.api.types.is_numeric_dtype(serie):
-            tipo = "número"
-            exemplo = f"min {serie.min():.2f} | max {serie.max():.2f}" if serie.notna().any() else "vazia"
-        else:
-            tipo = "texto"
-            nun = serie.nunique(dropna=True)
-            if nun <= 25:
-                exemplo = "valores: " + ", ".join(map(str, serie.dropna().unique()[:25]))
-            else:
-                exemplo = f"{nun} valores distintos, ex.: " + ", ".join(map(str, serie.dropna().unique()[:3]))
-        linhas.append(f"- {col} ({tipo}): {str(exemplo)[:300]}")
-    return "\n".join(linhas)
- 
- 
-def montar_estatisticas_globais(d: pd.DataFrame) -> str:
-    partes = [f"Total de registros: {len(d)}"]
- 
-    if "ABERTO EM" in d.columns and d["ABERTO EM"].notna().any():
-        partes.append(f"Período: {d['ABERTO EM'].min():%d/%m/%Y} até {d['ABERTO EM'].max():%d/%m/%Y}")
- 
-    def top(col, n=10):
-        if col in d.columns:
-            return d[col].value_counts().head(n).to_dict()
-        return None
- 
-    for rotulo, col in [("Status", "STATUS"), ("Grupo de status", "STATUS_GRUPO"),
-                        ("Categorias NLP", "CATEGORIA_NLP"), ("Setores", "SETOR"),
-                        ("Máquinas", "MÁQUINA"), ("Máquinas", "MÁQUINAS"),
-                        ("Tipos de manutenção", "TIPO DE MANUTENÇÃO"), ("Tipos", "TIPO")]:
-        r = top(col)
-        if r:
-            partes.append(f"Top {rotulo}: {r}")
- 
-    if "CUSTO_MATERIAIS_NUM" in d.columns:
-        partes.append(f"Custo total de materiais: {formatar_moeda_br(d['CUSTO_MATERIAIS_NUM'].sum())}")
-    if "MAO_DE_OBRA_NUM" in d.columns:
-        partes.append(f"Custo total de mão de obra externa: {formatar_moeda_br(d['MAO_DE_OBRA_NUM'].sum())}")
-    if "CUSTO_TOTAL_NUM" in d.columns:
-        partes.append(f"Custo total geral: {formatar_moeda_br(d['CUSTO_TOTAL_NUM'].sum())}")
-    if "TEMPO_ATENDIMENTO_DIAS" in d.columns and d["TEMPO_ATENDIMENTO_DIAS"].notna().any():
-        partes.append(f"Tempo médio de atendimento: {d['TEMPO_ATENDIMENTO_DIAS'].mean():.1f} dias")
-    if "ANO_MES" in d.columns:
-        partes.append(f"OS por mês: {d['ANO_MES'].value_counts().sort_index().to_dict()}")
- 
-    return "\n".join(partes)
- 
- 
-def _extrair_json(texto: str) -> dict:
-    try:
-        texto = re.sub(r"```(?:json)?", "", texto).strip()
-        ini, fim = texto.find("{"), texto.rfind("}")
-        return json.loads(texto[ini:fim + 1])
-    except Exception:
-        return {}
- 
- 
-def planejar_consulta(client, modelo, pergunta, esquema, historico) -> dict:
-    """A IA converte a pergunta em um plano estruturado (não executa nada)."""
-    hist_txt = "\n".join(f"{m['role']}: {m['content'][:300]}" for m in (historico or [])[-4:])
-    prompt = f"""Hoje é {pd.Timestamp.today():%d/%m/%Y}.
-Você converte perguntas sobre uma base de Ordens de Serviço (OS) em um plano de consulta JSON.
- 
-COLUNAS DISPONÍVEIS:
-{esquema}
- 
-CONVERSA RECENTE (para entender perguntas de continuação):
-{hist_txt or '(vazia)'}
- 
-PERGUNTA ATUAL: {pergunta}
- 
-Responda APENAS com JSON neste formato (use somente colunas listadas acima):
-{{
-  "filtros": [{{"coluna": "STATUS_GRUPO", "op": "igual", "valor": "Pendentes / Abertas"}}],
-  "busca_texto": ["vazamento"],
-  "agrupar_por": ["SETOR"],
-  "metrica": "contagem",
-  "coluna_metrica": null,
-  "ordem": "desc",
-  "limite": 10
-}}
- 
-Regras:
-- op permitidos: igual, diferente, contem, em, maior, menor, entre (valor = [inicio, fim]; datas no formato AAAA-MM-DD).
-- metrica: contagem, soma, media, max ou min. Se não for contagem, informe coluna_metrica numérica (ex.: CUSTO_TOTAL_NUM, CUSTO_MATERIAIS_NUM, MAO_DE_OBRA_NUM, TEMPO_ATENDIMENTO_DIAS).
-- busca_texto: palavras-chave (minúsculas) para procurar no texto das OS (ANY). Use quando a pergunta falar de um problema/equipamento específico.
-- agrupar_por: no máximo 2 colunas (use ANO_MES para evolução mensal, STATUS_GRUPO, CATEGORIA_NLP, SETOR etc.).
-- Se a pergunta não exigir filtro/agrupamento, deixe listas vazias.
-- Se a pergunta for conceitual (ex.: "o que significa..."), retorne tudo vazio."""
- 
-    kwargs = dict(messages=[{"role": "user", "content": prompt}], model=modelo,
-                  temperature=0.0, max_tokens=500)
-    try:
-        resp = client.chat.completions.create(response_format={"type": "json_object"}, **kwargs)
-    except Exception:
-        try:
-            resp = client.chat.completions.create(**kwargs)
-        except Exception:
-            return {}
-    return _extrair_json(resp.choices[0].message.content)
- 
- 
-def _aplicar_filtro(d: pd.DataFrame, f: dict) -> pd.DataFrame:
-    col, op, val = f.get("coluna"), f.get("op"), f.get("valor")
-    if col not in d.columns or val is None:
-        return d
-    s = d[col]
- 
-    if op in ("igual", "diferente", "contem", "em"):
-        txt = s.astype(str).str.lower().str.strip()
-        if op == "igual":
-            m = txt == str(val).lower().strip()
-        elif op == "diferente":
-            m = txt != str(val).lower().strip()
-        elif op == "contem":
-            m = txt.str.contains(re.escape(str(val).lower().strip()), na=False)
-        else:
-            vals = val if isinstance(val, list) else [val]
-            m = txt.isin([str(v).lower().strip() for v in vals])
-        return d[m]
- 
-    is_data = pd.api.types.is_datetime64_any_dtype(s)
-    conv = (lambda x: pd.to_datetime(x, errors="coerce")) if is_data else (lambda x: pd.to_numeric(x, errors="coerce"))
-    serie = s if is_data else pd.to_numeric(s, errors="coerce")
- 
-    if op in ("maior", "menor"):
-        ref = conv(val)
-        if pd.isna(ref):
-            return d
-        return d[serie > ref] if op == "maior" else d[serie < ref]
-    if op == "entre" and isinstance(val, list) and len(val) == 2:
-        a, b = conv(val[0]), conv(val[1])
-        if pd.isna(a) or pd.isna(b):
-            return d
-        return d[(serie >= a) & (serie <= b)]
-    return d
- 
- 
-def executar_plano(d: pd.DataFrame, plano: dict):
-    """Executa o plano com pandas. Retorna (df_filtrado, tabela_resultado, descricao)."""
-    desc = []
-    for f in plano.get("filtros", []) or []:
-        antes = len(d)
-        d = _aplicar_filtro(d, f)
-        desc.append(f"{f.get('coluna')} {f.get('op')} {f.get('valor')} ({antes} → {len(d)})")
- 
-    termos = [str(t).lower() for t in (plano.get("busca_texto") or []) if str(t).strip()]
-    if termos and "TEXTO_BUSCA" in d.columns:
-        padrao = "|".join(re.escape(t) for t in termos)
-        antes = len(d)
-        d = d[d["TEXTO_BUSCA"].str.contains(padrao, na=False)]
-        desc.append(f"texto contém {termos} ({antes} → {len(d)})")
- 
-    d = d.copy()
-    metrica = plano.get("metrica") or "contagem"
-    colm = plano.get("coluna_metrica")
-    grupos = [g for g in (plano.get("agrupar_por") or []) if g in d.columns][:2]
-    ascendente = (plano.get("ordem") == "asc")
-    try:
-        limite = int(plano.get("limite") or 15)
-    except Exception:
-        limite = 15
-    limite = max(1, min(limite, 50))
- 
-    if metrica != "contagem" and colm in d.columns:
-        d[colm] = pd.to_numeric(d[colm], errors="coerce")
-        func = {"soma": "sum", "media": "mean", "max": "max", "min": "min"}.get(metrica, "sum")
-        if grupos:
-            res = d.groupby(grupos)[colm].agg(func).reset_index().sort_values(colm, ascending=ascendente)
-        else:
-            res = pd.DataFrame({f"{metrica.upper()}_{colm}": [getattr(d[colm], func)()]})
-    else:
-        if grupos:
-            res = d.groupby(grupos).size().reset_index(name="QUANTIDADE").sort_values("QUANTIDADE", ascending=ascendente)
-        else:
-            res = pd.DataFrame({"QUANTIDADE": [len(d)]})
- 
-    # ANO_MES faz mais sentido em ordem cronológica
-    if grupos and grupos[0] == "ANO_MES":
-        res = res.sort_values(grupos[0])
-    return d, res.head(limite if grupos else 1), desc
- 
- 
-def buscar_linhas_relevantes(d: pd.DataFrame, pergunta: str, k: int = 15) -> pd.DataFrame:
-    """TF-IDF: retorna as k OS mais parecidas com a pergunta."""
-    if d.empty:
-        return d
-    base = d["TEXTO_BUSCA"] if "TEXTO_BUSCA" in d.columns else d.iloc[:, 0].astype(str)
-    try:
-        vec = TfidfVectorizer(max_features=3000, ngram_range=(1, 2), sublinear_tf=True)
-        X = vec.fit_transform(base.astype(str))
-        q = vec.transform([pergunta.lower()])
-        scores = (X @ q.T).toarray().ravel()
-        idx = [i for i in np.argsort(scores)[::-1][:k] if scores[i] > 0]
-        return d.iloc[idx] if idx else d.head(k)
-    except Exception:
-        return d.head(k)
- 
- 
-def responder_pergunta_livre_com_todo_arquivo(pergunta_usuario: str, df: pd.DataFrame,
-                                              api_key: str, historico=None) -> str:
-    if not api_key:
-        return "⚠️ Chave da Groq não configurada! Insira sua chave na barra lateral."
-    try:
-        client = Groq(api_key=api_key)
-    except Exception as e:
-        return f"❌ Erro ao inicializar o cliente Groq: {e}"
- 
-    modelo = obter_modelo_chat(client)
- 
-    try:
-        d = preparar_df_chat(df)
-        esquema = descrever_esquema(d)
-        stats_globais = montar_estatisticas_globais(d)
- 
-        # 1) Plano -> 2) execução exata com pandas
-        plano = planejar_consulta(client, modelo, pergunta_usuario, esquema, historico)
-        d_filtrado, tabela, desc_filtros = executar_plano(d, plano)
-        tabela_txt = tabela.to_string(index=False)
-        # 3) Linhas mais relevantes dentro do subconjunto filtrado
-        amostra = buscar_linhas_relevantes(d_filtrado, pergunta_usuario, k=15)
-    except Exception as e:
-        return f"❌ Erro ao processar os dados: {e}"
- 
-    col_obs = "OBSERVAÇÃO ABERTURA" if "OBSERVAÇÃO ABERTURA" in amostra.columns else amostra.columns[0]
-    cols_amostra = [c for c in ["CÓDIGO", "ABERTO EM", "STATUS", "TIPO DE MANUTENÇÃO", "SETOR", "MÁQUINA",
-                                "MÁQUINAS", "CATEGORIA_NLP", "CUSTO_TOTAL_NUM", col_obs] if c in amostra.columns]
-    amostra_fmt = amostra[cols_amostra].copy()
-    if col_obs in amostra_fmt.columns:
-        amostra_fmt[col_obs] = amostra_fmt[col_obs].astype(str).str.slice(0, 250)
-    amostra_txt = amostra_fmt.to_string(index=False) if len(amostra_fmt) else "(nenhuma OS correspondente)"
- 
-    hist_txt = "\n".join(f"{m['role']}: {m['content'][:400]}" for m in (historico or [])[-4:])
- 
-    prompt = f"""Você é um analista sênior de gestão de manutenção. Responda SOMENTE com base nos dados abaixo.
- 
-=== ESTATÍSTICAS GLOBAIS DA BASE ===
-{stats_globais}
- 
-=== RESULTADO EXATO DA CONSULTA (calculado com pandas, é a fonte mais confiável para números) ===
-Filtros aplicados: {'; '.join(desc_filtros) if desc_filtros else 'nenhum'}
-Registros após filtros: {len(d_filtrado)}
-{tabela_txt}
- 
-=== OS MAIS RELEVANTES PARA A PERGUNTA ({len(amostra)} de {len(d_filtrado)}) ===
-{amostra_txt}
- 
-=== CONVERSA RECENTE ===
-{hist_txt or '(início da conversa)'}
- 
-REGRAS:
-- Use os números do "RESULTADO EXATO" para contagens, somas e médias; não recalcule nem invente valores.
-- Valores monetários em formato brasileiro (R$ 1.234,56).
-- Se a informação não estiver nos dados, diga claramente que não foi possível encontrar.
-- Seja objetivo; use tabela Markdown quando houver ranking ou comparação; cite códigos de OS quando útil.
-- Responda em português.
- 
-PERGUNTA: {pergunta_usuario}"""
- 
-    try:
-        resp = client.chat.completions.create(
-            messages=[{"role": "user", "content": prompt}],
-            model=modelo,
-            temperature=0.2,
-            max_tokens=900,
+    with st.expander("💡 Exemplos de perguntas"):
+        st.markdown(
+            "- Quantas OS pendentes temos por setor?\n"
+            "- Qual o custo total de materiais por categoria em 2025?\n"
+            "- Quais os 10 equipamentos com mais chamados de ar condicionado?\n"
+            "- Qual o tempo médio de atendimento por tipo de manutenção?\n"
+            "- Mostre a evolução mensal de OS de vazamento.\n"
+            "- Resuma os problemas mais frequentes dos últimos 3 meses."
         )
-        return resp.choices[0].message.content
-    except Exception as e:
-        return f"❌ Erro ao responder pergunta: {e}"
+ 
+    # ---- Campo de pergunta (sempre visível) ----
+    with st.form("form_chat", clear_on_submit=True):
+        pergunta = st.text_input(
+            "✍️ Digite sua pergunta",
+            placeholder="Ex: Qual o setor com mais chamados abertos? Quantos vazamentos tivemos?"
+        )
+        enviado = st.form_submit_button("Enviar pergunta", use_container_width=True, type="primary")
+ 
+    if enviado and pergunta.strip():
+        historico_anterior = list(st.session_state.mensagens_chat)
+        st.session_state.mensagens_chat.append({"role": "user", "content": pergunta.strip()})
+        with st.spinner("Analisando a base de dados..."):
+            resposta = responder_pergunta_livre_com_todo_arquivo(
+                pergunta.strip(), base_chat, groq_api_key_input, historico=historico_anterior
+            )
+        st.session_state.mensagens_chat.append({"role": "assistant", "content": resposta})
+ 
+    # ---- Histórico da conversa ----
+    st.markdown("---")
+    if not st.session_state.mensagens_chat:
+        st.info("Faça sua primeira pergunta acima 👆")
+    for msg in st.session_state.mensagens_chat:
+        with st.chat_message(msg["role"]):
+            st.markdown(msg["content"])
  
