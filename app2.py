@@ -1990,16 +1990,12 @@ elif st.session_state.aba_ativa == "chat":
    #         "- Resuma os problemas mais frequentes dos últimos 3 meses."
    #     )
 
-    # ---- Campo de pergunta (sempre visível) ----
+  # ---- Campo de pergunta (sempre visível) ----
     with st.form("form_chat", clear_on_submit=True):
         pergunta = st.text_input(
             "✍️ Digite sua pergunta",
             placeholder="Ex: Digite sua pergunta aqui"
         )
-       # termo_manual = st.text_input(
-         #   "🔎 Termo de pesquisa (opcional)",
-         #   placeholder="Ex: ar condicionado  → pesquisa exatamente como na aba Pesquisa & Relatórios"
-     #   )
         enviado = st.form_submit_button("Enviar pergunta", use_container_width=True, type="primary")
 
     if enviado and pergunta.strip():
@@ -2008,7 +2004,7 @@ elif st.session_state.aba_ativa == "chat":
         with st.spinner("Pesquisando na base e analisando..."):
             resposta, evidencia, resumo_busca = responder_pergunta_livre_com_todo_arquivo(
                 pergunta.strip(), base_chat, groq_api_key_input,
-                historico=historico_anterior, termo_busca=termo_manual
+                historico=historico_anterior, termo_busca=None
             )
         st.session_state.mensagens_chat.append(
             {"role": "assistant", "content": resposta, "evidencia": evidencia, "busca": resumo_busca}
@@ -2027,4 +2023,3 @@ elif st.session_state.aba_ativa == "chat":
             if ev is not None and len(ev) > 0:
                 with st.expander(f"📋 Ver as OS usadas nesta resposta ({len(ev)} exibidas)"):
                     st.dataframe(ev, use_container_width=True, hide_index=True)
-
