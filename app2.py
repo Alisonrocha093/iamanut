@@ -1904,15 +1904,15 @@ elif st.session_state.aba_ativa == "chat":
     base_chat = df_filtrado_dashboard if usar_filtros else df
     st.caption(f"Base consultada: **{len(base_chat):,}** registros".replace(",", "."))
 
-  '''  with st.expander("💡 Exemplos de perguntas"):
-        st.markdown(
-            "- Quantas OS pendentes temos por setor?\n"
-            "- Qual o custo total de materiais por categoria em 2025?\n"
-            "- Quais os 10 equipamentos com mais chamados de ar condicionado?\n"
-            "- Qual o tempo médio de atendimento por tipo de manutenção?\n"
-            "- Mostre a evolução mensal de OS de vazamento.\n"
-            "- Resuma os problemas mais frequentes dos últimos 3 meses."
-        )'''
+  # with st.expander("💡 Exemplos de perguntas"):
+  #      st.markdown(
+  #       "- Quantas OS pendentes temos por setor?\n"
+  #          "- Qual o custo total de materiais por categoria em 2025?\n"
+  #          "- Quais os 10 equipamentos com mais chamados de ar condicionado?\n"
+  #          "- Qual o tempo médio de atendimento por tipo de manutenção?\n"
+  #          "- Mostre a evolução mensal de OS de vazamento.\n"
+  #          "- Resuma os problemas mais frequentes dos últimos 3 meses."
+  #      )
 
     # ---- Campo de pergunta (sempre visível) ----
     with st.form("form_chat", clear_on_submit=True):
