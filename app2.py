@@ -1477,7 +1477,7 @@ if st.session_state.aba_ativa == "dash":
 
   # ============================================================
 # DASHBOARD EXECUTIVO DE MANUTENÇÃO — INDICADORES E GRÁFICOS
-# Substitua o bloco correspondente do dashboard por este trecho.
+# Substitua o bloco correspondente do dashboard por este trecho. 
 # Requer: streamlit, pandas e plotly.express (px)
 # ============================================================
 
