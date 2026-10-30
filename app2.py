@@ -1112,6 +1112,7 @@ st.sidebar.markdown("---")
 st.sidebar.subheader("📂 Seleção de Unidade")
 
 lista_unidades = [
+    "VISÃO GERAL",
     "OS CASA DO COMERCIO",
     "HOTEL BARREIRA ROXA",
     "CHECKLIST - DIRETORIA - HOTEL",
