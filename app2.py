@@ -1342,7 +1342,7 @@ if coluna_data in df.columns:
             st.sidebar.success(f"Período: {data_inicio.strftime('%d/%m/%Y')} até {data_fim.strftime('%d/%m/%Y')}")
 else:
     st.sidebar.info("Coluna de Data ('ABERTO EM') não encontrada na base.")
-ALETA = {
+PALETA = {
     "azul": "#1E3A8A", "azul_claro": "#3B82F6", "verde": "#059669",
     "laranja": "#D97706", "vermelho": "#DC2626", "roxo": "#7C3AED",
     "teal": "#0D9488", "cinza": "#64748B",
