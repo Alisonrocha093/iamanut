@@ -12,6 +12,7 @@ import plotly.graph_objects as go
 from groq import Groq
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.cluster import KMeans
+from plotly.subplots import make_subplots
 
 # ==========================================
 # CONFIGURAÇÃO DA PÁGINA (STREAMLIT)
@@ -24,71 +25,75 @@ st.set_page_config(
 
 st.markdown("""
     <style>
-    /* Estilos do Dashboard Executivo */
-    .main-header {
-        font-size: 2.2rem;
-        color: #1E3A8A;
-        font-weight: 700;
-        margin-bottom: 0px;
+    /* ---------- Cabeçalho da página ---------- */
+    .main-header { font-size: 2.2rem; color: #1E3A8A; font-weight: 700; margin-bottom: 0px; }
+    .sub-header  { font-size: 1.1rem; color: #4B5563; margin-bottom: 20px; }
+
+    /* ---------- Faixa executiva (hero) ---------- */
+    .hero {
+        background: linear-gradient(135deg, #1E3A8A 0%, #2563EB 100%);
+        padding: 22px 28px; border-radius: 14px; color: #fff;
+        display: flex; justify-content: space-between; align-items: center; gap: 16px;
+        margin-bottom: 18px; box-shadow: 0 4px 14px rgba(30,58,138,.25);
     }
-    .sub-header {
-        font-size: 1.1rem;
-        color: #4B5563;
-        margin-bottom: 20px;
-    }
-    .metric-card {
-        background-color: #F8FAFC;
-        border: 1px solid #E2E8F0;
-        padding: 20px;
-        border-radius: 10px;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-        text-align: center;
+    .hero-title { font-size: 1.6rem; font-weight: 700; line-height: 1.2; }
+    .hero-sub   { font-size: .95rem; opacity: .85; margin-top: 4px; }
+    .hero-badge {
+        background: rgba(255,255,255,.15); border: 1px solid rgba(255,255,255,.35);
+        padding: 8px 16px; border-radius: 999px; font-weight: 600; white-space: nowrap;
     }
 
-    /* --- AJUSTES DA BARRA LATERAL (SEM ESPAÇOS EXCEDENTES) --- */
+    /* ---------- Cards de KPI ---------- */
+    .kpi-card {
+        background: #FFFFFF; border: 1px solid #E2E8F0; border-left: 5px solid #1E3A8A;
+        border-radius: 12px; padding: 14px 16px; height: 100%;
+        box-shadow: 0 1px 3px rgba(15,23,42,.06);
+        transition: transform .15s ease, box-shadow .15s ease;
+    }
+    .kpi-card:hover { transform: translateY(-2px); box-shadow: 0 6px 16px rgba(15,23,42,.10); }
+    .kpi-title { font-size: .72rem; letter-spacing: .06em; text-transform: uppercase; color: #64748B; font-weight: 600; }
+    .kpi-value { font-size: 1.65rem; font-weight: 700; margin: 4px 0 2px; line-height: 1.15; }
+    .kpi-sub   { font-size: .78rem; color: #64748B; min-height: 1.1em; }
+    .kpi-delta { font-weight: 600; margin-left: 4px; }
+
+    /* ---------- Seções e títulos de gráficos ---------- */
+    .section-title {
+        font-size: 1.05rem; font-weight: 700; color: #1E293B;
+        margin: 28px 0 6px; padding-bottom: 6px; border-bottom: 2px solid #E2E8F0;
+    }
+    .chart-title { font-size: .92rem; font-weight: 600; color: #334155; margin: 8px 0 0; }
+    .chart-note  { font-size: .78rem; color: #94A3B8; margin: 0 0 4px; }
+
+    /* ---------- Destaques automáticos ---------- */
+    .insights { display: flex; flex-wrap: wrap; gap: 8px; margin: 14px 0 4px; }
+    .chip {
+        background: #EFF6FF; border: 1px solid #BFDBFE; color: #1E3A8A;
+        padding: 6px 12px; border-radius: 999px; font-size: .82rem;
+    }
+
+    /* ---------- Barra lateral compacta ---------- */
     [data-testid="stSidebar"] > div:first-child {
-        height: 100vh;
-        padding-top: 0.5rem;
-        padding-bottom: 0.5rem;
-        display: flex;
-        flex-direction: column;
-        justify-content: flex-start;
+        height: 100vh; padding-top: 0.5rem; padding-bottom: 0.5rem;
+        display: flex; flex-direction: column; justify-content: flex-start;
     }
+    [data-testid="stSidebar"] [data-testid="stVerticalBlock"] { gap: 0.2rem !important; }
+    [data-testid="stSidebar"] hr { margin-top: 0.4rem !important; margin-bottom: 0.4rem !important; }
 
-    [data-testid="stSidebar"] [data-testid="stVerticalBlock"] {
-        gap: 0.2rem !important;
-    }
+    footer { visibility: hidden; }
 
-    [data-testid="stSidebar"] hr {
-        margin-top: 0.4rem !important;
-        margin-bottom: 0.4rem !important;
-    }
-
-    /* Responsividade para celulares e telas menores */
+    /* ---------- Responsivo ---------- */
     @media (max-width: 768px) {
-        .main-header {
-            font-size: 1.5rem !important;
-        }
-        .sub-header {
-            font-size: 1rem !important;
-            margin-bottom: 10px;
-        }
+        .main-header { font-size: 1.5rem !important; }
+        .sub-header  { font-size: 1rem !important; margin-bottom: 10px; }
+        .hero { flex-direction: column; align-items: flex-start; }
+        .hero-title { font-size: 1.25rem; }
+        .kpi-value { font-size: 1.35rem; }
         h1 { font-size: 1.5rem !important; }
         h2 { font-size: 1.25rem !important; }
         h3 { font-size: 1.1rem !important; }
-
-        [data-testid="stHorizontalBlock"] {
-            flex-direction: column !important;
-        }
-
-        .stSelectbox, .stTextInput, .stFileUploader {
-            width: 100% !important;
-        }
-
-        .stDataFrame {
-            width: 100% !important;
-            overflow-x: auto !important;
-        }
+        [data-testid="stHorizontalBlock"] { flex-direction: column !important; }
+        .stSelectbox, .stTextInput, .stFileUploader { width: 100% !important; }
+        .stDataFrame { width: 100% !important; overflow-x: auto !important; }
     }
     </style>
 """, unsafe_allow_html=True)
@@ -1337,7 +1342,157 @@ if coluna_data in df.columns:
             st.sidebar.success(f"Período: {data_inicio.strftime('%d/%m/%Y')} até {data_fim.strftime('%d/%m/%Y')}")
 else:
     st.sidebar.info("Coluna de Data ('ABERTO EM') não encontrada na base.")
+ALETA = {
+    "azul": "#1E3A8A", "azul_claro": "#3B82F6", "verde": "#059669",
+    "laranja": "#D97706", "vermelho": "#DC2626", "roxo": "#7C3AED",
+    "teal": "#0D9488", "cinza": "#64748B",
+}
+COR_STATUS = {
+    "Concluídas": "#059669",
+    "Programadas": "#3B82F6",
+    "Pendentes / Abertas": "#DC2626",
+    "Canceladas": "#94A3B8",
+}
+CFG_PLOT = {"displayModeBar": False, "scrollZoom": False}
 
+
+def grupo_status(s):
+    s = str(s).lower()
+    if any(t in s for t in ["concluíd", "concluid", "fechad", "encerrad", "finalizad"]):
+        return "Concluídas"
+    if "cancelad" in s:
+        return "Canceladas"
+    if any(t in s for t in ["program", "planejad"]):
+        return "Programadas"
+    return "Pendentes / Abertas"
+
+
+def moeda_curta(v):
+    v = float(v or 0)
+    if abs(v) >= 1e6:
+        return f"R$ {v / 1e6:.1f} mi".replace(".", ",")
+    if abs(v) >= 1e3:
+        return f"R$ {v / 1e3:.1f} mil".replace(".", ",")
+    return formatar_moeda_br(v)
+
+
+def preparar_dash(base: pd.DataFrame) -> pd.DataFrame:
+    """Colunas auxiliares (datas, status, custos, tempo) usadas só pelo painel."""
+    d = base.copy()
+    for c in ["ABERTO EM", "EXEC. PREVISTA", "FINALIZAÇÃO", "FECHADO EM"]:
+        if c in d.columns:
+            d[c] = pd.to_datetime(d[c], errors="coerce")
+
+    d["STATUS_GRUPO"] = d["STATUS"].apply(grupo_status) if "STATUS" in d.columns else "Pendentes / Abertas"
+
+    d["CUSTO_MAT"] = (limpar_coluna_monetaria(d["CUSTO COM MATERIAIS"]).values
+                      if "CUSTO COM MATERIAIS" in d.columns else 0.0)
+    d["CUSTO_MOE"] = (limpar_coluna_monetaria(d["MÃO DE OBRA EXTERNA"]).values
+                      if "MÃO DE OBRA EXTERNA" in d.columns else 0.0)
+    d["CUSTO_TOT"] = d["CUSTO_MAT"] + d["CUSTO_MOE"]
+
+    if "ABERTO EM" in d.columns:
+        d["MES_REF"] = d["ABERTO EM"].dt.to_period("M").dt.to_timestamp()
+
+    c_ini = "EXEC. PREVISTA" if "EXEC. PREVISTA" in d.columns else None
+    c_fim = "FINALIZAÇÃO" if "FINALIZAÇÃO" in d.columns else ("FECHADO EM" if "FECHADO EM" in d.columns else None)
+    if c_ini and c_fim:
+        dias = (d[c_fim] - d[c_ini]).dt.total_seconds() / 86400
+        d["TEMPO_DIAS"] = dias.where(dias >= 0)
+    return d
+
+
+def estilizar(fig, altura=340, legenda=True):
+    """Tema único para todos os gráficos (limpo, executivo, pt-BR)."""
+    fig.update_layout(
+        template="plotly_white", height=altura,
+        margin=dict(t=20, b=10, l=10, r=10),
+        font=dict(family="Inter, Segoe UI, sans-serif", size=12, color="#334155"),
+        paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+        separators=",.", showlegend=legenda,
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, x=0, title_text=""),
+        hoverlabel=dict(bgcolor="white", font_size=12),
+    )
+    fig.update_xaxes(showgrid=False, fixedrange=True, linecolor="#CBD5E1")
+    fig.update_yaxes(gridcolor="#E2E8F0", fixedrange=True, zeroline=False)
+    return fig
+
+
+def mostrar(fig, key=None, selecionavel=False):
+    kw = dict(config=CFG_PLOT)
+    if key:
+        kw["key"] = key
+    if selecionavel:
+        kw["on_select"] = "rerun"
+    try:
+        return st.plotly_chart(fig, width="stretch", **kw)
+    except TypeError:
+        return st.plotly_chart(fig, use_container_width=True, **kw)
+
+
+def secao(titulo):
+    st.markdown(f'<div class="section-title">{titulo}</div>', unsafe_allow_html=True)
+
+
+def titulo_grafico(titulo, nota=""):
+    st.markdown(f'<div class="chart-title">{titulo}</div>', unsafe_allow_html=True)
+    if nota:
+        st.markdown(f'<div class="chart-note">{nota}</div>', unsafe_allow_html=True)
+
+
+def card_kpi(titulo, valor, cor, sub="", delta=None, inverso=False):
+    """delta em %. inverso=True => subir é ruim (ex.: custo, volume de OS)."""
+    chip = ""
+    if delta is not None and not pd.isna(delta):
+        bom = (delta <= 0) if inverso else (delta >= 0)
+        seta = "▲" if delta > 0 else ("▼" if delta < 0 else "■")
+        cor_d = "#059669" if bom else "#DC2626"
+        txt = f"{abs(delta):.1f}".replace(".", ",")
+        chip = f'<span class="kpi-delta" style="color:{cor_d};">{seta} {txt}% vs mês ant.</span>'
+    return (f'<div class="kpi-card" style="border-left-color:{cor};">'
+            f'<div class="kpi-title">{titulo}</div>'
+            f'<div class="kpi-value" style="color:{cor};">{valor}</div>'
+            f'<div class="kpi-sub">{sub}{chip}</div></div>')
+
+
+def gerar_destaques(d: pd.DataFrame, col_setor=None) -> list:
+    """Frases automáticas para leitura rápida da diretoria."""
+    itens, total = [], len(d)
+    hoje = pd.Timestamp.today().normalize()
+
+    if "CATEGORIA_NLP" in d.columns and total:
+        top = d["CATEGORIA_NLP"].value_counts()
+        itens.append(f"🏷️ Categoria líder: <b>{top.index[0]}</b> ({top.iloc[0] / total * 100:.0f}% das OS)")
+
+    if col_setor and col_setor in d.columns and total:
+        top = d[col_setor].value_counts()
+        itens.append(f"🏢 Maior demanda: <b>{top.index[0]}</b> ({top.iloc[0]} OS)")
+
+    if "MES_REF" in d.columns and d["MES_REF"].notna().any():
+        m = d["MES_REF"].value_counts().idxmax()
+        itens.append(f"📅 Mês de pico: <b>{m:%m/%Y}</b>")
+
+    pend = d[d["STATUS_GRUPO"] == "Pendentes / Abertas"]
+    if "ABERTO EM" in pend.columns and not pend.empty:
+        idade = (hoje - pend["ABERTO EM"]).dt.days
+        n30 = int((idade > 30).sum())
+        if n30:
+            itens.append(f"⏳ <b>{n30}</b> OS pendentes há mais de 30 dias")
+
+    if "CATEGORIA_NLP" in d.columns and d["CUSTO_TOT"].sum() > 0:
+        c = d.groupby("CATEGORIA_NLP")["CUSTO_TOT"].sum().sort_values(ascending=False)
+        itens.append(f"💰 Maior custo: <b>{c.index[0]}</b> ({moeda_curta(c.iloc[0])})")
+    return itens[:5]
+
+
+def _sel_pareto():
+    v = st.session_state.get("select_maquina_pareto_direto", "")
+    st.session_state["maquina_pareto_ativa"] = None if str(v).startswith("--") else v
+
+
+def _fechar_pareto():
+    st.session_state["maquina_pareto_ativa"] = None
+    st.session_state["select_maquina_pareto_direto"] = "-- Ou selecione a máquina aqui --"
 # ==========================================
 # NAVEGAÇÃO POR BOTÕES (COM LIMPEZA DE ESTADO)
 # ==========================================
@@ -1381,457 +1536,350 @@ st.markdown("---")
 # CONTEÚDO DE CADA SEÇÃO
 # ==========================================
 if st.session_state.aba_ativa == "dash":
-    st.subheader(f"📈 Visão Executiva Completa da Manutenção - {unidade_escolhida}")
+    d = preparar_dash(df_filtrado_dashboard)
+    total_os = len(d)
 
-    if "filtro_kpi_ativo" not in st.session_state:
-        st.session_state.filtro_kpi_ativo = "geral"
+    if total_os == 0:
+        st.warning("Nenhuma OS encontrada para os filtros selecionados.")
+        st.stop()
 
-    col_kpi1, col_kpi2, col_kpi3, col_kpi4 = st.columns(4)
+    hoje = pd.Timestamp.today().normalize()
+    fmt_int = lambda n: f"{int(n):,}".replace(",", ".")
 
-    total_os = len(df_filtrado_dashboard)
-
-    if "CUSTO COM MATERIAIS" in df_filtrado_dashboard.columns:
-        val_mat = limpar_coluna_monetaria(df_filtrado_dashboard["CUSTO COM MATERIAIS"]).sum()
-        custo_materiais = formatar_moeda_br(val_mat)
+    # ---------- Faixa executiva ----------
+    if "ABERTO EM" in d.columns and d["ABERTO EM"].notna().any():
+        periodo_txt = f"{d['ABERTO EM'].min():%d/%m/%Y} a {d['ABERTO EM'].max():%d/%m/%Y}"
     else:
-        custo_materiais = "R$ 0,00"
-        val_mat = 0.0
+        periodo_txt = "—"
+    st.markdown(
+        f'<div class="hero"><div>'
+        f'<div class="hero-title">Painel Executivo da Manutenção</div>'
+        f'<div class="hero-sub">{unidade_escolhida} · Período: {periodo_txt}</div></div>'
+        f'<div class="hero-badge">{fmt_int(total_os)} OS no período</div></div>',
+        unsafe_allow_html=True)
 
-    if "MÃO DE OBRA EXTERNA" in df_filtrado_dashboard.columns:
-        val_moe = limpar_coluna_monetaria(df_filtrado_dashboard["MÃO DE OBRA EXTERNA"]).sum()
-        mao_de_obra = formatar_moeda_br(val_moe)
-    else:
-        mao_de_obra = "R$ 0,00"
-        val_moe = 0.0
+    # ---------- Indicadores ----------
+    cont = d["STATUS_GRUPO"].value_counts()
+    n_conc = int(cont.get("Concluídas", 0))
+    n_prog = int(cont.get("Programadas", 0))
+    n_pend = int(cont.get("Pendentes / Abertas", 0))
+    n_canc = int(cont.get("Canceladas", 0))
+    pct_conc = n_conc / total_os * 100
 
-    total_os_str = f"{total_os:,}".replace(",", ".")
-    custo_total_val = val_mat + val_moe
+    custo_mat, custo_moe = d["CUSTO_MAT"].sum(), d["CUSTO_MOE"].sum()
+    custo_tot = custo_mat + custo_moe
 
-    with col_kpi1:
-        st.markdown(f"""
-            <div class="metric-card">
-                <h4 style="color: #6B7280; font-size: 14px; margin-bottom: 5px;">TOTAL DE OS</h4>
-                <h2 style="color: #1E3A8A; font-size: 26px; margin: 0;">{total_os_str}</h2>
-            </div>
-        """, unsafe_allow_html=True)
-        if st.button("📋 Detalhar OS", key="btn_kpi_os", use_container_width=True):
-            st.session_state.filtro_kpi_ativo = "todas_os"
-            st.rerun()
+    tempo_medio = d["TEMPO_DIAS"].mean() if "TEMPO_DIAS" in d.columns else np.nan
+    tempo_txt = f"{tempo_medio:.1f} dias".replace(".", ",") if pd.notna(tempo_medio) else "N/A"
 
-    with col_kpi2:
-        st.markdown(f"""
-            <div class="metric-card">
-                <h4 style="color: #6B7280; font-size: 14px; margin-bottom: 5px;">CUSTO MATERIAIS</h4>
-                <h2 style="color: #059669; font-size: 26px; margin: 0;">{custo_materiais}</h2>
-            </div>
-        """, unsafe_allow_html=True)
-        if st.button("📦 Ver Materiais", key="btn_kpi_mat", use_container_width=True):
-            st.session_state.filtro_kpi_ativo = "materiais"
-            st.rerun()
+    delta_os = delta_custo = None
+    if "MES_REF" in d.columns:
+        base_m = d.dropna(subset=["MES_REF"])
+        s_os = base_m.groupby("MES_REF").size().sort_index()
+        if len(s_os) >= 2 and s_os.iloc[-2] > 0:
+            delta_os = (s_os.iloc[-1] / s_os.iloc[-2] - 1) * 100
+        s_c = base_m.groupby("MES_REF")["CUSTO_TOT"].sum().sort_index()
+        if len(s_c) >= 2 and s_c.iloc[-2] > 0:
+            delta_custo = (s_c.iloc[-1] / s_c.iloc[-2] - 1) * 100
 
-    with col_kpi3:
-        st.markdown(f"""
-            <div class="metric-card">
-                <h4 style="color: #6B7280; font-size: 14px; margin-bottom: 5px;">MÃO DE OBRA EXTERNA</h4>
-                <h2 style="color: #D97706; font-size: 26px; margin: 0;">{mao_de_obra}</h2>
-            </div>
-        """, unsafe_allow_html=True)
-        if st.button("🛠️ Ver Mão de Obra", key="btn_kpi_moe", use_container_width=True):
-            st.session_state.filtro_kpi_ativo = "mao_de_obra"
-            st.rerun()
+    k = st.columns(6)
+    cards = [
+        card_kpi("Total de OS", fmt_int(total_os), PALETA["azul"], "no período", delta_os, inverso=True),
+        card_kpi("Concluídas", fmt_int(n_conc), PALETA["verde"], f"{pct_conc:.1f}% do total".replace(".", ",")),
+        card_kpi("Backlog", fmt_int(n_pend), PALETA["roxo"], f"{fmt_int(n_prog)} programadas"),
+        card_kpi("Conformidade", f"{pct_conc:.1f}%".replace(".", ","), PALETA["azul_claro"], "concluídas ÷ total"),
+        card_kpi("Tempo médio", tempo_txt, PALETA["teal"], "previsto → finalização"),
+        card_kpi("Custo total", moeda_curta(custo_tot), PALETA["vermelho"],
+                 f"Mat. {moeda_curta(custo_mat)} · MO {moeda_curta(custo_moe)}", delta_custo, inverso=True),
+    ]
+    for col, html in zip(k, cards):
+        with col:
+            st.markdown(html, unsafe_allow_html=True)
 
-    with col_kpi4:
-        st.markdown(f"""
-            <div class="metric-card">
-                <h4 style="color: #6B7280; font-size: 14px; margin-bottom: 5px;">CUSTO TOTAL</h4>
-                <h2 style="color: #DC2626; font-size: 26px; margin: 0;">{formatar_moeda_br(custo_total_val)}</h2>
-            </div>
-        """, unsafe_allow_html=True)
-        if st.button("💰 Ver Custos Detalhados", key="btn_kpi_custo", use_container_width=True):
-            st.session_state.filtro_kpi_ativo = "custos_totais"
-            st.rerun()
+    # ---------- Destaques automáticos ----------
+    col_setor = next((c for c in ["SETOR", "MÁQUINA", "MÁQUINAS", "MAQUINA", "MAQUINAS"] if c in d.columns), None)
+    destaques = gerar_destaques(d, col_setor)
+    if destaques:
+        st.markdown('<div class="insights">' + "".join(f'<span class="chip">{t}</span>' for t in destaques) + '</div>',
+                    unsafe_allow_html=True)
 
-    st.markdown("<br>", unsafe_allow_html=True)
+    # =================================================================
+    # 1) SITUAÇÃO ATUAL — gauge + rosca de status + rosca por tipo
+    # =================================================================
+    secao("🎯 Situação atual")
+    g1, g2, g3 = st.columns(3)
 
-    if st.session_state.filtro_kpi_ativo != "geral":
-        st.markdown("---")
-        if st.session_state.filtro_kpi_ativo == "todas_os":
-            st.info("📌 **Filtro Ativo:** Exibindo todas as Ordens de Serviço da unidade.")
-            st.dataframe(df_filtrado_dashboard, use_container_width=True, hide_index=True)
-        elif st.session_state.filtro_kpi_ativo == "materiais":
-            st.info("📌 **Filtro Ativo:** Exibindo OS com foco em Custo de Materiais.")
-            cols_mat = [c for c in ["CÓDIGO", "ABERTO EM", "STATUS", "SETOR", "CUSTO COM MATERIAIS"] if c in df_filtrado_dashboard.columns]
-            st.dataframe(df_filtrado_dashboard[cols_mat], use_container_width=True, hide_index=True)
-        elif st.session_state.filtro_kpi_ativo == "mao_de_obra":
-            st.info("📌 **Filtro Ativo:** Exibindo OS com foco em Mão de Obra Externa.")
-            cols_moe = [c for c in ["CÓDIGO", "ABERTO EM", "STATUS", "SETOR", "MÃO DE OBRA EXTERNA"] if c in df_filtrado_dashboard.columns]
-            st.dataframe(df_filtrado_dashboard[cols_moe], use_container_width=True, hide_index=True)
-        elif st.session_state.filtro_kpi_ativo == "custos_totais":
-            st.info("📌 **Filtro Ativo:** Exibindo comparativo financeiro completo.")
-            cols_custos = [c for c in ["CÓDIGO", "ABERTO EM", "STATUS", "SETOR", "CUSTO COM MATERIAIS", "MÃO DE OBRA EXTERNA"] if c in df_filtrado_dashboard.columns]
-            st.dataframe(df_filtrado_dashboard[cols_custos], use_container_width=True, hide_index=True)
+    with g1:
+        titulo_grafico("Conformidade geral", "Meta sugerida: ≥ 85%")
+        cor_g = PALETA["verde"] if pct_conc >= 85 else (PALETA["laranja"] if pct_conc >= 60 else PALETA["vermelho"])
+        fig_g = go.Figure(go.Indicator(
+            mode="gauge+number", value=pct_conc,
+            number={"suffix": "%", "valueformat": ".1f", "font": {"size": 38, "color": cor_g}},
+            gauge={"axis": {"range": [0, 100], "tickwidth": 1}, "bar": {"color": cor_g, "thickness": 0.28},
+                   "bgcolor": "white", "borderwidth": 0,
+                   "steps": [{"range": [0, 60], "color": "#FEE2E2"},
+                             {"range": [60, 85], "color": "#FEF3C7"},
+                             {"range": [85, 100], "color": "#D1FAE5"}],
+                   "threshold": {"line": {"color": "#1E293B", "width": 3}, "thickness": 0.8, "value": 85}}))
+        estilizar(fig_g, 280, legenda=False)
+        fig_g.update_layout(margin=dict(t=30, b=0, l=20, r=20))
+        mostrar(fig_g, key="dash_gauge")
 
-        if st.button("🔄 Limpar Filtro do KPI"):
-            st.session_state.filtro_kpi_ativo = "geral"
-            st.rerun()
+    with g2:
+        titulo_grafico("Distribuição por status")
+        df_st = d["STATUS_GRUPO"].value_counts().reset_index()
+        df_st.columns = ["Status", "Quantidade"]
+        fig_st = px.pie(df_st, names="Status", values="Quantidade", hole=0.62,
+                        color="Status", color_discrete_map=COR_STATUS)
+        fig_st.update_traces(textinfo="percent", textposition="outside", sort=False,
+                             marker=dict(line=dict(color="white", width=2)))
+        fig_st.add_annotation(text=f"<b>{fmt_int(total_os)}</b><br>OS", showarrow=False, font=dict(size=20))
+        estilizar(fig_st, 280)
+        fig_st.update_layout(legend=dict(orientation="h", y=-0.05, x=0.5, xanchor="center", yanchor="top"))
+        mostrar(fig_st, key="dash_status")
 
-    # ==========================================
-    # INDICADORES EXECUTIVOS ADICIONAIS
-    # ==========================================
-    col_ind1, col_ind2, col_ind3 = st.columns(3)
-
-    if "STATUS" in df_filtrado_dashboard.columns:
-        status_txt = df_filtrado_dashboard["STATUS"].astype(str).str.lower()
-
-        concluidas_count = status_txt.str.contains("concluíd|concluid|fechad|encerrad|finalizad").sum()
-        conformidade_pct = (concluidas_count / total_os * 100) if total_os > 0 else 0.0
-        conf_str = f"{conformidade_pct:.1f}".replace(".", ",") + "%"
-
-        mask_concluidas = status_txt.str.contains("concluíd|concluid|fechad|encerrad|finalizad")
-        mask_programadas = status_txt.str.contains("program|planejad")
-        mask_canceladas = status_txt.str.contains("cancelad")
-
-        mask_apenas_pendentes = ~(mask_concluidas | mask_programadas | mask_canceladas)
-        backlog_count = mask_apenas_pendentes.sum()
-
-        backlog_str = f"{backlog_count:,}".replace(",", ".")
-    else:
-        conf_str = "N/A"
-        backlog_str = "N/A"
-
-    tempo_medio_str = "N/A"
-    col_data_inicio = "EXEC. PREVISTA" if "EXEC. PREVISTA" in df_filtrado_dashboard.columns else None
-    col_data_fechamento = "FINALIZAÇÃO" if "FINALIZAÇÃO" in df_filtrado_dashboard.columns else ("FECHADO EM" if "FECHADO EM" in df_filtrado_dashboard.columns else None)
-
-    if col_data_inicio and col_data_fechamento:
-        try:
-            df_fechadas = df_filtrado_dashboard.dropna(subset=[col_data_inicio, col_data_fechamento]).copy()
-
-            if len(df_fechadas) > 0:
-                dt_ini = pd.to_datetime(df_fechadas[col_data_inicio], errors='coerce')
-                dt_fim = pd.to_datetime(df_fechadas[col_data_fechamento], errors='coerce')
-                diff_dias = (dt_fim - dt_ini).dt.total_seconds() / 86400
-                media_dias = diff_dias[diff_dias >= 0].mean()
-                if not pd.isna(media_dias):
-                    tempo_medio_str = f"{media_dias:.1f} dias".replace(".", ",")
-        except Exception:
-            pass
-
-    with col_ind1:
-        st.markdown(f"""
-            <div class="metric-card">
-                <h4 style="color: #6B7280; font-size: 14px; margin-bottom: 5px;">% CONFORMIDADE GERAL</h4>
-                <h2 style="color: #2563EB; font-size: 24px; margin: 0;">{conf_str}</h2>
-            </div>
-        """, unsafe_allow_html=True)
-    with col_ind2:
-        st.markdown(f"""
-            <div class="metric-card">
-                <h4 style="color: #6B7280; font-size: 14px; margin-bottom: 5px;">BACKLOG DE MANUTENÇÃO (PENDENTES)</h4>
-                <h2 style="color: #9333EA; font-size: 24px; margin: 0;">{backlog_str} OS</h2>
-            </div>
-        """, unsafe_allow_html=True)
-    with col_ind3:
-        st.markdown(f"""
-            <div class="metric-card">
-                <h4 style="color: #6B7280; font-size: 14px; margin-bottom: 5px;">TEMPO MÉDIO DE ATENDIMENTO</h4>
-                <h2 style="color: #0D9488; font-size: 24px; margin: 0;">{tempo_medio_str}</h2>
-            </div>
-        """, unsafe_allow_html=True)
-
-    st.markdown("<br>", unsafe_allow_html=True)
-
-    col_data = "ABERTO EM" if "ABERTO EM" in df_filtrado_dashboard.columns else ("DATA" if "DATA" in df_filtrado_dashboard.columns else None)
-    col_data_fechamento = "FECHADO EM" if "FECHADO EM" in df_filtrado_dashboard.columns else ("DATA FECHAMENTO" if "DATA FECHAMENTO" in df_filtrado_dashboard.columns else None)
-
-    # ==========================================
-    # 1. EVOLUÇÃO TEMPORAL EMPILHADA
-    # ==========================================
-    st.markdown("### 📊 Evolução Temporal das OS por Status (Finalizadas, Pendentes, Programadas)")
-    if col_data and "STATUS" in df_filtrado_dashboard.columns:
-        df_evolucao = df_filtrado_dashboard.copy()
-        df_evolucao["MES_ANO"] = pd.to_datetime(df_evolucao[col_data], errors='coerce').dt.to_period("M").astype(str)
-
-        def categorizar_status_detalhado(val):
-            v = str(val).lower()
-            if any(term in v for term in ["concluíd", "concluid", "fechad", "encerrad", "finalizad"]):
-                return "Finalizadas"
-            elif any(term in v for term in ["program", "planejad"]):
-                return "Programadas"
-            else:
-                return "Pendentes / Abertas"
-
-        df_evolucao["STATUS_DETALHE"] = df_evolucao["STATUS"].apply(categorizar_status_detalhado)
-        df_group_evol = df_evolucao.groupby(["MES_ANO", "STATUS_DETALHE"]).size().reset_index(name="Quantidade")
-
-        fig_evolucao_bar = px.bar(
-            df_group_evol,
-            x="MES_ANO",
-            y="Quantidade",
-            color="STATUS_DETALHE",
-            text="Quantidade",
-            barmode="stack",
-            color_discrete_map={"Finalizadas": "#059669", "Programadas": "#2563EB", "Pendentes / Abertas": "#DC2626"}
-        )
-
-        fig_evolucao_bar.update_layout(
-            margin=dict(t=10, b=10, l=10, r=10),
-            height=380,
-            separators=',.',
-            legend_title="Status das OS",
-            xaxis=dict(fixedrange=True),
-            yaxis=dict(fixedrange=True)
-        )
-
-        st.plotly_chart(
-            fig_evolucao_bar,
-            use_container_width=True,
-            config={'displayModeBar': False, 'scrollZoom': False}
-        )
-    else:
-        st.info("Colunas de data ou status indisponíveis para gerar a evolução temporal detalhada.")
-
-    st.markdown("---")
-
-    # ==========================================
-    # 2. OS por Status & Categoria NLP
-    # ==========================================
-    col_g1, col_g2 = st.columns(2)
-
-    with col_g1:
-        st.markdown("### 🔄 OS por Status (Concluídas, Programadas e Pendentes)")
-        if "STATUS" in df_filtrado_dashboard.columns:
-            s_low = df_filtrado_dashboard["STATUS"].astype(str).str.lower()
-
-            def classificar_status_agrupado(s):
-                if any(term in s for term in ["concluíd", "concluid", "fechad", "encerrad", "finalizad"]):
-                    return "Concluídas / Fechadas"
-                elif any(term in s for term in ["program", "planejad"]):
-                    return "Programadas"
-                elif "cancelad" in s:
-                    return "Canceladas"
-                else:
-                    return "Pendentes / Abertas"
-
-            df_filtrado_dashboard["STATUS_AGRUPADO"] = s_low.apply(classificar_status_agrupado)
-
-            df_status_filtrado = df_filtrado_dashboard[
-                df_filtrado_dashboard["STATUS_AGRUPADO"].isin([
-                    "Concluídas / Fechadas", "Programadas", "Pendentes / Abertas"
-                ])
-            ]
-
-            df_status_comp = df_status_filtrado["STATUS_AGRUPADO"].value_counts().reset_index()
-            df_status_comp.columns = ["Status", "Quantidade"]
-            df_status_comp["Texto_Fmt"] = df_status_comp["Quantidade"].apply(lambda x: f"{x:,}".replace(",", "."))
-
-            mapa_cores = {
-                "Concluídas / Fechadas": "#059669",
-                "Programadas": "#2563EB",
-                "Pendentes / Abertas": "#DC2626"
-            }
-
-            fig_abertas_conc = px.bar(
-                df_status_comp,
-                x="Status",
-                y="Quantidade",
-                text="Texto_Fmt",
-                color="Status",
-                color_discrete_map=mapa_cores
-            )
-
-            fig_abertas_conc.update_layout(
-                margin=dict(t=10, b=10, l=10, r=10),
-                height=350,
-                showlegend=False,
-                separators=',.',
-                xaxis=dict(fixedrange=True),
-                yaxis=dict(fixedrange=True)
-            )
-
-            st.plotly_chart(
-                fig_abertas_conc,
-                use_container_width=True,
-                config={'displayModeBar': False, 'scrollZoom': False}
-            )
+    with g3:
+        if col_tipo_servico and col_tipo_servico in d.columns:
+            titulo_grafico("Mix por tipo de manutenção")
+            df_tp = d[col_tipo_servico].astype(str).str.strip().value_counts().head(6).reset_index()
+            df_tp.columns = ["Tipo", "Quantidade"]
+            rot_centro = f"<b>{len(df_tp)}</b><br>tipos"
+            nomes, vals = "Tipo", "Quantidade"
         else:
-            st.info("Coluna de status não disponível para comparação.")
+            titulo_grafico("Mix por categoria (NLP)")
+            df_tp = d["CATEGORIA_NLP"].value_counts().head(6).reset_index()
+            df_tp.columns = ["Tipo", "Quantidade"]
+            rot_centro = "<b>Top 6</b>"
+        fig_tp = px.pie(df_tp, names="Tipo", values="Quantidade", hole=0.62,
+                        color_discrete_sequence=px.colors.qualitative.Set2)
+        fig_tp.update_traces(textinfo="percent", textposition="outside",
+                             marker=dict(line=dict(color="white", width=2)))
+        fig_tp.add_annotation(text=rot_centro, showarrow=False, font=dict(size=18))
+        estilizar(fig_tp, 280)
+        fig_tp.update_layout(legend=dict(orientation="h", y=-0.05, x=0.5, xanchor="center", yanchor="top"))
+        mostrar(fig_tp, key="dash_tipo")
 
-    with col_g2:
-        st.markdown("### 🏷️ Pendências por Categoria (NLP)")
-        if "CATEGORIA_NLP" in df_filtrado_dashboard.columns:
-            df_cat = df_filtrado_dashboard["CATEGORIA_NLP"].value_counts().reset_index()
-            df_cat.columns = ["Categoria", "Quantidade"]
-            df_cat["Texto_Fmt"] = df_cat["Quantidade"].apply(lambda x: f"{x:,}".replace(",", "."))
+    # =================================================================
+    # 2) EVOLUÇÃO & BACKLOG
+    # =================================================================
+    secao("📈 Evolução e backlog")
+    e1, e2 = st.columns([2, 1])
 
-            fig_cat = px.bar(df_cat, x="Quantidade", y="Categoria", orientation="h", text="Texto_Fmt", color="Quantidade", color_continuous_scale="Tealgrn")
-
-            fig_cat.update_layout(
-                margin=dict(t=10, b=10, l=10, r=10),
-                height=350,
-                yaxis={'categoryorder': 'total ascending', 'fixedrange': True},
-                xaxis=dict(fixedrange=True),
-                separators=',.'
-            )
-
-            st.plotly_chart(
-                fig_cat,
-                use_container_width=True,
-                config={'displayModeBar': False, 'scrollZoom': False}
-            )
+    with e1:
+        titulo_grafico("OS por mês e % de conclusão", "Barras = volume por status · Linha = % concluído no mês")
+        if "MES_REF" in d.columns and d["MES_REF"].notna().any():
+            base_m = d.dropna(subset=["MES_REF"])
+            agr = base_m.groupby(["MES_REF", "STATUS_GRUPO"]).size().reset_index(name="Qtd")
+            fig_ev = make_subplots(specs=[[{"secondary_y": True}]])
+            for g in ["Concluídas", "Programadas", "Pendentes / Abertas", "Canceladas"]:
+                sub = agr[agr["STATUS_GRUPO"] == g]
+                if not sub.empty:
+                    fig_ev.add_bar(x=sub["MES_REF"], y=sub["Qtd"], name=g,
+                                   marker_color=COR_STATUS[g], secondary_y=False)
+            tot_m = base_m.groupby("MES_REF").size()
+            conc_m = (base_m[base_m["STATUS_GRUPO"] == "Concluídas"].groupby("MES_REF").size()
+                      .reindex(tot_m.index, fill_value=0))
+            pct_m = conc_m / tot_m * 100
+            fig_ev.add_scatter(x=pct_m.index, y=pct_m.values, name="% concluído",
+                               mode="lines+markers", line=dict(color=PALETA["azul"], width=3),
+                               marker=dict(size=7), secondary_y=True)
+            estilizar(fig_ev, 360)
+            fig_ev.update_layout(barmode="stack")
+            fig_ev.update_xaxes(tickformat="%m/%Y")
+            fig_ev.update_yaxes(title_text="OS", secondary_y=False)
+            fig_ev.update_yaxes(range=[0, 105], ticksuffix="%", showgrid=False, secondary_y=True)
+            mostrar(fig_ev, key="dash_evolucao")
         else:
-            st.info("Dado de categoria NLP não disponível.")
+            st.info("Coluna de data indisponível para a evolução temporal.")
 
-    st.markdown("---")
-
-    # ==========================================
-    # 3. Linha temporal & Pendências por Setor (com Pareto)
-    # ==========================================
-    col_g3, col_g4 = st.columns(2)
-
-    with col_g3:
-        st.markdown("### 📈 Evolução de Ocorrências ao Longo do Tempo (Linhas)")
-        if col_data:
-            try:
-                df_temp = df_filtrado_dashboard.copy()
-                df_temp["DATA_FORMATADA"] = pd.to_datetime(df_temp[col_data], errors='coerce').dt.to_period("M").astype(str)
-                df_line = df_temp["DATA_FORMATADA"].value_counts().sort_index().reset_index()
-                df_line.columns = ["Mês/Ano", "Total OS"]
-
-                fig_line = px.line(df_line, x="Mês/Ano", y="Total OS", markers=True, line_shape="linear")
-
-                fig_line.update_layout(
-                    margin=dict(t=10, b=10, l=10, r=10),
-                    height=350,
-                    separators=',.',
-                    xaxis=dict(fixedrange=True),
-                    yaxis=dict(fixedrange=True)
-                )
-
-                st.plotly_chart(
-                    fig_line,
-                    use_container_width=True,
-                    config={'displayModeBar': False, 'scrollZoom': False}
-                )
-            except Exception:
-                st.info("Formato de data inválido para montagem do gráfico temporal.")
+    with e2:
+        titulo_grafico("Idade do backlog", "OS pendentes por tempo em aberto")
+        pend = d[d["STATUS_GRUPO"] == "Pendentes / Abertas"]
+        if "ABERTO EM" in pend.columns and not pend.empty and pend["ABERTO EM"].notna().any():
+            idade = (hoje - pend["ABERTO EM"]).dt.days.dropna()
+            faixas = ["0–7 dias", "8–30 dias", "31–90 dias", "> 90 dias"]
+            cats = pd.cut(idade, bins=[-1, 7, 30, 90, 10 ** 6], labels=faixas)
+            qtds = [int((cats == f).sum()) for f in faixas]
+            fig_ag = go.Figure(go.Bar(x=faixas, y=qtds, text=qtds, textposition="outside",
+                                      marker_color=["#10B981", "#F59E0B", "#F97316", "#DC2626"]))
+            estilizar(fig_ag, 360, legenda=False)
+            fig_ag.update_yaxes(showgrid=False, visible=False)
+            fig_ag.update_traces(cliponaxis=False)
+            mostrar(fig_ag, key="dash_aging")
         else:
-            st.info("Coluna de data não encontrada na base.")
+            st.success("Nenhuma OS pendente no período. 🎉")
 
-    with col_g4:
-        st.markdown("### 🏢 Pendências por Setor / Máquinas")
-        col_setor = "SETOR" if "SETOR" in df_filtrado_dashboard.columns else ("MÁQUINA" if "MÁQUINA" in df_filtrado_dashboard.columns else None)
+    # =================================================================
+    # 3) ONDE ESTÃO OS PROBLEMAS
+    # =================================================================
+    secao("🏢 Onde estão os problemas")
+    p1, p2 = st.columns(2)
 
+    with p1:
+        titulo_grafico("Top 10 setores / máquinas", "Clique numa barra para abrir o Diagrama de Pareto")
         if col_setor:
-            df_setor = df_filtrado_dashboard[col_setor].value_counts().head(10).reset_index()
+            df_setor = d[col_setor].value_counts().head(10).reset_index()
             df_setor.columns = ["Setor/Máquina", "Quantidade"]
-            df_setor["Texto_Fmt"] = df_setor["Quantidade"].apply(lambda x: f"{x:,}".replace(",", "."))
+            fig_set = px.bar(df_setor, x="Quantidade", y="Setor/Máquina", orientation="h",
+                             color="Quantidade", color_continuous_scale="Blues", text="Quantidade")
+            fig_set.update_traces(textposition="outside", cliponaxis=False)
+            fig_set.update_coloraxes(showscale=False)
+            estilizar(fig_set, 380, legenda=False)
+            fig_set.update_yaxes(categoryorder="total ascending", title_text="")
+            fig_set.update_xaxes(visible=False)
 
-            fig_horiz = px.bar(
-                df_setor,
-                y="Setor/Máquina",
-                x="Quantidade",
-                orientation="h",
-                text="Texto_Fmt",
-                color="Quantidade",
-                color_continuous_scale="Blues"
-            )
-
-            fig_horiz.update_layout(
-                margin=dict(t=10, b=10, l=10, r=10),
-                height=350,
-                yaxis={'categoryorder': 'total ascending', 'fixedrange': True},
-                xaxis=dict(fixedrange=True),
-                separators=',.'
-            )
-
-            evento_grafico = st.plotly_chart(
-                fig_horiz,
-                width='stretch',
-                on_select="rerun",
-                key="grafico_barras_setor_pareto",
-                config={'displayModeBar': False, 'scrollZoom': False}
-            )
-
+            evento = mostrar(fig_set, key="grafico_barras_setor_pareto", selecionavel=True)
             try:
-                selection_points = evento_grafico.get("selection", {}).get("points", [])
-                if selection_points:
-                    st.session_state["maquina_pareto_ativa"] = selection_points[0].get("y")
+                pts = evento.get("selection", {}).get("points", [])
+                if pts:
+                    st.session_state["maquina_pareto_ativa"] = pts[0].get("y")
             except Exception:
                 pass
 
-            lista_maquinas_pareto = ["-- Ou selecione a máquina aqui --"] + sorted(df_filtrado_dashboard[col_setor].dropna().unique().astype(str))
-            maquina_escolhida = st.selectbox(
-                "📊 Seleção rápida para o Diagrama de Pareto:",
-                options=lista_maquinas_pareto,
-                key="select_maquina_pareto_direto"
-            )
-
-            if maquina_escolhida and maquina_escolhida != "-- Ou selecione a máquina aqui --":
-                st.session_state["maquina_pareto_ativa"] = maquina_escolhida
-
+            opcoes = ["-- Ou selecione a máquina aqui --"] + sorted(d[col_setor].dropna().unique().astype(str))
+            st.selectbox("📊 Seleção rápida para o Diagrama de Pareto:", options=opcoes,
+                         key="select_maquina_pareto_direto", on_change=_sel_pareto)
         else:
             st.info("Coluna de Setor ou Máquina não encontrada.")
 
-    # ==========================================
-    # DIAGRAMA DE PARETO
-    # ==========================================
-    if "maquina_pareto_ativa" in st.session_state and st.session_state["maquina_pareto_ativa"]:
-        maq_ativa = st.session_state["maquina_pareto_ativa"]
-        st.markdown("---")
+    with p2:
+        titulo_grafico("Mapa de categorias (NLP)", "Área proporcional ao nº de OS")
+        if "CATEGORIA_NLP" in d.columns:
+            df_cat = d["CATEGORIA_NLP"].value_counts().reset_index()
+            df_cat.columns = ["Categoria", "Quantidade"]
+            fig_tm = px.treemap(df_cat, path=["Categoria"], values="Quantidade",
+                                color="Quantidade", color_continuous_scale="Tealgrn")
+            fig_tm.update_traces(texttemplate="<b>%{label}</b><br>%{value}", textfont_size=13,
+                                 marker=dict(cornerradius=4))
+            fig_tm.update_coloraxes(showscale=False)
+            estilizar(fig_tm, 380, legenda=False)
+            fig_tm.update_layout(margin=dict(t=10, b=10, l=0, r=0))
+            mostrar(fig_tm, key="dash_treemap")
+        else:
+            st.info("Dado de categoria NLP não disponível.")
 
-        col_t1, col_t2 = st.columns([4, 1])
-        with col_t1:
-            st.markdown(f"### 📊 Diagrama de Pareto de Falhas — Máquina: `{maq_ativa}`")
-        with col_t2:
-            if st.button("❌ Fechar Pareto", key="btn_fechar_pareto"):
-                st.session_state["maquina_pareto_ativa"] = None
-                st.rerun()
+    # =================================================================
+    # 4) CUSTOS
+    # =================================================================
+    secao("💰 Custos")
+    if custo_tot > 0 and "MES_REF" in d.columns:
+        c1, c2 = st.columns([2, 1])
+        with c1:
+            titulo_grafico("Custo mensal (materiais + mão de obra externa)")
+            cm = (d.dropna(subset=["MES_REF"]).groupby("MES_REF")[["CUSTO_MAT", "CUSTO_MOE"]]
+                  .sum().reset_index())
+            fig_cm = go.Figure()
+            fig_cm.add_bar(x=cm["MES_REF"], y=cm["CUSTO_MAT"], name="Materiais", marker_color=PALETA["verde"])
+            fig_cm.add_bar(x=cm["MES_REF"], y=cm["CUSTO_MOE"], name="Mão de obra externa", marker_color=PALETA["laranja"])
+            estilizar(fig_cm, 340)
+            fig_cm.update_layout(barmode="stack")
+            fig_cm.update_xaxes(tickformat="%m/%Y")
+            fig_cm.update_yaxes(tickprefix="R$ ", tickformat=",.0f")
+            mostrar(fig_cm, key="dash_custo_mensal")
+        with c2:
+            titulo_grafico("Top 8 categorias por custo")
+            cc = (d.groupby("CATEGORIA_NLP")["CUSTO_TOT"].sum()
+                  .sort_values(ascending=False).head(8).reset_index())
+            cc["Texto"] = cc["CUSTO_TOT"].apply(moeda_curta)
+            fig_cc = px.bar(cc, x="CUSTO_TOT", y="CATEGORIA_NLP", orientation="h", text="Texto")
+            fig_cc.update_traces(marker_color=PALETA["vermelho"], textposition="outside", cliponaxis=False)
+            estilizar(fig_cc, 340, legenda=False)
+            fig_cc.update_yaxes(categoryorder="total ascending", title_text="")
+            fig_cc.update_xaxes(visible=False)
+            mostrar(fig_cc, key="dash_custo_cat")
+    else:
+        st.info("Sem custos registrados no período selecionado.")
 
-        col_maq_filtro = None
-        for c in ["MÁQUINA", "MAQUINA", "MÁQUINAS", "MAQUINAS", "SETOR"]:
-            if c in df_filtrado_dashboard.columns:
-                col_maq_filtro = c
-                break
+    # =================================================================
+    # 5) PADRÕES E DESEMPENHO
+    # =================================================================
+    secao("🔬 Padrões e desempenho")
+    h1, h2 = st.columns(2)
 
+    with h1:
+        titulo_grafico("Mapa de calor: categoria × mês", "Últimos 12 meses · top 8 categorias")
+        if "MES_REF" in d.columns and "CATEGORIA_NLP" in d.columns and d["MES_REF"].notna().any():
+            meses = sorted(d["MES_REF"].dropna().unique())[-12:]
+            top_cats = d["CATEGORIA_NLP"].value_counts().head(8).index
+            sub = d[d["MES_REF"].isin(meses) & d["CATEGORIA_NLP"].isin(top_cats)]
+            ct = pd.crosstab(sub["CATEGORIA_NLP"], sub["MES_REF"]).reindex(columns=meses, fill_value=0)
+            ct = ct.loc[ct.sum(axis=1).sort_values().index]
+            fig_hm = go.Figure(go.Heatmap(
+                z=ct.values, x=[pd.Timestamp(m).strftime("%m/%Y") for m in ct.columns], y=list(ct.index),
+                colorscale="Blues", texttemplate="%{z}", showscale=False,
+                hovertemplate="%{y}<br>%{x}: %{z} OS<extra></extra>"))
+            estilizar(fig_hm, 360, legenda=False)
+            fig_hm.update_yaxes(showgrid=False)
+            mostrar(fig_hm, key="dash_heatmap")
+        else:
+            st.info("Dados insuficientes para o mapa de calor.")
+
+    with h2:
+        titulo_grafico("Tempo médio de atendimento por categoria", "Em dias (previsto → finalização)")
+        if "TEMPO_DIAS" in d.columns and d["TEMPO_DIAS"].notna().any() and "CATEGORIA_NLP" in d.columns:
+            tm = (d.groupby("CATEGORIA_NLP")["TEMPO_DIAS"].mean().dropna()
+                  .sort_values(ascending=False).head(8).reset_index())
+            tm["Texto"] = tm["TEMPO_DIAS"].apply(lambda x: f"{x:.1f} d".replace(".", ","))
+            fig_tm2 = px.bar(tm, x="TEMPO_DIAS", y="CATEGORIA_NLP", orientation="h", text="Texto")
+            fig_tm2.update_traces(marker_color=PALETA["teal"], textposition="outside", cliponaxis=False)
+            estilizar(fig_tm2, 360, legenda=False)
+            fig_tm2.update_yaxes(categoryorder="total ascending", title_text="")
+            fig_tm2.update_xaxes(visible=False)
+            mostrar(fig_tm2, key="dash_tempo_cat")
+        else:
+            st.info("Colunas de datas (EXEC. PREVISTA / FINALIZAÇÃO) indisponíveis.")
+
+    # =================================================================
+    # 6) DIAGRAMA DE PARETO (abre ao clicar no gráfico de setores)
+    # =================================================================
+    maq_ativa = st.session_state.get("maquina_pareto_ativa")
+    if maq_ativa:
+        secao(f"📊 Diagrama de Pareto de falhas — {maq_ativa}")
+        st.button("❌ Fechar Pareto", key="btn_fechar_pareto", on_click=_fechar_pareto)
+
+        col_maq_filtro = next((c for c in ["MÁQUINA", "MAQUINA", "MÁQUINAS", "MAQUINAS", "SETOR"] if c in d.columns), None)
         if col_maq_filtro:
-            df_pareto_base = df_filtrado_dashboard[df_filtrado_dashboard[col_maq_filtro].astype(str) == str(maq_ativa)]
+            base_p = d[d[col_maq_filtro].astype(str) == str(maq_ativa)]
+            col_falha = next((c for c in ["CATEGORIA_NLP", "FALHA", "PROBLEMA", coluna_comentario]
+                              if c and c in base_p.columns), None)
+            if col_falha and not base_p.empty:
+                dp = base_p[col_falha].astype(str).str.slice(0, 60).value_counts().head(15).reset_index()
+                dp.columns = ["Falha", "Quantidade"]
+                dp["Acum"] = dp["Quantidade"].cumsum() / dp["Quantidade"].sum() * 100
 
-            col_falha = None
-            for c in ["CATEGORIA_NLP", "FALHA", "PROBLEMA", coluna_comentario]:
-                if c and c in df_pareto_base.columns:
-                    col_falha = c
-                    break
-
-            if col_falha and not df_pareto_base.empty:
-                df_pareto = df_pareto_base[col_falha].value_counts().reset_index()
-                df_pareto.columns = ["Falha / Ocorrência", "Quantidade"]
-                df_pareto["Acumulado_%"] = (df_pareto["Quantidade"].cumsum() / df_pareto["Quantidade"].sum()) * 100
-
-                fig_pareto = px.bar(
-                    df_pareto,
-                    x="Falha / Ocorrência",
-                    y="Quantidade",
-                    text="Quantidade",
-                    title=f"Análise de Pareto para {maq_ativa}"
-                )
-                fig_pareto.add_scatter(
-                    x=df_pareto["Falha / Ocorrência"],
-                    y=df_pareto["Acumulado_%"],
-                    mode="lines+markers",
-                    name="Acumulado %",
-                    yaxis="y2"
-                )
-                fig_pareto.update_layout(
-                    xaxis=dict(tickangle=-45),
-                    yaxis=dict(title="Quantidade de Falhas"),
-                    yaxis2=dict(title="Acumulado (%)", overlaying="y", side="right", range=[0, 105]),
-                    height=400,
-                    margin=dict(t=40, b=40, l=40, r=40)
-                )
-                st.plotly_chart(fig_pareto, width='stretch')
+                fig_p = make_subplots(specs=[[{"secondary_y": True}]])
+                fig_p.add_bar(x=dp["Falha"], y=dp["Quantidade"], name="Ocorrências",
+                              marker_color=PALETA["azul"], text=dp["Quantidade"], textposition="outside",
+                              secondary_y=False)
+                fig_p.add_scatter(x=dp["Falha"], y=dp["Acum"], name="Acumulado %", mode="lines+markers",
+                                  line=dict(color=PALETA["vermelho"], width=3), secondary_y=True)
+                fig_p.add_hline(y=80, line_dash="dash", line_color="#94A3B8",
+                                annotation_text="80%", secondary_y=True)
+                estilizar(fig_p, 420)
+                fig_p.update_xaxes(tickangle=-35)
+                fig_p.update_yaxes(title_text="Ocorrências", secondary_y=False)
+                fig_p.update_yaxes(range=[0, 105], ticksuffix="%", showgrid=False, secondary_y=True)
+                mostrar(fig_p, key="dash_pareto")
             else:
-                st.warning(f"Não há dados detalhados suficientes de falhas para a máquina '{maq_ativa}'.")
+                st.warning(f"Não há dados suficientes de falhas para '{maq_ativa}'.")
+
+    # =================================================================
+    # 7) DETALHAMENTO (substitui os botões de KPI)
+    # =================================================================
+    secao("📋 Detalhamento das OS")
+    with st.expander("Abrir tabela detalhada", expanded=False):
+        visao = st.radio("Visão", ["Todas as OS", "Materiais", "Mão de obra externa", "Custos (comparativo)"],
+                         horizontal=True, key="visao_detalhe")
+        base_det = df_filtrado_dashboard
+        mapa_cols = {
+            "Todas as OS": None,
+            "Materiais": ["CÓDIGO", "ABERTO EM", "STATUS", "SETOR", "CUSTO COM MATERIAIS"],
+            "Mão de obra externa": ["CÓDIGO", "ABERTO EM", "STATUS", "SETOR", "MÃO DE OBRA EXTERNA"],
+            "Custos (comparativo)": ["CÓDIGO", "ABERTO EM", "STATUS", "SETOR", "CUSTO COM MATERIAIS", "MÃO DE OBRA EXTERNA"],
+        }
+        cols_sel = mapa_cols[visao]
+        tabela_det = base_det if cols_sel is None else base_det[[c for c in cols_sel if c in base_det.columns]]
+        st.dataframe(tabela_det, use_container_width=True, hide_index=True)
 
 elif st.session_state.aba_ativa == "busca":
     st.subheader("🔍 Pesquisa Textual & Geração de Relatórios por IA")
