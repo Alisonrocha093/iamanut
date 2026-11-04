@@ -114,8 +114,8 @@ st.markdown("""
         font-size: 1.05rem; font-weight: 700; color: #F1F5F9;
         margin: 28px 0 6px; padding-bottom: 6px; border-bottom: 2px solid var(--border);
     }
-    .chart-title { font-size: .92rem; font-weight: 600; color: var(--text); margin: 8px 0 0; }
-    .chart-note  { font-size: .78rem; color: #7C8AA5; margin: 0 0 4px; }
+    .chart-title { font-size: 1.25rem; font-weight: 600; color: var(--text); margin: 8px 0 0; }
+    .chart-note  { font-size: .95rem; color: #7C8AA5; margin: 0 0 4px; }
 
     /* ---------- Destaques automáticos ---------- */
     .insights { display: flex; flex-wrap: wrap; gap: 8px; margin: 14px 0 4px; }
