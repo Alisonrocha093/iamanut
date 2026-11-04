@@ -25,49 +25,69 @@ st.set_page_config(
 
 st.markdown("""
     <style>
+    /* ---------- Tema escuro executivo ---------- */
+    :root {
+        --bg: #0B1220; --surface: #111A2E; --surface-2: #16213A;
+        --border: #243049; --text: #E2E8F0; --text-2: #CBD5E1; --muted: #94A3B8;
+        --accent: #60A5FA;
+    }
+    .stApp, [data-testid="stAppViewContainer"] { background: var(--bg); color: var(--text); }
+    [data-testid="stHeader"] { background: transparent; }
+    [data-testid="stSidebar"] { background: #0E1628; border-right: 1px solid var(--border); }
+    h1, h2, h3, h4, h5, h6 { color: #F1F5F9 !important; }
+    p, li, label, [data-testid="stWidgetLabel"], [data-testid="stCaptionContainer"] { color: var(--text-2); }
+    hr { border-color: var(--border) !important; }
+    [data-baseweb="input"], [data-baseweb="input"] input, [data-baseweb="select"] > div,
+    [data-baseweb="textarea"], textarea {
+        background-color: var(--surface) !important; color: var(--text) !important; border-color: var(--border) !important;
+    }
+    [data-testid="stExpander"] { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; }
+    [data-testid="stChatMessage"] { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; }
+
     /* ---------- Cabeçalho da página ---------- */
-    .main-header { font-size: 2.2rem; color: #1E3A8A; font-weight: 700; margin-bottom: 0px; }
-    .sub-header  { font-size: 1.1rem; color: #4B5563; margin-bottom: 20px; }
+    .main-header { font-size: 2.2rem; color: #F1F5F9; font-weight: 700; margin-bottom: 0px; letter-spacing: -.01em; }
+    .sub-header  { font-size: 1.1rem; color: var(--muted); margin-bottom: 20px; }
 
     /* ---------- Faixa executiva (hero) ---------- */
     .hero {
-        background: linear-gradient(135deg, #1E3A8A 0%, #2563EB 100%);
+        background: linear-gradient(135deg, #0F2A5C 0%, #1D4ED8 100%);
         padding: 22px 28px; border-radius: 14px; color: #fff;
         display: flex; justify-content: space-between; align-items: center; gap: 16px;
-        margin-bottom: 18px; box-shadow: 0 4px 14px rgba(30,58,138,.25);
+        margin-bottom: 18px; border: 1px solid rgba(96,165,250,.35);
+        box-shadow: 0 6px 22px rgba(0,0,0,.45);
     }
     .hero-title { font-size: 1.6rem; font-weight: 700; line-height: 1.2; }
     .hero-sub   { font-size: .95rem; opacity: .85; margin-top: 4px; }
     .hero-badge {
-        background: rgba(255,255,255,.15); border: 1px solid rgba(255,255,255,.35);
+        background: rgba(255,255,255,.12); border: 1px solid rgba(255,255,255,.35);
         padding: 8px 16px; border-radius: 999px; font-weight: 600; white-space: nowrap;
     }
 
     /* ---------- Cards de KPI ---------- */
     .kpi-card {
-        background: #FFFFFF; border: 1px solid #E2E8F0; border-left: 5px solid #1E3A8A;
+        background: var(--surface); border: 1px solid var(--border); border-left: 5px solid var(--accent);
         border-radius: 12px; padding: 14px 16px; height: 100%;
-        box-shadow: 0 1px 3px rgba(15,23,42,.06);
-        transition: transform .15s ease, box-shadow .15s ease;
+        box-shadow: 0 2px 8px rgba(0,0,0,.35);
+        transition: transform .15s ease, box-shadow .15s ease, border-color .15s ease;
     }
-    .kpi-card:hover { transform: translateY(-2px); box-shadow: 0 6px 16px rgba(15,23,42,.10); }
-    .kpi-title { font-size: .72rem; letter-spacing: .06em; text-transform: uppercase; color: #64748B; font-weight: 600; }
+    .kpi-card:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(0,0,0,.5); background: var(--surface-2); }
+    .kpi-title { font-size: .72rem; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
     .kpi-value { font-size: 1.65rem; font-weight: 700; margin: 4px 0 2px; line-height: 1.15; }
-    .kpi-sub   { font-size: .78rem; color: #64748B; min-height: 1.1em; }
+    .kpi-sub   { font-size: .78rem; color: var(--muted); min-height: 1.1em; }
     .kpi-delta { font-weight: 600; margin-left: 4px; }
 
     /* ---------- Seções e títulos de gráficos ---------- */
     .section-title {
-        font-size: 1.05rem; font-weight: 700; color: #1E293B;
-        margin: 28px 0 6px; padding-bottom: 6px; border-bottom: 2px solid #E2E8F0;
+        font-size: 1.05rem; font-weight: 700; color: #F1F5F9;
+        margin: 28px 0 6px; padding-bottom: 6px; border-bottom: 2px solid var(--border);
     }
-    .chart-title { font-size: .92rem; font-weight: 600; color: #334155; margin: 8px 0 0; }
-    .chart-note  { font-size: .78rem; color: #94A3B8; margin: 0 0 4px; }
+    .chart-title { font-size: .92rem; font-weight: 600; color: var(--text); margin: 8px 0 0; }
+    .chart-note  { font-size: .78rem; color: #7C8AA5; margin: 0 0 4px; }
 
     /* ---------- Destaques automáticos ---------- */
     .insights { display: flex; flex-wrap: wrap; gap: 8px; margin: 14px 0 4px; }
     .chip {
-        background: #EFF6FF; border: 1px solid #BFDBFE; color: #1E3A8A;
+        background: rgba(96,165,250,.12); border: 1px solid rgba(96,165,250,.35); color: #BFDBFE;
         padding: 6px 12px; border-radius: 999px; font-size: .82rem;
     }
 
@@ -1343,15 +1363,15 @@ if coluna_data in df.columns:
 else:
     st.sidebar.info("Coluna de Data ('ABERTO EM') não encontrada na base.")
 PALETA = {
-    "azul": "#1E3A8A", "azul_claro": "#3B82F6", "verde": "#059669",
-    "laranja": "#D97706", "vermelho": "#DC2626", "roxo": "#7C3AED",
-    "teal": "#0D9488", "cinza": "#64748B",
+    "azul": "#60A5FA", "azul_claro": "#38BDF8", "verde": "#34D399",
+    "laranja": "#FBBF24", "vermelho": "#F87171", "roxo": "#A78BFA",
+    "teal": "#2DD4BF", "cinza": "#94A3B8",
 }
 COR_STATUS = {
-    "Concluídas": "#059669",
-    "Programadas": "#3B82F6",
-    "Pendentes / Abertas": "#DC2626",
-    "Canceladas": "#94A3B8",
+    "Concluídas": "#34D399",
+    "Programadas": "#60A5FA",
+    "Pendentes / Abertas": "#F87171",
+    "Canceladas": "#64748B",
 }
 CFG_PLOT = {"displayModeBar": False, "scrollZoom": False}
 
@@ -1403,23 +1423,27 @@ def preparar_dash(base: pd.DataFrame) -> pd.DataFrame:
 
 
 def estilizar(fig, altura=340, legenda=True):
-    """Tema único para todos os gráficos (limpo, executivo, pt-BR)."""
+    """Tema único para todos os gráficos (escuro, executivo, pt-BR)."""
     fig.update_layout(
-        template="plotly_white", height=altura,
+        template="plotly_dark", height=altura,
         margin=dict(t=20, b=10, l=10, r=10),
-        font=dict(family="Inter, Segoe UI, sans-serif", size=12, color="#334155"),
+        font=dict(family="Inter, Segoe UI, sans-serif", size=12, color="#CBD5E1"),
         paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
         separators=",.", showlegend=legenda,
-        legend=dict(orientation="h", yanchor="bottom", y=1.02, x=0, title_text=""),
-        hoverlabel=dict(bgcolor="white", font_size=12),
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, x=0, title_text="",
+                    font=dict(color="#CBD5E1")),
+        hoverlabel=dict(bgcolor="#16213A", bordercolor="#334155",
+                        font=dict(size=12, color="#E2E8F0")),
     )
-    fig.update_xaxes(showgrid=False, fixedrange=True, linecolor="#CBD5E1")
-    fig.update_yaxes(gridcolor="#E2E8F0", fixedrange=True, zeroline=False)
+    fig.update_xaxes(showgrid=False, fixedrange=True, linecolor="#334155",
+                     tickfont=dict(color="#94A3B8"), title_font=dict(color="#94A3B8"))
+    fig.update_yaxes(gridcolor="#1F2A44", fixedrange=True, zeroline=False,
+                     tickfont=dict(color="#94A3B8"), title_font=dict(color="#94A3B8"))
     return fig
 
 
 def mostrar(fig, key=None, selecionavel=False):
-    kw = dict(config=CFG_PLOT)
+    kw = dict(config=CFG_PLOT, theme=None)
     if key:
         kw["key"] = key
     if selecionavel:
@@ -1446,7 +1470,7 @@ def card_kpi(titulo, valor, cor, sub="", delta=None, inverso=False):
     if delta is not None and not pd.isna(delta):
         bom = (delta <= 0) if inverso else (delta >= 0)
         seta = "▲" if delta > 0 else ("▼" if delta < 0 else "■")
-        cor_d = "#059669" if bom else "#DC2626"
+        cor_d = "#34D399" if bom else "#F87171"
         txt = f"{abs(delta):.1f}".replace(".", ",")
         chip = f'<span class="kpi-delta" style="color:{cor_d};">{seta} {txt}% vs mês ant.</span>'
     return (f'<div class="kpi-card" style="border-left-color:{cor};">'
@@ -1615,12 +1639,14 @@ if st.session_state.aba_ativa == "dash":
         fig_g = go.Figure(go.Indicator(
             mode="gauge+number", value=pct_conc,
             number={"suffix": "%", "valueformat": ".1f", "font": {"size": 38, "color": cor_g}},
-            gauge={"axis": {"range": [0, 100], "tickwidth": 1}, "bar": {"color": cor_g, "thickness": 0.28},
-                   "bgcolor": "white", "borderwidth": 0,
-                   "steps": [{"range": [0, 60], "color": "#FEE2E2"},
-                             {"range": [60, 85], "color": "#FEF3C7"},
-                             {"range": [85, 100], "color": "#D1FAE5"}],
-                   "threshold": {"line": {"color": "#1E293B", "width": 3}, "thickness": 0.8, "value": 85}}))
+            gauge={"axis": {"range": [0, 100], "tickwidth": 1, "tickcolor": "#64748B",
+                           "tickfont": {"color": "#94A3B8"}},
+                   "bar": {"color": cor_g, "thickness": 0.28},
+                   "bgcolor": "#16213A", "borderwidth": 0,
+                   "steps": [{"range": [0, 60], "color": "rgba(248,113,113,.22)"},
+                             {"range": [60, 85], "color": "rgba(251,191,36,.22)"},
+                             {"range": [85, 100], "color": "rgba(52,211,153,.22)"}],
+                   "threshold": {"line": {"color": "#F1F5F9", "width": 3}, "thickness": 0.8, "value": 85}}))
         estilizar(fig_g, 280, legenda=False)
         fig_g.update_layout(margin=dict(t=30, b=0, l=20, r=20))
         mostrar(fig_g, key="dash_gauge")
@@ -1632,8 +1658,8 @@ if st.session_state.aba_ativa == "dash":
         fig_st = px.pie(df_st, names="Status", values="Quantidade", hole=0.62,
                         color="Status", color_discrete_map=COR_STATUS)
         fig_st.update_traces(textinfo="percent", textposition="outside", sort=False,
-                             marker=dict(line=dict(color="white", width=2)))
-        fig_st.add_annotation(text=f"<b>{fmt_int(total_os)}</b><br>OS", showarrow=False, font=dict(size=20))
+                             marker=dict(line=dict(color="#0B1220", width=2)))
+        fig_st.add_annotation(text=f"<b>{fmt_int(total_os)}</b><br>OS", showarrow=False, font=dict(size=20, color="#F1F5F9"))
         estilizar(fig_st, 280)
         fig_st.update_layout(legend=dict(orientation="h", y=-0.05, x=0.5, xanchor="center", yanchor="top"))
         mostrar(fig_st, key="dash_status")
@@ -1653,8 +1679,8 @@ if st.session_state.aba_ativa == "dash":
         fig_tp = px.pie(df_tp, names="Tipo", values="Quantidade", hole=0.62,
                         color_discrete_sequence=px.colors.qualitative.Set2)
         fig_tp.update_traces(textinfo="percent", textposition="outside",
-                             marker=dict(line=dict(color="white", width=2)))
-        fig_tp.add_annotation(text=rot_centro, showarrow=False, font=dict(size=18))
+                             marker=dict(line=dict(color="#0B1220", width=2)))
+        fig_tp.add_annotation(text=rot_centro, showarrow=False, font=dict(size=18, color="#F1F5F9"))
         estilizar(fig_tp, 280)
         fig_tp.update_layout(legend=dict(orientation="h", y=-0.05, x=0.5, xanchor="center", yanchor="top"))
         mostrar(fig_tp, key="dash_tipo")
@@ -1701,7 +1727,7 @@ if st.session_state.aba_ativa == "dash":
             cats = pd.cut(idade, bins=[-1, 7, 30, 90, 10 ** 6], labels=faixas)
             qtds = [int((cats == f).sum()) for f in faixas]
             fig_ag = go.Figure(go.Bar(x=faixas, y=qtds, text=qtds, textposition="outside",
-                                      marker_color=["#10B981", "#F59E0B", "#F97316", "#DC2626"]))
+                                      marker_color=["#34D399", "#FBBF24", "#FB923C", "#F87171"]))
             estilizar(fig_ag, 360, legenda=False)
             fig_ag.update_yaxes(showgrid=False, visible=False)
             fig_ag.update_traces(cliponaxis=False)
@@ -1721,7 +1747,7 @@ if st.session_state.aba_ativa == "dash":
             df_setor = d[col_setor].value_counts().head(10).reset_index()
             df_setor.columns = ["Setor/Máquina", "Quantidade"]
             fig_set = px.bar(df_setor, x="Quantidade", y="Setor/Máquina", orientation="h",
-                             color="Quantidade", color_continuous_scale="Blues", text="Quantidade")
+                             color="Quantidade", color_continuous_scale=[[0, "#1E3A8A"], [1, "#60A5FA"]], text="Quantidade")
             fig_set.update_traces(textposition="outside", cliponaxis=False)
             fig_set.update_coloraxes(showscale=False)
             estilizar(fig_set, 380, legenda=False)
@@ -1748,9 +1774,10 @@ if st.session_state.aba_ativa == "dash":
             df_cat = d["CATEGORIA_NLP"].value_counts().reset_index()
             df_cat.columns = ["Categoria", "Quantidade"]
             fig_tm = px.treemap(df_cat, path=["Categoria"], values="Quantidade",
-                                color="Quantidade", color_continuous_scale="Tealgrn")
-            fig_tm.update_traces(texttemplate="<b>%{label}</b><br>%{value}", textfont_size=13,
-                                 marker=dict(cornerradius=4))
+                                color="Quantidade", color_continuous_scale=[[0, "#134E4A"], [1, "#2DD4BF"]])
+            fig_tm.update_traces(texttemplate="<b>%{label}</b><br>%{value}",
+                                 textfont=dict(size=13, color="#F8FAFC"),
+                                 marker=dict(cornerradius=4, line=dict(width=2, color="#0B1220")))
             fig_tm.update_coloraxes(showscale=False)
             estilizar(fig_tm, 380, legenda=False)
             fig_tm.update_layout(margin=dict(t=10, b=10, l=0, r=0))
@@ -1806,7 +1833,8 @@ if st.session_state.aba_ativa == "dash":
             ct = ct.loc[ct.sum(axis=1).sort_values().index]
             fig_hm = go.Figure(go.Heatmap(
                 z=ct.values, x=[pd.Timestamp(m).strftime("%m/%Y") for m in ct.columns], y=list(ct.index),
-                colorscale="Blues", texttemplate="%{z}", showscale=False,
+                colorscale=[[0, "#16213A"], [1, "#3B82F6"]], texttemplate="%{z}",
+                textfont=dict(color="#F1F5F9"), xgap=2, ygap=2, showscale=False,
                 hovertemplate="%{y}<br>%{x}: %{z} OS<extra></extra>"))
             estilizar(fig_hm, 360, legenda=False)
             fig_hm.update_yaxes(showgrid=False)
@@ -1917,8 +1945,9 @@ elif st.session_state.aba_ativa == "busca":
                 if serie_tabela is not None and not serie_tabela.empty:
                     st.markdown("#### 📊 Gráfico extraído do Relatório")
                     fig_rel = px.bar(x=serie_tabela.index, y=serie_tabela.values, labels={'x': 'Área/Problema', 'y': 'Frequência'})
-                    fig_rel.update_layout(separators=',.')
-                    st.plotly_chart(fig_rel, use_container_width=True)
+                    fig_rel.update_traces(marker_color=PALETA["azul_claro"])
+                    estilizar(fig_rel, 340, legenda=False)
+                    mostrar(fig_rel, key="rel_ia_grafico")
 
             st.markdown("---")
             st.markdown("#### 📋 Listagem das OS Encontradas")
@@ -2072,4 +2101,3 @@ elif st.session_state.aba_ativa == "chat":
             if ev is not None and len(ev) > 0:
                 with st.expander(f"📋 Ver as OS usadas nesta resposta ({len(ev)} exibidas)"):
                     st.dataframe(ev, use_container_width=True, hide_index=True)
-
