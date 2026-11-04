@@ -1216,7 +1216,7 @@ def carregar_dados_unidade(url, arquivo_submetido, nome_unidade):
                     df_temp = pd.read_csv(io.BytesIO(response.content))
                 else:
                     df_temp = pd.read_excel(io.BytesIO(response.content))
-                st.success(f"✅ Dados da unidade **{nome_unidade}** carregados com sucesso ({len(df_temp):,} registros)!")
+                #st.success(f"✅ Dados da unidade **{nome_unidade}** carregados com sucesso ({len(df_temp):,} registros)!")
             else:
                 st.error(f"❌ Erro HTTP {response.status_code} ao acessar o link do OneDrive para `{nome_unidade}`.")
         except Exception as e:
