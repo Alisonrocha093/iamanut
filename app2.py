@@ -136,7 +136,7 @@ st.markdown("""
         .sub-header  { font-size: 1rem !important; margin-bottom: 10px; }
         .hero { flex-direction: column; align-items: flex-start; }
         .hero-title { font-size: 1.25rem; }
-        .kpi-value { font-size: 1.35rem; }
+        .kpi-value { font-size: 3.35rem; }
         h1 { font-size: 1.5rem !important; }
         h2 { font-size: 1.25rem !important; }
         h3 { font-size: 1.1rem !important; }
