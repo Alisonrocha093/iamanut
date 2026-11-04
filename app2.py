@@ -70,6 +70,21 @@ st.markdown("""
     .st-key-nav_abas button { min-height: 3.6rem; border-radius: 12px; }
     .st-key-nav_abas button p, .st-key-nav_abas button span { font-size: 1.3rem !important; font-weight: 700 !important; }
 
+    /* ---------- Setinha do menu lateral (abrir/fechar) ---------- */
+    [data-testid="stSidebarCollapseButton"] button, [data-testid="stExpandSidebarButton"],
+    [data-testid="stExpandSidebarButton"] button, [data-testid="stSidebarCollapsedControl"] button,
+    [data-testid="collapsedControl"] button {
+        background: var(--surface-2) !important; border: 1px solid var(--accent) !important;
+        border-radius: 8px !important; color: #F1F5F9 !important; opacity: 1 !important;
+    }
+    [data-testid="stSidebarCollapseButton"] *, [data-testid="stExpandSidebarButton"] *,
+    [data-testid="stSidebarCollapsedControl"] *, [data-testid="collapsedControl"] * {
+        color: #F1F5F9 !important; fill: #F1F5F9 !important; opacity: 1 !important;
+    }
+    [data-testid="stSidebarCollapseButton"] button:hover, [data-testid="stExpandSidebarButton"]:hover,
+    [data-testid="stSidebarCollapsedControl"] button:hover { background: var(--accent) !important; }
+    [data-testid="stExpander"] summary svg { fill: #F1F5F9 !important; color: #F1F5F9 !important; }
+
     input::placeholder, textarea::placeholder { color: #7C8AA5 !important; }
     [data-testid="stFileUploaderDropzone"] { background: var(--surface) !important; border: 1px dashed var(--border) !important; }
     [data-testid="stFileUploaderDropzone"] * { color: var(--text-2) !important; }
@@ -111,10 +126,10 @@ st.markdown("""
 
     /* ---------- Seções e títulos de gráficos ---------- */
     .section-title {
-        font-size: 2.05rem; font-weight: 700; color: #F1F5F9;
+        font-size: 1.05rem; font-weight: 700; color: #F1F5F9;
         margin: 28px 0 6px; padding-bottom: 6px; border-bottom: 2px solid var(--border);
     }
-    .chart-title { font-size: 1.25rem; font-weight: 600; color: var(--text); margin: 8px 0 0; }
+    .chart-title { font-size: 1.25rem; font-weight: 700; color: var(--text); margin: 8px 0 0; }
     .chart-note  { font-size: .95rem; color: #7C8AA5; margin: 0 0 4px; }
 
     /* ---------- Destaques automáticos ---------- */
@@ -1216,7 +1231,7 @@ def carregar_dados_unidade(url, arquivo_submetido, nome_unidade):
                     df_temp = pd.read_csv(io.BytesIO(response.content))
                 else:
                     df_temp = pd.read_excel(io.BytesIO(response.content))
-                #st.success(f"✅ Dados da unidade **{nome_unidade}** carregados com sucesso ({len(df_temp):,} registros)!")
+                st.success(f"✅ Dados da unidade **{nome_unidade}** carregados com sucesso ({len(df_temp):,} registros)!")
             else:
                 st.error(f"❌ Erro HTTP {response.status_code} ao acessar o link do OneDrive para `{nome_unidade}`.")
         except Exception as e:
@@ -1252,8 +1267,8 @@ def carregar_dados_unidade(url, arquivo_submetido, nome_unidade):
 # ==========================================
 # CORPO PRINCIPAL DO APLICATIVO
 # ==========================================
-#st.markdown('<p class="main-header">🛠️ Gestão da Manutenção - Visão Geral & Painel Analítico</p>', unsafe_allow_html=True)
-#st.markdown(f'<p class="sub-header">Unidade Selecionada: <b>{unidade_escolhida}</b> | Classificação NLP, KPIs e Chat com IA.</p>', unsafe_allow_html=True)
+st.markdown('<p class="main-header">🛠️ Gestão da Manutenção - Visão Geral & Painel Analítico</p>', unsafe_allow_html=True)
+st.markdown(f'<p class="sub-header">Unidade Selecionada: <b>{unidade_escolhida}</b> | Classificação NLP, KPIs e Chat com IA.</p>', unsafe_allow_html=True)
 
 if 'termo_pesquisa' not in st.session_state:
     st.session_state.termo_pesquisa = ""
