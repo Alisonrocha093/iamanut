@@ -121,9 +121,9 @@ st.markdown("""
         transition: transform .15s ease, box-shadow .15s ease, border-color .15s ease;
     }
     .kpi-card:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(0,0,0,.5); background: var(--surface-2); }
-    .kpi-title { font-size: 2.5rem; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+    .kpi-title { font-size: 1.8rem; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
     .kpi-value { font-size: 2.0rem; font-weight: 700; margin: 4px 0 2px; line-height: 1.15; }
-    .kpi-sub   { font-size: 1.5rem; color: var(--muted); min-height: 1.1em; }
+    .kpi-sub   { font-size: 1.2rem; color: var(--muted); min-height: 1.1em; }
     .kpi-delta { font-weight: 600; margin-left: 4px; }
 
     /* ---------- Seções e títulos de gráficos ---------- */
