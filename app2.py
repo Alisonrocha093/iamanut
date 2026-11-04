@@ -66,6 +66,10 @@ st.markdown("""
     }
     [data-baseweb="popover"] li, [data-baseweb="popover"] li * { color: var(--text) !important; background: transparent !important; }
     [data-baseweb="popover"] li:hover, [data-baseweb="popover"] li[aria-selected="true"] { background: var(--surface-2) !important; }
+    /* ---------- Botões de navegação (abas) ---------- */
+    .st-key-nav_abas button { min-height: 3.6rem; border-radius: 12px; }
+    .st-key-nav_abas button p, .st-key-nav_abas button span { font-size: 1.3rem !important; font-weight: 700 !important; }
+
     input::placeholder, textarea::placeholder { color: #7C8AA5 !important; }
     [data-testid="stFileUploaderDropzone"] { background: var(--surface) !important; border: 1px dashed var(--border) !important; }
     [data-testid="stFileUploaderDropzone"] * { color: var(--text-2) !important; }
@@ -132,14 +136,14 @@ st.markdown("""
 
     /* ---------- Responsivo ---------- */
     @media (max-width: 768px) {
-        .main-header { font-size: 2.5rem !important; }
-        .sub-header  { font-size: 2rem !important; margin-bottom: 10px; }
-        .hero { flex-direction: column; align-items: flex-start; } 
+        .main-header { font-size: 1.5rem !important; }
+        .sub-header  { font-size: 1rem !important; margin-bottom: 10px; }
+        .hero { flex-direction: column; align-items: flex-start; }
         .hero-title { font-size: 1.25rem; }
-        .kpi-value { font-size: 3.35rem; }
-        h1 { font-size: 3.5rem !important; }
-        h2 { font-size: 3.25rem !important; }
-        h3 { font-size: 3.1rem !important; }
+        .kpi-value { font-size: 1.35rem; }
+        h1 { font-size: 1.5rem !important; }
+        h2 { font-size: 1.25rem !important; }
+        h3 { font-size: 1.1rem !important; }
         [data-testid="stHorizontalBlock"] { flex-direction: column !important; }
         .stSelectbox, .stTextInput, .stFileUploader { width: 100% !important; }
         .stDataFrame { width: 100% !important; overflow-x: auto !important; }
@@ -1552,36 +1556,37 @@ def _fechar_pareto():
 if "aba_ativa" not in st.session_state:
     st.session_state.aba_ativa = "dash"
 
-col_b1, col_b2, col_b3, col_b4 = st.columns(4)
+with st.container(key="nav_abas"):
+    col_b1, col_b2, col_b3, col_b4 = st.columns(4)
 
-with col_b1:
-    if st.button("📊 Dashboard Geral", use_container_width=True, type="primary" if st.session_state.aba_ativa == "dash" else "secondary"):
-        st.session_state.aba_ativa = "dash"
-        st.session_state.termo_pesquisa = ""
-        if "relatorio_gerado" in st.session_state:
-            del st.session_state.relatorio_gerado
-        st.rerun()
+    with col_b1:
+        if st.button("📊 Dashboard Geral", use_container_width=True, type="primary" if st.session_state.aba_ativa == "dash" else "secondary"):
+            st.session_state.aba_ativa = "dash"
+            st.session_state.termo_pesquisa = ""
+            if "relatorio_gerado" in st.session_state:
+                del st.session_state.relatorio_gerado
+            st.rerun()
 
-with col_b2:
-    if st.button("🔍 Pesquisa & Relatórios", use_container_width=True, type="primary" if st.session_state.aba_ativa == "busca" else "secondary"):
-        st.session_state.aba_ativa = "busca"
-        st.rerun()
+    with col_b2:
+        if st.button("🔍 Pesquisa & Relatórios", use_container_width=True, type="primary" if st.session_state.aba_ativa == "busca" else "secondary"):
+            st.session_state.aba_ativa = "busca"
+            st.rerun()
 
-with col_b3:
-    if st.button("🏷️ Classificação (NLP)", use_container_width=True, type="primary" if st.session_state.aba_ativa == "nlp" else "secondary"):
-        st.session_state.aba_ativa = "nlp"
-        st.session_state.termo_pesquisa = ""
-        if "relatorio_gerado" in st.session_state:
-            del st.session_state.relatorio_gerado
-        st.rerun()
+    with col_b3:
+        if st.button("🏷️ Classificação (NLP)", use_container_width=True, type="primary" if st.session_state.aba_ativa == "nlp" else "secondary"):
+            st.session_state.aba_ativa = "nlp"
+            st.session_state.termo_pesquisa = ""
+            if "relatorio_gerado" in st.session_state:
+                del st.session_state.relatorio_gerado
+            st.rerun()
 
-with col_b4:
-    if st.button("💬 Chat Inteligente", use_container_width=True, type="primary" if st.session_state.aba_ativa == "chat" else "secondary"):
-        st.session_state.aba_ativa = "chat"
-        st.session_state.termo_pesquisa = ""
-        if "relatorio_gerado" in st.session_state:
-            del st.session_state.relatorio_gerado
-        st.rerun()
+    with col_b4:
+        if st.button("💬 Chat Inteligente", use_container_width=True, type="primary" if st.session_state.aba_ativa == "chat" else "secondary"):
+            st.session_state.aba_ativa = "chat"
+            st.session_state.termo_pesquisa = ""
+            if "relatorio_gerado" in st.session_state:
+                del st.session_state.relatorio_gerado
+            st.rerun()
 
 st.markdown("---")
 
@@ -1689,7 +1694,7 @@ if st.session_state.aba_ativa == "dash":
         fig_st.update_traces(textinfo="percent", textposition="outside", sort=False,
                              marker=dict(line=dict(color="#0B1220", width=2)))
         fig_st.add_annotation(text=f"<b>{fmt_int(total_os)}</b><br>OS", showarrow=False, font=dict(size=20, color="#F1F5F9"))
-        estilizar(fig_st, 380)
+        estilizar(fig_st, 420)
         fig_st.update_layout(legend=dict(orientation="h", y=-0.05, x=0.5, xanchor="center", yanchor="top"))
         mostrar(fig_st, key="dash_status")
 
@@ -1710,7 +1715,7 @@ if st.session_state.aba_ativa == "dash":
         fig_tp.update_traces(textinfo="percent", textposition="outside",
                              marker=dict(line=dict(color="#0B1220", width=2)))
         fig_tp.add_annotation(text=rot_centro, showarrow=False, font=dict(size=18, color="#F1F5F9"))
-        estilizar(fig_tp, 380)
+        estilizar(fig_tp, 420)
         fig_tp.update_layout(legend=dict(orientation="h", y=-0.05, x=0.5, xanchor="center", yanchor="top"))
         mostrar(fig_tp, key="dash_tipo")
 
@@ -1827,7 +1832,7 @@ if st.session_state.aba_ativa == "dash":
             fig_cm = go.Figure()
             fig_cm.add_bar(x=cm["MES_REF"], y=cm["CUSTO_MAT"], name="Materiais", marker_color=PALETA["verde"])
             fig_cm.add_bar(x=cm["MES_REF"], y=cm["CUSTO_MOE"], name="Mão de obra externa", marker_color=PALETA["laranja"])
-            estilizar(fig_cm,340)
+            estilizar(fig_cm, 340)
             fig_cm.update_layout(barmode="stack")
             fig_cm.update_xaxes(tickformat="%m/%Y")
             fig_cm.update_yaxes(tickprefix="R$ ", tickformat=",.0f")
