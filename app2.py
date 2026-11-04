@@ -68,22 +68,7 @@ st.markdown("""
     }
     [data-baseweb="popover"] li, [data-baseweb="popover"] li * { color: var(--text) !important; background: transparent !important; }
     [data-baseweb="popover"] li:hover, [data-baseweb="popover"] li[aria-selected="true"] { background: var(--surface-2) !important; }
-
-    /* ---------- Barra de navegação fixa no topo ---------- */
-    .nav-container-fixo {
-        position: fixed;
-        top: 3.5rem;
-        left: 0;
-        width: 100%;
-        background-color: var(--bg);
-        z-index: 99999;
-        padding: 10px 2rem;
-        border-bottom: 1px solid var(--border);
-        box-shadow: 0 4px 12px rgba(0,0,0,0.5);
-    }
-    .stApp {
-        padding-top: 5rem;
-    }
+    /* ---------- Botões de navegação (abas) ---------- */
     .st-key-nav_abas button { min-height: 3.6rem; border-radius: 12px; }
     .st-key-nav_abas button p, .st-key-nav_abas button span { font-size: 1.1rem !important; font-weight: 700 !important; }
 
@@ -136,9 +121,9 @@ st.markdown("""
         transition: transform .15s ease, box-shadow .15s ease, border-color .15s ease;
     }
     .kpi-card:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(0,0,0,.5); background: var(--surface-2); }
-    .kpi-title { font-size: 1.8rem; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
-    .kpi-value { font-size: 2.0rem; font-weight: 700; margin: 4px 0 2px; line-height: 1.15; }
-    .kpi-sub   { font-size: 1.2rem; color: var(--muted); min-height: 1.1em; }
+    .kpi-title { font-size: .72rem; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+    .kpi-value { font-size: 1.65rem; font-weight: 700; margin: 4px 0 2px; line-height: 1.15; }
+    .kpi-sub   { font-size: .78rem; color: var(--muted); min-height: 1.1em; }
     .kpi-delta { font-weight: 600; margin-left: 4px; }
 
     /* ---------- Seções e títulos de gráficos ---------- */
@@ -1446,6 +1431,7 @@ def desenhar_navegacao():
         st.session_state.aba_ativa = "dash"
     ativa = st.session_state.aba_ativa
 
+    # (chave, rótulo, limpa pesquisa/relatório ao entrar?)
     itens = [
         ("dash", "📊 Dashboard Geral", True),
         ("unidades", "🏢 Todas as Unidades", True),
@@ -1453,9 +1439,6 @@ def desenhar_navegacao():
         ("nlp", "🏷️ Classificação (NLP)", True),
         ("chat", "💬 Chat Inteligente", True),
     ]
-    
-    # Envolvemos num div HTML fixo
-    st.markdown('<div class="nav-container-fixo">', unsafe_allow_html=True)
     with st.container(key="nav_abas"):
         colunas = st.columns(len(itens))
         for col, (chave, rotulo, limpar) in zip(colunas, itens):
@@ -1468,7 +1451,6 @@ def desenhar_navegacao():
                         if "relatorio_gerado" in st.session_state:
                             del st.session_state.relatorio_gerado
                     st.rerun()
-    st.markdown('</div>', unsafe_allow_html=True)
 
 
 # ==========================================
@@ -1485,17 +1467,17 @@ CSS_PAINEL = """
     border-radius: 12px; padding: 14px 16px; margin-bottom: 6px; box-shadow: 0 2px 8px rgba(0,0,0,.35); }
 .un-card:hover { background: var(--surface-2); }
 .un-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
-.un-name { font-weight: 700; font-size: 2rem; color: #F1F5F9; line-height: 1.25; }
-.un-badge { font-size: .75rem; font-weight: 700; border: 1px solid; border-radius: 999px;
+.un-name { font-weight: 700; font-size: 1rem; color: #F1F5F9; line-height: 1.25; }
+.un-badge { font-size: .68rem; font-weight: 700; border: 1px solid; border-radius: 999px;
     padding: 2px 10px; white-space: nowrap; }
-.un-conf { font-size: 2.5rem; font-weight: 800; line-height: 1.1; margin-top: 8px; }
-.un-conf small { font-size: .9rem; font-weight: 600; color: var(--muted); letter-spacing: .06em;
+.un-conf { font-size: 2rem; font-weight: 800; line-height: 1.1; margin-top: 8px; }
+.un-conf small { font-size: .7rem; font-weight: 600; color: var(--muted); letter-spacing: .06em;
     text-transform: uppercase; margin-left: 6px; }
 .un-bar { display: flex; height: 8px; border-radius: 999px; overflow: hidden; background: #1F2A44; margin: 8px 0 12px; }
 .un-bar span { display: block; height: 100%; }
 .un-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
-.un-ml { font-size: .8rem; letter-spacing: .25em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
-.un-mv { font-size: 1.5rem; font-weight: 700; color: var(--text); }
+.un-ml { font-size: .66rem; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+.un-mv { font-size: 1.05rem; font-weight: 700; color: var(--text); }
 .un-foot { margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--border);
     font-size: .78rem; color: var(--muted); line-height: 1.6; }
 .un-foot b { color: var(--text-2); }
@@ -2638,3 +2620,4 @@ elif st.session_state.aba_ativa == "chat":
             if ev is not None and len(ev) > 0:
                 with st.expander(f"📋 Ver as OS usadas nesta resposta ({len(ev)} exibidas)"):
                     st.dataframe(ev, use_container_width=True, hide_index=True)
+
