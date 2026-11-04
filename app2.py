@@ -44,6 +44,35 @@ st.markdown("""
     [data-testid="stExpander"] { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; }
     [data-testid="stChatMessage"] { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; }
 
+    /* ---------- Componentes que ficavam brancos ---------- */
+    button p { color: inherit !important; }
+    [data-testid="stBaseButton-secondary"], [data-testid="stBaseButton-secondaryFormSubmit"],
+    [data-testid="stBaseButton-minimal"], .stDownloadButton button {
+        background: var(--surface-2) !important; color: var(--text) !important; border: 1px solid var(--border) !important;
+    }
+    [data-testid="stBaseButton-secondary"]:hover, [data-testid="stBaseButton-secondaryFormSubmit"]:hover {
+        border-color: var(--accent) !important; color: #fff !important;
+    }
+    [data-testid="stBaseButton-primary"], [data-testid="stBaseButton-primaryFormSubmit"] {
+        background: #2563EB !important; color: #fff !important; border: 1px solid #3B82F6 !important;
+    }
+    [data-testid="stAlert"] {
+        background: rgba(96,165,250,.12) !important; border: 1px solid rgba(96,165,250,.30); border-radius: 10px;
+    }
+    [data-testid="stAlert"] * { color: var(--text) !important; }
+    [data-baseweb="select"] * { color: var(--text) !important; }
+    [data-baseweb="popover"], [data-baseweb="popover"] > div, [data-baseweb="menu"], [data-baseweb="popover"] ul {
+        background: var(--surface) !important;
+    }
+    [data-baseweb="popover"] li, [data-baseweb="popover"] li * { color: var(--text) !important; background: transparent !important; }
+    [data-baseweb="popover"] li:hover, [data-baseweb="popover"] li[aria-selected="true"] { background: var(--surface-2) !important; }
+    input::placeholder, textarea::placeholder { color: #7C8AA5 !important; }
+    [data-testid="stFileUploaderDropzone"] { background: var(--surface) !important; border: 1px dashed var(--border) !important; }
+    [data-testid="stFileUploaderDropzone"] * { color: var(--text-2) !important; }
+    [data-testid="stForm"] { border-color: var(--border) !important; }
+    [data-testid="stExpander"] summary, [data-testid="stExpander"] summary * { color: var(--text) !important; }
+    code { background: var(--surface-2) !important; color: #BFDBFE !important; }
+
     /* ---------- Cabeçalho da página ---------- */
     .main-header { font-size: 2.2rem; color: #F1F5F9; font-weight: 700; margin-bottom: 0px; letter-spacing: -.01em; }
     .sub-header  { font-size: 1.1rem; color: var(--muted); margin-bottom: 20px; }
