@@ -1476,7 +1476,7 @@ CSS_PAINEL = """
 .un-bar { display: flex; height: 8px; border-radius: 999px; overflow: hidden; background: #1F2A44; margin: 8px 0 12px; }
 .un-bar span { display: block; height: 100%; }
 .un-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
-.un-ml { font-size: .8rem; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+.un-ml { font-size: .8rem; letter-spacing: .25em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
 .un-mv { font-size: 1.5rem; font-weight: 700; color: var(--text); }
 .un-foot { margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--border);
     font-size: .78rem; color: var(--muted); line-height: 1.6; }
