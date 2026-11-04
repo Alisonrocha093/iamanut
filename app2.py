@@ -68,26 +68,24 @@ st.markdown("""
     }
     [data-baseweb="popover"] li, [data-baseweb="popover"] li * { color: var(--text) !important; background: transparent !important; }
     [data-baseweb="popover"] li:hover, [data-baseweb="popover"] li[aria-selected="true"] { background: var(--surface-2) !important; }
-    /* ---------- Botões de navegação (abas) fixos no topo ---------- */
-    .st-key-nav_abas {
-        position: sticky;
-        top: 0;
-        z-index: 999;
-        background-color: var(--bg); /* Garante que o fundo não fique transparente ao rolar */
-        padding-top: 10px;
-        padding-bottom: 10px;
-        margin-bottom: 10px;
+
+    /* ---------- Barra de navegação fixa no topo ---------- */
+    .nav-container-fixo {
+        position: fixed;
+        top: 3.5rem;
+        left: 0;
+        width: 100%;
+        background-color: var(--bg);
+        z-index: 99999;
+        padding: 10px 2rem;
+        border-bottom: 1px solid var(--border);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.5);
     }
-    .st-key-nav_abas button { 
-        min-height: 3.6rem; 
-        border-radius: 12px; 
+    .stApp {
+        padding-top: 5rem;
     }
-    .st-key-nav_abas button p, .st-key-nav_abas button span { 
-        font-size: 1.1rem !important; 
-        font-weight: 700 !important; 
-    }
-   /* .st-key-nav_abas button { min-height: 3.6rem; border-radius: 12px; }
-    .st-key-nav_abas button p, .st-key-nav_abas button span { font-size: 1.1rem !important; font-weight: 700 !important; }*/
+    .st-key-nav_abas button { min-height: 3.6rem; border-radius: 12px; }
+    .st-key-nav_abas button p, .st-key-nav_abas button span { font-size: 1.1rem !important; font-weight: 700 !important; }
 
     /* ---------- Setinha do menu lateral (abrir/fechar) ---------- */
     [data-testid="stSidebarCollapseButton"] button, [data-testid="stExpandSidebarButton"],
@@ -1448,7 +1446,6 @@ def desenhar_navegacao():
         st.session_state.aba_ativa = "dash"
     ativa = st.session_state.aba_ativa
 
-    # (chave, rótulo, limpa pesquisa/relatório ao entrar?)
     itens = [
         ("dash", "📊 Dashboard Geral", True),
         ("unidades", "🏢 Todas as Unidades", True),
@@ -1456,6 +1453,9 @@ def desenhar_navegacao():
         ("nlp", "🏷️ Classificação (NLP)", True),
         ("chat", "💬 Chat Inteligente", True),
     ]
+    
+    # Envolvemos num div HTML fixo
+    st.markdown('<div class="nav-container-fixo">', unsafe_allow_html=True)
     with st.container(key="nav_abas"):
         colunas = st.columns(len(itens))
         for col, (chave, rotulo, limpar) in zip(colunas, itens):
@@ -1468,6 +1468,7 @@ def desenhar_navegacao():
                         if "relatorio_gerado" in st.session_state:
                             del st.session_state.relatorio_gerado
                     st.rerun()
+    st.markdown('</div>', unsafe_allow_html=True)
 
 
 # ==========================================
