@@ -137,9 +137,9 @@ st.markdown("""
         .hero { flex-direction: column; align-items: flex-start; }
         .hero-title { font-size: 1.25rem; }
         .kpi-value { font-size: 3.35rem; }
-        h1 { font-size: 1.5rem !important; }
-        h2 { font-size: 1.25rem !important; }
-        h3 { font-size: 1.1rem !important; }
+        h1 { font-size: 2.5rem !important; }
+        h2 { font-size: 2.25rem !important; }
+        h3 { font-size: 2.1rem !important; }
         [data-testid="stHorizontalBlock"] { flex-direction: column !important; }
         .stSelectbox, .stTextInput, .stFileUploader { width: 100% !important; }
         .stDataFrame { width: 100% !important; overflow-x: auto !important; }
