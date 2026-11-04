@@ -1827,7 +1827,7 @@ if st.session_state.aba_ativa == "dash":
             fig_cm = go.Figure()
             fig_cm.add_bar(x=cm["MES_REF"], y=cm["CUSTO_MAT"], name="Materiais", marker_color=PALETA["verde"])
             fig_cm.add_bar(x=cm["MES_REF"], y=cm["CUSTO_MOE"], name="Mão de obra externa", marker_color=PALETA["laranja"])
-            estilizar(fig_cm,280)
+            estilizar(fig_cm,340)
             fig_cm.update_layout(barmode="stack")
             fig_cm.update_xaxes(tickformat="%m/%Y")
             fig_cm.update_yaxes(tickprefix="R$ ", tickformat=",.0f")
