@@ -111,7 +111,7 @@ st.markdown("""
 
     /* ---------- Seções e títulos de gráficos ---------- */
     .section-title {
-        font-size: 1.05rem; font-weight: 700; color: #F1F5F9;
+        font-size: 2.05rem; font-weight: 700; color: #F1F5F9;
         margin: 28px 0 6px; padding-bottom: 6px; border-bottom: 2px solid var(--border);
     }
     .chart-title { font-size: 1.25rem; font-weight: 600; color: var(--text); margin: 8px 0 0; }
