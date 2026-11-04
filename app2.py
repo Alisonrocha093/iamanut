@@ -68,9 +68,26 @@ st.markdown("""
     }
     [data-baseweb="popover"] li, [data-baseweb="popover"] li * { color: var(--text) !important; background: transparent !important; }
     [data-baseweb="popover"] li:hover, [data-baseweb="popover"] li[aria-selected="true"] { background: var(--surface-2) !important; }
-    /* ---------- Botões de navegação (abas) ---------- */
-    .st-key-nav_abas button { min-height: 3.6rem; border-radius: 12px; }
-    .st-key-nav_abas button p, .st-key-nav_abas button span { font-size: 1.1rem !important; font-weight: 700 !important; }
+    /* ---------- Botões de navegação (abas) fixos no topo ---------- */
+    .st-key-nav_abas {
+        position: sticky;
+        top: 0;
+        z-index: 999;
+        background-color: var(--bg); /* Garante que o fundo não fique transparente ao rolar */
+        padding-top: 10px;
+        padding-bottom: 10px;
+        margin-bottom: 10px;
+    }
+    .st-key-nav_abas button { 
+        min-height: 3.6rem; 
+        border-radius: 12px; 
+    }
+    .st-key-nav_abas button p, .st-key-nav_abas button span { 
+        font-size: 1.1rem !important; 
+        font-weight: 700 !important; 
+    }
+   /* .st-key-nav_abas button { min-height: 3.6rem; border-radius: 12px; }
+    .st-key-nav_abas button p, .st-key-nav_abas button span { font-size: 1.1rem !important; font-weight: 700 !important; }*/
 
     /* ---------- Setinha do menu lateral (abrir/fechar) ---------- */
     [data-testid="stSidebarCollapseButton"] button, [data-testid="stExpandSidebarButton"],
