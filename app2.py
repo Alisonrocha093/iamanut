@@ -1252,8 +1252,8 @@ def carregar_dados_unidade(url, arquivo_submetido, nome_unidade):
 # ==========================================
 # CORPO PRINCIPAL DO APLICATIVO
 # ==========================================
-st.markdown('<p class="main-header">🛠️ Gestão da Manutenção - Visão Geral & Painel Analítico</p>', unsafe_allow_html=True)
-st.markdown(f'<p class="sub-header">Unidade Selecionada: <b>{unidade_escolhida}</b> | Classificação NLP, KPIs e Chat com IA.</p>', unsafe_allow_html=True)
+#st.markdown('<p class="main-header">🛠️ Gestão da Manutenção - Visão Geral & Painel Analítico</p>', unsafe_allow_html=True)
+#st.markdown(f'<p class="sub-header">Unidade Selecionada: <b>{unidade_escolhida}</b> | Classificação NLP, KPIs e Chat com IA.</p>', unsafe_allow_html=True)
 
 if 'termo_pesquisa' not in st.session_state:
     st.session_state.termo_pesquisa = ""
