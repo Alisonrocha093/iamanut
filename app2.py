@@ -642,7 +642,7 @@ def preparar_df_chat(df: pd.DataFrame) -> pd.DataFrame:
 
     for col in d.columns:
         if col in ("ABERTO EM", "FECHADO EM", "FINALIZAÇÃO", "EXEC. PREVISTA", "DATA", "DATA FECHAMENTO"):
-            d[col] = pd.to_datetime(d[col], errors="coerce")
+            d[col] = pd.to_datetime(d[col], errors="coerce", dayfirst=True)
 
     # TEXTO_COMPLETO: junta TODAS as colunas de texto (setor, local, máquina, observações...), sem acentos
     cols_txt = [c for c in d.columns
@@ -825,7 +825,7 @@ def _aplicar_filtro(d: pd.DataFrame, f: dict) -> pd.DataFrame:
         return d[m]
 
     is_data = pd.api.types.is_datetime64_any_dtype(s)
-    conv = (lambda x: pd.to_datetime(x, errors="coerce")) if is_data else (lambda x: pd.to_numeric(x, errors="coerce"))
+    conv = (lambda x: pd.to_datetime(x, errors="coerce", dayfirst=True)) if is_data else (lambda x: pd.to_numeric(x, errors="coerce"))
     serie = s if is_data else pd.to_numeric(s, errors="coerce")
 
     if op in ("maior", "menor"):
@@ -1305,7 +1305,7 @@ def preparar_dash(base: pd.DataFrame) -> pd.DataFrame:
     d = base.copy()
     for c in ["ABERTO EM", "EXEC. PREVISTA", "FINALIZAÇÃO", "FECHADO EM"]:
         if c in d.columns:
-            d[c] = pd.to_datetime(d[c], errors="coerce")
+            d[c] = pd.to_datetime(d[c], errors="coerce", dayfirst=True)
 
     d["STATUS_GRUPO"] = d["STATUS"].apply(grupo_status) if "STATUS" in d.columns else "Pendentes / Abertas"
 
@@ -2044,8 +2044,8 @@ st.sidebar.markdown("### 📅 Filtrar por Período")
 coluna_data = "ABERTO EM"
 
 if coluna_data in df.columns:
-    df[coluna_data] = pd.to_datetime(df[coluna_data], errors='coerce')
-    df_filtrado_dashboard[coluna_data] = pd.to_datetime(df_filtrado_dashboard[coluna_data], errors='coerce')
+    df[coluna_data] = pd.to_datetime(df[coluna_data], errors='coerce', dayfirst=True)
+    df_filtrado_dashboard[coluna_data] = pd.to_datetime(df_filtrado_dashboard[coluna_data], errors='coerce', dayfirst=True)
 
     data_minima = df[coluna_data].min()
     data_maxima = df[coluna_data].max()
