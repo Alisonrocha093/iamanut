@@ -1689,7 +1689,7 @@ if st.session_state.aba_ativa == "dash":
         fig_st.update_traces(textinfo="percent", textposition="outside", sort=False,
                              marker=dict(line=dict(color="#0B1220", width=2)))
         fig_st.add_annotation(text=f"<b>{fmt_int(total_os)}</b><br>OS", showarrow=False, font=dict(size=20, color="#F1F5F9"))
-        estilizar(fig_st, 280)
+        estilizar(fig_st, 380)
         fig_st.update_layout(legend=dict(orientation="h", y=-0.05, x=0.5, xanchor="center", yanchor="top"))
         mostrar(fig_st, key="dash_status")
 
@@ -1710,7 +1710,7 @@ if st.session_state.aba_ativa == "dash":
         fig_tp.update_traces(textinfo="percent", textposition="outside",
                              marker=dict(line=dict(color="#0B1220", width=2)))
         fig_tp.add_annotation(text=rot_centro, showarrow=False, font=dict(size=18, color="#F1F5F9"))
-        estilizar(fig_tp, 280)
+        estilizar(fig_tp, 380)
         fig_tp.update_layout(legend=dict(orientation="h", y=-0.05, x=0.5, xanchor="center", yanchor="top"))
         mostrar(fig_tp, key="dash_tipo")
 
@@ -1827,7 +1827,7 @@ if st.session_state.aba_ativa == "dash":
             fig_cm = go.Figure()
             fig_cm.add_bar(x=cm["MES_REF"], y=cm["CUSTO_MAT"], name="Materiais", marker_color=PALETA["verde"])
             fig_cm.add_bar(x=cm["MES_REF"], y=cm["CUSTO_MOE"], name="Mão de obra externa", marker_color=PALETA["laranja"])
-            estilizar(fig_cm, 340)
+            estilizar(fig_cm,280)
             fig_cm.update_layout(barmode="stack")
             fig_cm.update_xaxes(tickformat="%m/%Y")
             fig_cm.update_yaxes(tickprefix="R$ ", tickformat=",.0f")
