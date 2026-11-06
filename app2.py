@@ -2,6 +2,8 @@ import os
 import io
 import re
 import json
+from concurrent.futures import ThreadPoolExecutor
+from html import escape as _esc
 import unicodedata
 import requests
 import numpy as np
@@ -68,7 +70,7 @@ st.markdown("""
     [data-baseweb="popover"] li:hover, [data-baseweb="popover"] li[aria-selected="true"] { background: var(--surface-2) !important; }
     /* ---------- Botões de navegação (abas) ---------- */
     .st-key-nav_abas button { min-height: 3.6rem; border-radius: 12px; }
-    .st-key-nav_abas button p, .st-key-nav_abas button span { font-size: 1.15rem !important; font-weight: 700 !important; }
+    .st-key-nav_abas button p, .st-key-nav_abas button span { font-size: 1.1rem !important; font-weight: 700 !important; }
 
     /* ---------- Setinha do menu lateral (abrir/fechar) ---------- */
     [data-testid="stSidebarCollapseButton"] button, [data-testid="stExpandSidebarButton"],
@@ -84,35 +86,6 @@ st.markdown("""
     [data-testid="stSidebarCollapseButton"] button:hover, [data-testid="stExpandSidebarButton"]:hover,
     [data-testid="stSidebarCollapsedControl"] button:hover { background: var(--accent) !important; }
     [data-testid="stExpander"] summary svg { fill: #F1F5F9 !important; color: #F1F5F9 !important; }
-
-    /* ---------- Cards da Visão das Unidades ---------- */
-    .un-card {
-        background: var(--surface); border: 1px solid var(--border); border-top: 4px solid var(--accent);
-        border-radius: 12px; padding: 14px 16px; margin-bottom: 14px;
-        box-shadow: 0 2px 8px rgba(0,0,0,.35); transition: transform .15s ease, box-shadow .15s ease;
-    }
-    .un-card:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(0,0,0,.5); background: var(--surface-2); }
-    .un-off { opacity: .6; }
-    .un-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
-    .un-name { font-weight: 700; font-size: .98rem; color: #F1F5F9; line-height: 1.2; }
-    .un-badge { font-weight: 700; font-size: 1.05rem; padding: 2px 10px; border: 1px solid; border-radius: 999px; white-space: nowrap; }
-    .un-bar { height: 6px; background: #1F2A44; border-radius: 999px; margin: 10px 0 12px; overflow: hidden; }
-    .un-bar > div { height: 100%; border-radius: 999px; }
-    .un-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px 10px; }
-    .un-grid b { display: block; font-size: 1.1rem; color: #F1F5F9; line-height: 1.2; }
-    .un-grid small { color: var(--muted); font-size: .66rem; text-transform: uppercase; letter-spacing: .05em; }
-    .un-msg { color: var(--muted); font-size: .85rem; margin-top: 10px; }
-
-    /* ---------- Tabelas em Markdown (respostas do chat e relatórios) ---------- */
-    [data-testid="stMarkdownContainer"] table { border-collapse: collapse; background: var(--surface); }
-    [data-testid="stMarkdownContainer"] th, [data-testid="stMarkdownContainer"] td {
-        color: var(--text) !important; background: transparent !important;
-        border: 1px solid #334155 !important; padding: 8px 12px !important;
-    }
-    [data-testid="stMarkdownContainer"] thead th {
-        background: var(--surface-2) !important; color: #F1F5F9 !important; font-weight: 700;
-    }
-    [data-testid="stMarkdownContainer"] tbody tr:nth-child(even) td { background: rgba(255,255,255,.03) !important; }
 
     input::placeholder, textarea::placeholder { color: #7C8AA5 !important; }
     [data-testid="stFileUploaderDropzone"] { background: var(--surface) !important; border: 1px dashed var(--border) !important; }
@@ -669,7 +642,7 @@ def preparar_df_chat(df: pd.DataFrame) -> pd.DataFrame:
 
     for col in d.columns:
         if col in ("ABERTO EM", "FECHADO EM", "FINALIZAÇÃO", "EXEC. PREVISTA", "DATA", "DATA FECHAMENTO"):
-            d[col] = pd.to_datetime(d[col], errors="coerce")
+            d[col] = pd.to_datetime(d[col], errors="coerce", dayfirst=True)
 
     # TEXTO_COMPLETO: junta TODAS as colunas de texto (setor, local, máquina, observações...), sem acentos
     cols_txt = [c for c in d.columns
@@ -852,7 +825,7 @@ def _aplicar_filtro(d: pd.DataFrame, f: dict) -> pd.DataFrame:
         return d[m]
 
     is_data = pd.api.types.is_datetime64_any_dtype(s)
-    conv = (lambda x: pd.to_datetime(x, errors="coerce")) if is_data else (lambda x: pd.to_numeric(x, errors="coerce"))
+    conv = (lambda x: pd.to_datetime(x, errors="coerce", dayfirst=True)) if is_data else (lambda x: pd.to_numeric(x, errors="coerce"))
     serie = s if is_data else pd.to_numeric(s, errors="coerce")
 
     if op in ("maior", "menor"):
@@ -1232,7 +1205,7 @@ lista_unidades = [
     "CENTRO DE DISTRIBUIÇÃO SENAC"
 ]
 
-unidade_escolhida = st.sidebar.selectbox("Escolha a Unidade", lista_unidades)
+unidade_escolhida = st.sidebar.selectbox("Escolha a Unidade", lista_unidades, key="unidade_sel")
 
 st.sidebar.markdown("---")
 arquivo_carregado = st.sidebar.file_uploader("Enviar manualmente ", type=["csv", "xls", "xlsx"])
@@ -1293,152 +1266,6 @@ def carregar_dados_unidade(url, arquivo_submetido, nome_unidade):
     return df_temp
 
 
-# ==========================================
-# CORPO PRINCIPAL DO APLICATIVO
-# ==========================================
-#st.markdown('<p class="main-header">🛠️ Gestão da Manutenção - Visão Geral & Painel Analítico</p>', unsafe_allow_html=True)
-#st.markdown(f'<p class="sub-header">Unidade Selecionada: <b>{unidade_escolhida}</b> | Classificação NLP, KPIs e Chat com IA.</p>', unsafe_allow_html=True)
-
-if 'termo_pesquisa' not in st.session_state:
-    st.session_state.termo_pesquisa = ""
-
-if 'mensagens_chat' not in st.session_state:
-    st.session_state.mensagens_chat = []
-
-
-def limpar_pesquisa():
-    if "relatorio_gerado" in st.session_state:
-        del st.session_state.relatorio_gerado
-    if "termo_relatorio" in st.session_state:
-        del st.session_state.termo_relatorio
-
-
-coluna_comentario = "OBSERVAÇÃO ABERTURA"
-
-url_unidade = ""
-try:
-    if hasattr(st, "secrets") and "UNIDADES" in st.secrets and unidade_escolhida in st.secrets["UNIDADES"]:
-        url_unidade = st.secrets["UNIDADES"][unidade_escolhida]
-except Exception:
-    pass
-
-df = carregar_dados_unidade(url_unidade, arquivo_carregado, unidade_escolhida)
-
-# --- Guardas: sem base ou sem coluna obrigatória, o app para aqui (evita erros nas etapas seguintes) ---
-if df is None:
-    st.info("📂 Nenhuma base carregada. Selecione uma unidade com dados disponíveis ou envie um arquivo na barra lateral.")
-    st.stop()
-
-df.columns = [str(c).strip().upper() for c in df.columns]
-
-if coluna_comentario not in df.columns:
-    st.error(f"❌ A coluna obrigatória **'{coluna_comentario}'** não foi encontrada na planilha.")
-    st.write(f"📋 **Colunas disponíveis na planilha:** `{list(df.columns)}`")
-    st.stop()
-
-df = df.fillna("N/A")
-df = df.dropna(subset=[coluna_comentario]).copy()
-
-if "CATEGORIA_NLP" not in df.columns:
-    with st.spinner(f"Processando algoritmo de classificação NLP em {len(df):,} registros..."):
-        df = classificar_texto_nlp(df, coluna_comentario)
-
-# Identifica a coluna de máquinas
-col_maquinas_ref = None
-for c in df.columns:
-    if c.strip().upper() in ["MÁQUINAS", "MAQUINAS", "MÁQUINA", "MAQUINA", "EQUIPAMENTO"]:
-        col_maquinas_ref = c
-        break
-
-# Texto de busca: Observação + Máquina/Equipamento + Categoria NLP
-if col_maquinas_ref:
-    df["TEXTO_BUSCA"] = (
-        df[coluna_comentario].astype(str).str.lower().fillna("") + " " +
-        df[col_maquinas_ref].astype(str).str.lower().fillna("") + " " +
-        df["CATEGORIA_NLP"].astype(str).str.lower().fillna("")
-    )
-else:
-    df["TEXTO_BUSCA"] = (
-        df[coluna_comentario].astype(str).str.lower().fillna("") + " " +
-        df["CATEGORIA_NLP"].astype(str).str.lower().fillna("")
-    )
-
-st.sidebar.markdown("---")
-st.sidebar.subheader("🎯 Filtros Dashboard")
-
-df_filtrado_dashboard = df.copy()
-
-if "STATUS" in df.columns:
-    lista_status = ["Todos"] + list(df["STATUS"].dropna().unique())
-    status_escolhido = st.sidebar.selectbox("Filtrar por Status", lista_status)
-    if status_escolhido != "Todos":
-        df_filtrado_dashboard = df_filtrado_dashboard[df_filtrado_dashboard["STATUS"] == status_escolhido]
-
-# ==========================================
-# 🛠️ FILTRO POR TIPO DE MANUTENÇÃO
-# ==========================================
-col_tipo_servico = None
-for c in df.columns:
-    c_limpo = c.strip().upper()
-    if "TIPO DE MANUT" in c_limpo or c_limpo == "TIPO":
-        col_tipo_servico = c
-        break
-
-if col_tipo_servico:
-    tipos_desejados = ["Corretiva Programada", "Corretiva Emergencial", "Checklist", "Roteiro", "Melhoria"]
-    lista_tipos = ["Todos"] + tipos_desejados
-    tipo_escolhido = st.sidebar.selectbox("Filtrar por Tipo", lista_tipos)
-
-    if tipo_escolhido != "Todos":
-        termo = tipo_escolhido.strip().lower()
-        coluna_str = df_filtrado_dashboard[col_tipo_servico].astype(str).str.strip().str.lower()
-
-        if termo == "checklist":
-            df_filtrado_dashboard = df_filtrado_dashboard[coluna_str == "checklist"]
-        elif "corretiva programada" in termo:
-            df_filtrado_dashboard = df_filtrado_dashboard[coluna_str.str.contains("corretiva", na=False) & coluna_str.str.contains("program", na=False)]
-        elif "corretiva emergencial" in termo:
-            df_filtrado_dashboard = df_filtrado_dashboard[coluna_str.str.contains("corretiva", na=False) & coluna_str.str.contains("emerg|urg", na=False)]
-        elif "roteiro" in termo:
-            df_filtrado_dashboard = df_filtrado_dashboard[coluna_str.str.contains("roteiro|rot", na=False)]
-        elif "melhoria" in termo:
-            df_filtrado_dashboard = df_filtrado_dashboard[coluna_str.str.contains("melhoria|melhor", na=False)]
-else:
-    st.sidebar.info("Coluna de Tipo de Manutenção não encontrada na base.")
-
-# ==========================================
-# 📅 FILTRO DE PERÍODO
-# ==========================================
-st.sidebar.markdown("---")
-st.sidebar.markdown("### 📅 Filtrar por Período")
-
-coluna_data = "ABERTO EM"
-
-if coluna_data in df.columns:
-    df[coluna_data] = pd.to_datetime(df[coluna_data], errors='coerce')
-    df_filtrado_dashboard[coluna_data] = pd.to_datetime(df_filtrado_dashboard[coluna_data], errors='coerce')
-
-    data_minima = df[coluna_data].min()
-    data_maxima = df[coluna_data].max()
-
-    if pd.notna(data_minima) and pd.notna(data_maxima):
-        periodo_selecionado = st.sidebar.date_input(
-            label="Selecione o intervalo (Início / Fim):",
-            value=(data_minima.date(), data_maxima.date()),
-            min_value=data_minima.date(),
-            max_value=data_maxima.date(),
-            format="DD/MM/YYYY"
-        )
-
-        if isinstance(periodo_selecionado, tuple) and len(periodo_selecionado) == 2:
-            data_inicio, data_fim = periodo_selecionado
-
-            mask_periodo = (df_filtrado_dashboard[coluna_data].dt.date >= data_inicio) & (df_filtrado_dashboard[coluna_data].dt.date <= data_fim)
-            df_filtrado_dashboard = df_filtrado_dashboard[mask_periodo].copy()
-
-            st.sidebar.success(f"Período: {data_inicio.strftime('%d/%m/%Y')} até {data_fim.strftime('%d/%m/%Y')}")
-else:
-    st.sidebar.info("Coluna de Data ('ABERTO EM') não encontrada na base.")
 PALETA = {
     "azul": "#60A5FA", "azul_claro": "#38BDF8", "verde": "#34D399",
     "laranja": "#FBBF24", "vermelho": "#F87171", "roxo": "#A78BFA",
@@ -1478,7 +1305,7 @@ def preparar_dash(base: pd.DataFrame) -> pd.DataFrame:
     d = base.copy()
     for c in ["ABERTO EM", "EXEC. PREVISTA", "FINALIZAÇÃO", "FECHADO EM"]:
         if c in d.columns:
-            d[c] = pd.to_datetime(d[c], errors="coerce")
+            d[c] = pd.to_datetime(d[c], errors="coerce", dayfirst=True)
 
     d["STATUS_GRUPO"] = d["STATUS"].apply(grupo_status) if "STATUS" in d.columns else "Pendentes / Abertas"
 
@@ -1594,31 +1421,75 @@ def _sel_pareto():
 def _fechar_pareto():
     st.session_state["maquina_pareto_ativa"] = None
     st.session_state["select_maquina_pareto_direto"] = "-- Ou selecione a máquina aqui --"
+
+
 # ==========================================
-# VISÃO CONSOLIDADA DE TODAS AS UNIDADES
+# NAVEGAÇÃO ENTRE ABAS (função reutilizável)
 # ==========================================
-UNIDADES_FORA_DA_VISAO = {"VISÃO GERAL"}   # entradas da lista que não são uma unidade individual
+def desenhar_navegacao():
+    if "aba_ativa" not in st.session_state:
+        st.session_state.aba_ativa = "dash"
+    ativa = st.session_state.aba_ativa
+
+    # (chave, rótulo, limpa pesquisa/relatório ao entrar?)
+    itens = [
+        ("dash", "📊 Dashboard Geral", True),
+        ("unidades", "🏢 Todas as Unidades", True),
+        ("busca", "🔍 Pesquisa & Relatórios", False),
+        ("nlp", "🏷️ Classificação (NLP)", True),
+        ("chat", "💬 Chat Inteligente", True),
+    ]
+    with st.container(key="nav_abas"):
+        colunas = st.columns(len(itens))
+        for col, (chave, rotulo, limpar) in zip(colunas, itens):
+            with col:
+                if st.button(rotulo, key=f"nav_{chave}", use_container_width=True,
+                             type="primary" if ativa == chave else "secondary"):
+                    st.session_state.aba_ativa = chave
+                    if limpar:
+                        st.session_state.termo_pesquisa = ""
+                        if "relatorio_gerado" in st.session_state:
+                            del st.session_state.relatorio_gerado
+                    st.rerun()
 
 
-def _mapa_urls_unidades() -> dict:
-    """Nome da unidade -> link (secrets 'UNIDADES'); vazio quando só existe arquivo local."""
-    try:
-        sec = st.secrets["UNIDADES"] if ("UNIDADES" in st.secrets) else {}
-    except Exception:
-        sec = {}
-    mapa = {}
-    for nome in lista_unidades:
-        if nome in UNIDADES_FORA_DA_VISAO:
-            continue
-        try:
-            mapa[nome] = sec[nome] if nome in sec else ""
-        except Exception:
-            mapa[nome] = ""
-    return mapa
+# ==========================================
+# PAINEL GERAL DE UNIDADES (CONSULTA GERAL)
+# ==========================================
+# "VISÃO GERAL" é uma entrada da lista, não uma unidade física: fica fora dos cards.
+UNIDADES_FORA_DO_PAINEL = {"VISÃO GERAL"}
+META_CONFORMIDADE = 85      # mesma meta do gauge do Dashboard Geral
+LIMITE_ATENCAO = 60
+
+CSS_PAINEL = """
+<style>
+.un-card { background: var(--surface); border: 1px solid var(--border); border-top: 4px solid #60A5FA;
+    border-radius: 12px; padding: 14px 16px; margin-bottom: 6px; box-shadow: 0 2px 8px rgba(0,0,0,.35); }
+.un-card:hover { background: var(--surface-2); }
+.un-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
+.un-name { font-weight: 700; font-size: 1rem; color: #F1F5F9; line-height: 1.25; }
+.un-badge { font-size: .68rem; font-weight: 700; border: 1px solid; border-radius: 999px;
+    padding: 2px 10px; white-space: nowrap; }
+.un-conf { font-size: 2rem; font-weight: 800; line-height: 1.1; margin-top: 8px; }
+.un-conf small { font-size: .7rem; font-weight: 600; color: var(--muted); letter-spacing: .06em;
+    text-transform: uppercase; margin-left: 6px; }
+.un-bar { display: flex; height: 8px; border-radius: 999px; overflow: hidden; background: #1F2A44; margin: 8px 0 12px; }
+.un-bar span { display: block; height: 100%; }
+.un-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.un-ml { font-size: .66rem; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+.un-mv { font-size: 1.05rem; font-weight: 700; color: var(--text); }
+.un-foot { margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--border);
+    font-size: .78rem; color: var(--muted); line-height: 1.6; }
+.un-foot b { color: var(--text-2); }
+.un-empty { margin-top: 10px; font-size: .82rem; color: var(--muted); min-height: 9.5rem; }
+.un-legenda { display: flex; flex-wrap: wrap; gap: 14px; font-size: .8rem; color: var(--muted); margin: 4px 0 12px; }
+.un-legenda i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 5px; }
+</style>
+"""
 
 
-def _ler_base_unidade(url, nome):
-    """Lê a base de uma unidade sem emitir mensagens na tela. Retorna (df, erro)."""
+def _baixar_base(url, nome):
+    """Baixa/lê a base de UMA unidade. Não usa st.* (roda em threads). Retorna (df, erro)."""
     try:
         if url:
             link = url
@@ -1626,297 +1497,582 @@ def _ler_base_unidade(url, nome):
                 link += "&download=1"
             elif "?" not in link:
                 link += "?download=1"
-            r = requests.get(link, headers={"User-Agent": "Mozilla/5.0"}, timeout=40)
-            if r.status_code != 200:
-                return None, f"erro HTTP {r.status_code} no link"
+            resp = requests.get(link, headers={"User-Agent": "Mozilla/5.0"}, timeout=90)
+            if resp.status_code != 200:
+                return None, f"Erro HTTP {resp.status_code} ao acessar o link da base."
             if ".csv" in link.lower():
-                return pd.read_csv(io.BytesIO(r.content)), None
-            return pd.read_excel(io.BytesIO(r.content)), None
-        for ext, leitor in ((".csv", pd.read_csv), (".xls", pd.read_excel)):
-            if os.path.exists(f"{nome}{ext}"):
-                return leitor(f"{nome}{ext}"), None
-        return None, "sem link nem arquivo local"
+                return pd.read_csv(io.BytesIO(resp.content)), None
+            return pd.read_excel(io.BytesIO(resp.content)), None
+
+        for ext, leitor in ((".csv", pd.read_csv), (".xls", pd.read_excel), (".xlsx", pd.read_excel)):
+            caminho = f"{nome}{ext}"
+            if os.path.exists(caminho):
+                return leitor(caminho), None
+        return None, "Sem link configurado (secrets) nem arquivo local para esta unidade."
     except Exception as e:
-        return None, str(e)[:100]
+        return None, f"Falha ao ler a base: {e}"
+
+
+def _limpar_texto(serie):
+    s = serie.astype(str).str.strip()
+    return s.where(~s.str.upper().isin(["", "N/A", "NAN", "NONE", "NAT"]))
+
+
+def _resumir_base(df_bruto):
+    """Reduz a base da unidade às colunas necessárias para o painel (economiza memória/cache)."""
+    d = df_bruto.copy()
+    d.columns = [str(c).strip().upper() for c in d.columns]
+    d = preparar_dash(d)
+
+    col_setor = next((c for c in ["SETOR", "MÁQUINA", "MÁQUINAS", "MAQUINA", "MAQUINAS"] if c in d.columns), None)
+    col_tipo = next((c for c in d.columns if "TIPO DE MANUT" in c or c == "TIPO"), None)
+
+    r = pd.DataFrame(index=d.index)
+    r["ABERTO_EM"] = (d["ABERTO EM"] if "ABERTO EM" in d.columns
+                      else pd.Series(pd.NaT, index=d.index, dtype="datetime64[ns]"))
+    r["STATUS_GRUPO"] = d["STATUS_GRUPO"]
+    r["CUSTO_MAT"] = d["CUSTO_MAT"]
+    r["CUSTO_MOE"] = d["CUSTO_MOE"]
+    r["CUSTO_TOT"] = d["CUSTO_TOT"]
+    r["TEMPO_DIAS"] = d["TEMPO_DIAS"] if "TEMPO_DIAS" in d.columns else np.nan
+    r["SETOR_REF"] = _limpar_texto(d[col_setor]) if col_setor else pd.Series(None, index=d.index, dtype="object")
+    r["TIPO_REF"] = _limpar_texto(d[col_tipo]) if col_tipo else pd.Series(None, index=d.index, dtype="object")
+    return r
 
 
 @st.cache_data(ttl=1800, show_spinner=False)
-def carregar_todas_unidades(mapa_urls: dict) -> dict:
-    """Baixa todas as unidades em paralelo. Retorna {nome: (df|None, erro|None)}."""
-    from concurrent.futures import ThreadPoolExecutor
-
-    def _um(item):
-        nome, url = item
-        df_u, erro = _ler_base_unidade(url, nome)
-        if df_u is not None:
-            df_u.columns = [str(c).strip().upper() for c in df_u.columns]
-        return nome, df_u, erro
-
+def carregar_painel_unidades(pares):
+    """pares = tuple de (nome, url). Baixa todas em paralelo; cache de 30 min (igual ao dashboard)."""
+    resultado = {}
     with ThreadPoolExecutor(max_workers=6) as ex:
-        res = list(ex.map(_um, mapa_urls.items()))
-    return {n: (d_, e_) for n, d_, e_ in res}
+        futuros = {nome: ex.submit(_baixar_base, url, nome) for nome, url in pares}
+        for nome, fut in futuros.items():
+            df_u, erro = fut.result()
+            if df_u is None:
+                resultado[nome] = (None, erro)
+                continue
+            try:
+                resultado[nome] = (_resumir_base(df_u), None)
+            except Exception as e:
+                resultado[nome] = (None, f"Falha ao processar a base: {e}")
+    return resultado
 
 
-def indicadores_unidade(df_u, dias=None):
-    """Indicadores de uma unidade; None quando a base não tem a coluna STATUS."""
-    if df_u is None or "STATUS" not in df_u.columns:
+def _lider(serie):
+    s = serie.dropna()
+    if s.empty:
         return None
-    d = preparar_dash(df_u)
-    if dias and "ABERTO EM" in d.columns:
-        corte = pd.Timestamp.today().normalize() - pd.Timedelta(days=dias)
-        d = d[d["ABERTO EM"] >= corte]
+    vc = s.value_counts()
+    return vc.index[0], int(vc.iloc[0])
+
+
+def _situacao(total, conf):
+    if total == 0:
+        return "Sem OS no período", PALETA["cinza"]
+    if conf >= META_CONFORMIDADE:
+        return "Dentro da meta", PALETA["verde"]
+    if conf >= LIMITE_ATENCAO:
+        return "Atenção", PALETA["laranja"]
+    return "Crítico", PALETA["vermelho"]
+
+
+def _metricas_unidade(d):
+    hoje = pd.Timestamp.today().normalize()
     total = len(d)
     cont = d["STATUS_GRUPO"].value_counts()
-    conc, prog = int(cont.get("Concluídas", 0)), int(cont.get("Programadas", 0))
-    pend, canc = int(cont.get("Pendentes / Abertas", 0)), int(cont.get("Canceladas", 0))
-    atras = 0
-    if "EXEC. PREVISTA" in d.columns:
-        hoje_ = pd.Timestamp.today().normalize()
-        atras = int((d["STATUS_GRUPO"].isin(["Pendentes / Abertas", "Programadas"])
-                     & (d["EXEC. PREVISTA"] < hoje_)).sum())
-    tempo = d["TEMPO_DIAS"].mean() if "TEMPO_DIAS" in d.columns else np.nan
+    n_conc = int(cont.get("Concluídas", 0))
+    n_prog = int(cont.get("Programadas", 0))
+    n_pend = int(cont.get("Pendentes / Abertas", 0))
+    n_canc = int(cont.get("Canceladas", 0))
+
+    pend = d[d["STATUS_GRUPO"] == "Pendentes / Abertas"]
+    pend30 = int(((hoje - pend["ABERTO_EM"]).dt.days > 30).sum()) if not pend.empty else 0
+
+    conf = n_conc / total * 100 if total else np.nan
+    tempo = d["TEMPO_DIAS"].mean() if total and d["TEMPO_DIAS"].notna().any() else np.nan
+    ultima = d["ABERTO_EM"].max() if total else pd.NaT
+    sit, cor = _situacao(total, conf)
+
     return {
-        "OS": total, "Concluídas": conc, "Programadas": prog, "Pendentes": pend,
-        "Canceladas": canc, "Atrasadas": atras,
-        "Conformidade": (conc / total * 100) if total else np.nan,
-        "Custo": float(d["CUSTO_TOT"].sum()),
-        "Tempo médio (dias)": float(tempo) if pd.notna(tempo) else np.nan,
+        "total": total, "conc": n_conc, "prog": n_prog, "pend": n_pend, "canc": n_canc,
+        "pend30": pend30, "conf": conf, "tempo": tempo,
+        "mat": float(d["CUSTO_MAT"].sum()), "moe": float(d["CUSTO_MOE"].sum()),
+        "custo": float(d["CUSTO_TOT"].sum()),
+        "setor": _lider(d["SETOR_REF"]), "tipo": _lider(d["TIPO_REF"]),
+        "ultima": ultima, "sit": sit, "cor": cor,
     }
 
 
-def _cor_conformidade(v):
-    if v is None or pd.isna(v):
-        return "#64748B"
-    return PALETA["verde"] if v >= 85 else (PALETA["laranja"] if v >= 60 else PALETA["vermelho"])
+def _fmt_int(n):
+    return f"{int(n):,}".replace(",", ".")
 
 
-def _card_unidade(r) -> str:
-    import html as _html
-    nome = _html.escape(str(r["Unidade"]))
-    conf = r["Conformidade"]
-    cor = _cor_conformidade(conf)
-    conf_txt = "—" if pd.isna(conf) else f"{conf:.1f}%".replace(".", ",")
-    larg = 0 if pd.isna(conf) else max(0, min(100, conf))
-    tempo = r["Tempo médio (dias)"]
-    tempo_txt = "—" if pd.isna(tempo) else f"{tempo:.1f} d".replace(".", ",")
-    f = lambda n: f"{int(n):,}".replace(",", ".")
-    return (
-        f'<div class="un-card" style="border-top-color:{cor};">'
-        f'<div class="un-head"><span class="un-name">{nome}</span>'
-        f'<span class="un-badge" style="color:{cor};border-color:{cor};">{conf_txt}</span></div>'
-        f'<div class="un-bar"><div style="width:{larg}%;background:{cor};"></div></div>'
-        f'<div class="un-grid">'
-        f'<div><b>{f(r["OS"])}</b><small>OS</small></div>'
-        f'<div><b>{f(r["Concluídas"])}</b><small>Concluídas</small></div>'
-        f'<div><b>{f(r["Pendentes"] + r["Programadas"])}</b><small>Backlog</small></div>'
-        f'<div><b style="color:{PALETA["vermelho"] if r["Atrasadas"] else "#F1F5F9"};">{f(r["Atrasadas"])}</b><small>Atrasadas</small></div>'
-        f'<div><b>{moeda_curta(r["Custo"])}</b><small>Custo total</small></div>'
-        f'<div><b>{tempo_txt}</b><small>Tempo médio</small></div>'
-        f'</div></div>'
-    )
+def _fmt_pct(v):
+    return "—" if pd.isna(v) else f"{v:.1f}%".replace(".", ",")
 
 
-def _card_unidade_sem_base(nome, motivo) -> str:
-    import html as _html
-    return (f'<div class="un-card un-off" style="border-top-color:#64748B;">'
-            f'<div class="un-head"><span class="un-name">{_html.escape(str(nome))}</span>'
-            f'<span class="un-badge" style="color:#94A3B8;border-color:#64748B;">sem dados</span></div>'
-            f'<div class="un-msg">Base indisponível: {_html.escape(str(motivo))}</div></div>')
+def _card_unidade_html(nome, m, erro=""):
+    if m is None:
+        return (f'<div class="un-card" style="border-top-color:{PALETA["cinza"]};">'
+                f'<div class="un-head"><span class="un-name">{_esc(nome)}</span>'
+                f'<span class="un-badge" style="color:{PALETA["cinza"]};">Sem base</span></div>'
+                f'<div class="un-empty">{_esc(erro)}</div></div>')
+
+    total = m["total"]
+    if total == 0:
+        return (f'<div class="un-card" style="border-top-color:{m["cor"]};">'
+                f'<div class="un-head"><span class="un-name">{_esc(nome)}</span>'
+                f'<span class="un-badge" style="color:{m["cor"]};">{m["sit"]}</span></div>'
+                f'<div class="un-empty">Nenhuma OS encontrada para o período selecionado.</div></div>')
+
+    segmentos = "".join(
+        f'<span style="width:{n / total * 100:.2f}%;background:{COR_STATUS[g]};" title="{g}: {n}"></span>'
+        for g, n in [("Concluídas", m["conc"]), ("Programadas", m["prog"]),
+                     ("Pendentes / Abertas", m["pend"]), ("Canceladas", m["canc"])] if n)
+
+    tempo_txt = f"{m['tempo']:.1f} d".replace(".", ",") if pd.notna(m["tempo"]) else "N/A"
+    metricas = [
+        ("Total OS", _fmt_int(total)), ("Concluídas", _fmt_int(m["conc"])), ("Backlog", _fmt_int(m["pend"])),
+        ("Pend. > 30 d", _fmt_int(m["pend30"])), ("Tempo médio", tempo_txt), ("Custo total", moeda_curta(m["custo"])),
+    ]
+    grade = "".join(f'<div><div class="un-ml">{t}</div><div class="un-mv">{v}</div></div>' for t, v in metricas)
+
+    setor = f'{_esc(str(m["setor"][0]))} ({m["setor"][1]})' if m["setor"] else "—"
+    tipo = f'{_esc(str(m["tipo"][0]))} ({m["tipo"][1]})' if m["tipo"] else "—"
+    ultima = f"{m['ultima']:%d/%m/%Y}" if pd.notna(m["ultima"]) else "—"
+
+    return (f'<div class="un-card" style="border-top-color:{m["cor"]};">'
+            f'<div class="un-head"><span class="un-name">{_esc(nome)}</span>'
+            f'<span class="un-badge" style="color:{m["cor"]};">{m["sit"]}</span></div>'
+            f'<div class="un-conf" style="color:{m["cor"]};">{_fmt_pct(m["conf"])}<small>conformidade</small></div>'
+            f'<div class="un-bar">{segmentos}</div>'
+            f'<div class="un-grid">{grade}</div>'
+            f'<div class="un-foot">🏢 Maior demanda: <b>{setor}</b><br>'
+            f'🛠️ Tipo líder: <b>{tipo}</b><br>📅 Última OS aberta: <b>{ultima}</b></div></div>')
 
 
-def _barra_h(x, y, cores, textos, altura, nome=None, meta=None):
-    fig = go.Figure(go.Bar(x=x, y=y, orientation="h", marker_color=cores, text=textos,
-                           textposition="outside", cliponaxis=False, name=nome or ""))
+def _abrir_unidade(nome):
+    """Callback do botão do card: seleciona a unidade na barra lateral e abre o Dashboard Geral."""
+    st.session_state["unidade_sel"] = nome
+    st.session_state.aba_ativa = "dash"
+    st.session_state.termo_pesquisa = ""
+
+
+def _mostrar_tabela(df_tab, cfg):
+    try:
+        st.dataframe(df_tab, width="stretch", hide_index=True, column_config=cfg)
+    except TypeError:
+        st.dataframe(df_tab, use_container_width=True, hide_index=True, column_config=cfg)
+
+
+def _barras_horizontais(nomes, series, altura, empilhar=False, sufixo=None, meta=None):
+    """series = lista de (nome_serie, valores, cor). Retorna a figura já estilizada."""
+    fig = go.Figure()
+    for nome_s, valores, cor in series:
+        kw = {}
+        if not empilhar:
+            kw = dict(text=[(f"{v:.1f}%".replace(".", ",") if sufixo == "%" else _fmt_int(v)) for v in valores],
+                      textposition="outside", cliponaxis=False)
+        fig.add_bar(x=valores, y=nomes, name=nome_s, orientation="h", marker_color=cor, **kw)
+    if empilhar:
+        fig.update_layout(barmode="stack")
     if meta is not None:
-        fig.add_vline(x=meta, line_dash="dash", line_color="#F1F5F9", opacity=.7)
-    estilizar(fig, altura, legenda=False)
-    fig.update_layout(margin=dict(t=10, b=10, l=10, r=60), bargap=.35)
-    fig.update_yaxes(autorange="reversed")
+        fig.add_vline(x=meta, line_dash="dash", line_color="#F1F5F9", line_width=2)
+    estilizar(fig, altura, legenda=empilhar)
+    fig.update_yaxes(automargin=True, title_text="")
     fig.update_xaxes(showgrid=True, gridcolor="#1F2A44")
+    if sufixo == "%":
+        fig.update_xaxes(range=[0, 115], ticksuffix="%")
     return fig
 
 
-def renderizar_visao_unidades():
-    fmt_int = lambda n: f"{int(n):,}".replace(",", ".")
+def renderizar_painel_unidades(lista_todas):
+    st.markdown(CSS_PAINEL, unsafe_allow_html=True)
+    unidades = [u for u in lista_todas if u not in UNIDADES_FORA_DO_PAINEL]
+
+    urls = {}
+    try:
+        if hasattr(st, "secrets") and "UNIDADES" in st.secrets:
+            urls = dict(st.secrets["UNIDADES"])
+    except Exception:
+        pass
+    pares = tuple((u, urls.get(u, "")) for u in unidades)
 
     with st.spinner("Carregando as bases de todas as unidades..."):
-        bases = carregar_todas_unidades(_mapa_urls_unidades())
+        bases = carregar_painel_unidades(pares)
 
-    f1, f2, f3 = st.columns([2, 2, 1])
-    with f1:
-        periodo = st.selectbox("Período", ["Todo o período", "Últimos 12 meses", "Últimos 6 meses",
-                                           "Últimos 90 dias", "Últimos 30 dias"], key="un_periodo")
-    with f2:
-        ordem = st.selectbox("Ordenar unidades por", ["Nome", "Menor conformidade", "Maior backlog",
-                                                      "Mais atrasadas", "Maior custo"], key="un_ordem")
-    with f3:
-        st.markdown("<div style='height:1.85rem'></div>", unsafe_allow_html=True)
-        if st.button("🔄 Atualizar bases", key="un_refresh", use_container_width=True):
-            carregar_todas_unidades.clear()
-            st.rerun()
-    dias = {"Todo o período": None, "Últimos 12 meses": 365, "Últimos 6 meses": 180,
-            "Últimos 90 dias": 90, "Últimos 30 dias": 30}[periodo]
-
-    linhas, sem_base = [], []
-    for nome, (df_u, erro) in bases.items():
-        ind = indicadores_unidade(df_u, dias)
-        if ind is None:
-            sem_base.append((nome, erro or "a base não tem a coluna STATUS"))
-        else:
-            ind["Unidade"] = nome
-            linhas.append(ind)
-
-    if not linhas:
-        st.warning("Nenhuma base de unidade pôde ser carregada.")
-        for nome, motivo in sem_base:
-            st.caption(f"• {nome}: {motivo}")
-        return
-
-    tab = pd.DataFrame(linhas)
-    tab["Backlog"] = tab["Pendentes"] + tab["Programadas"]
-    ordenar = {"Nome": ("Unidade", True), "Menor conformidade": ("Conformidade", True),
-               "Maior backlog": ("Backlog", False), "Mais atrasadas": ("Atrasadas", False),
-               "Maior custo": ("Custo", False)}[ordem]
-    tab = tab.sort_values(ordenar[0], ascending=ordenar[1], na_position="last").reset_index(drop=True)
-
-    # ---------- Faixa executiva + totais ----------
-    tot_os, tot_conc = int(tab["OS"].sum()), int(tab["Concluídas"].sum())
-    tot_back, tot_atr = int(tab["Backlog"].sum()), int(tab["Atrasadas"].sum())
-    tot_custo = float(tab["Custo"].sum())
-    conf_geral = tot_conc / tot_os * 100 if tot_os else np.nan
+    com_dados = {u: b for u, (b, _) in bases.items() if b is not None}
+    sem_dados = {u: e for u, (b, e) in bases.items() if b is None}
 
     st.markdown(
-        f'<div class="hero"><div><div class="hero-title">Visão Consolidada das Unidades</div>'
-        f'<div class="hero-sub">{periodo} · todas as unidades em uma única tela</div></div>'
-        f'<div class="hero-badge">{len(tab)} unidades com dados</div></div>', unsafe_allow_html=True)
+        f'<div class="hero"><div><div class="hero-title">Painel Geral das Unidades</div>'
+        f'<div class="hero-sub">Consulta geral · indicadores de todas as unidades lado a lado</div></div>'
+        f'<div class="hero-badge">{len(com_dados)} de {len(unidades)} unidades com dados</div></div>',
+        unsafe_allow_html=True)
 
+    if not com_dados:
+        st.warning("Nenhuma base de unidade foi carregada. Confira os links em `secrets` (seção UNIDADES) ou os arquivos locais.")
+        for u, e in sem_dados.items():
+            st.caption(f"• **{u}** — {e}")
+        return
+
+    # ---------- Controles ----------
+    datas_min = [b["ABERTO_EM"].min() for b in com_dados.values() if b["ABERTO_EM"].notna().any()]
+    datas_max = [b["ABERTO_EM"].max() for b in com_dados.values() if b["ABERTO_EM"].notna().any()]
+
+    c1, c2, c3, c4 = st.columns([2, 1.3, 1.4, 1])
+    data_ini = data_fim = None
+    with c1:
+        if datas_min:
+            padrao = (min(datas_min).date(), max(datas_max).date())
+            periodo = st.date_input("Período (data de abertura da OS)", value=padrao, format="DD/MM/YYYY")
+            data_ini, data_fim = periodo if isinstance(periodo, tuple) and len(periodo) == 2 else padrao
+        else:
+            st.info("As bases não possuem a coluna 'ABERTO EM'.")
+    with c2:
+        filtro_sit = st.selectbox("Situação", ["Todas", "Crítico", "Atenção", "Dentro da meta", "Sem OS no período"])
+    with c3:
+        ordem = st.selectbox("Ordenar por", ["Nome (A–Z)", "Menor conformidade", "Maior nº de OS",
+                                             "Maior backlog", "Maior custo"])
+    with c4:
+        st.markdown("<div style='height:1.9rem'></div>", unsafe_allow_html=True)
+        if st.button("🔄 Atualizar dados", use_container_width=True, key="painel_atualizar"):
+            carregar_painel_unidades.clear()
+            st.rerun()
+
+    # ---------- Métricas por unidade ----------
+    registros, filtradas = [], []
+    for u in unidades:
+        if u in sem_dados:
+            registros.append({"nome": u, "m": None, "erro": sem_dados[u]})
+            continue
+        d = com_dados[u]
+        if data_ini is not None:
+            dt = d["ABERTO_EM"].dt.date
+            d = d[(dt >= data_ini) & (dt <= data_fim)]
+        filtradas.append(d)
+        registros.append({"nome": u, "m": _metricas_unidade(d), "erro": ""})
+
+    # ---------- Consolidado ----------
+    geral = _metricas_unidade(pd.concat(filtradas, ignore_index=True))
+    tempo_geral = f"{geral['tempo']:.1f} dias".replace(".", ",") if pd.notna(geral["tempo"]) else "N/A"
+    n_crit = sum(1 for r in registros if r["m"] and r["m"]["sit"] == "Crítico")
     k = st.columns(6)
     cards = [
-        card_kpi("Unidades", fmt_int(len(tab)), PALETA["azul"],
-                 f"{len(sem_base)} sem base" if sem_base else "todas com base"),
-        card_kpi("Total de OS", fmt_int(tot_os), PALETA["azul_claro"], "soma das unidades"),
-        card_kpi("Conformidade", "—" if pd.isna(conf_geral) else f"{conf_geral:.1f}%".replace(".", ","),
-                 _cor_conformidade(conf_geral), "concluídas ÷ total"),
-        card_kpi("Backlog", fmt_int(tot_back), PALETA["roxo"], "pendentes + programadas"),
-        card_kpi("Atrasadas", fmt_int(tot_atr), PALETA["vermelho"] if tot_atr else PALETA["verde"], "previsão vencida"),
-        card_kpi("Custo total", moeda_curta(tot_custo), PALETA["laranja"], "materiais + mão de obra externa"),
+        card_kpi("Unidades monitoradas", _fmt_int(len(com_dados)), PALETA["azul"],
+                 f"{n_crit} em situação crítica" if n_crit else "nenhuma em situação crítica"),
+        card_kpi("Total de OS", _fmt_int(geral["total"]), PALETA["azul_claro"], "todas as unidades"),
+        card_kpi("Conformidade geral", _fmt_pct(geral["conf"]), geral["cor"], f"meta ≥ {META_CONFORMIDADE}%"),
+        card_kpi("Backlog", _fmt_int(geral["pend"]), PALETA["roxo"], f"{_fmt_int(geral['pend30'])} há mais de 30 dias"),
+        card_kpi("Tempo médio", tempo_geral, PALETA["teal"], "previsto → finalização"),
+        card_kpi("Custo total", moeda_curta(geral["custo"]), PALETA["vermelho"],
+                 f"Mat. {moeda_curta(geral['mat'])} · MO {moeda_curta(geral['moe'])}"),
     ]
-    for col, html_ in zip(k, cards):
+    for col, card in zip(k, cards):
         with col:
-            st.markdown(html_, unsafe_allow_html=True)
+            st.markdown(card, unsafe_allow_html=True)
 
-    # ---------- Cards por unidade ----------
-    secao("🏢 Unidades e seus indicadores")
-    htmls = [_card_unidade(r) for _, r in tab.iterrows()] + [_card_unidade_sem_base(n, m) for n, m in sem_base]
-    for i in range(0, len(htmls), 3):
+    # ---------- Destaques automáticos ----------
+    ativas = [r for r in registros if r["m"] and r["m"]["total"] > 0]
+    if ativas:
+        melhor = max(ativas, key=lambda r: r["m"]["conf"])
+        pior = min(ativas, key=lambda r: r["m"]["conf"])
+        maior_vol = max(ativas, key=lambda r: r["m"]["total"])
+        maior_bl = max(ativas, key=lambda r: r["m"]["pend30"])
+        maior_custo = max(ativas, key=lambda r: r["m"]["custo"])
+        chips = [
+            f"🏆 Melhor conformidade: <b>{_esc(melhor['nome'])}</b> ({_fmt_pct(melhor['m']['conf'])})",
+            f"⚠️ Menor conformidade: <b>{_esc(pior['nome'])}</b> ({_fmt_pct(pior['m']['conf'])})",
+            f"📦 Maior volume: <b>{_esc(maior_vol['nome'])}</b> ({_fmt_int(maior_vol['m']['total'])} OS)",
+        ]
+        if maior_bl["m"]["pend30"]:
+            chips.append(f"⏳ Mais OS pendentes há +30 dias: <b>{_esc(maior_bl['nome'])}</b> ({_fmt_int(maior_bl['m']['pend30'])})")
+        if maior_custo["m"]["custo"] > 0:
+            chips.append(f"💰 Maior custo: <b>{_esc(maior_custo['nome'])}</b> ({moeda_curta(maior_custo['m']['custo'])})")
+        st.markdown('<div class="insights">' + "".join(f'<span class="chip">{t}</span>' for t in chips) + '</div>',
+                    unsafe_allow_html=True)
+
+    # ---------- Filtro de situação e ordenação ----------
+    if filtro_sit != "Todas":
+        registros = [r for r in registros if r["m"] and r["m"]["sit"] == filtro_sit]
+
+    def chave_ordem(r):
+        m = r["m"]
+        if m is None:
+            return (2, 0, r["nome"])
+        if ordem == "Menor conformidade":
+            return (0 if m["total"] else 1, m["conf"] if m["total"] else 0, r["nome"])
+        if ordem == "Maior nº de OS":
+            return (0, -m["total"], r["nome"])
+        if ordem == "Maior backlog":
+            return (0, -m["pend"], r["nome"])
+        if ordem == "Maior custo":
+            return (0, -m["custo"], r["nome"])
+        return (0, 0, r["nome"])
+
+    registros.sort(key=chave_ordem)
+
+    # ---------- Cartões ----------
+    secao("🏢 Unidades")
+    legenda = "".join(f'<span><i style="background:{c};"></i>{g}</span>' for g, c in COR_STATUS.items())
+    st.markdown(f'<div class="un-legenda">{legenda}<span>· A barra de cada cartão mostra a divisão das OS por status</span></div>',
+                unsafe_allow_html=True)
+
+    if not registros:
+        st.info("Nenhuma unidade corresponde ao filtro de situação selecionado.")
+    for i in range(0, len(registros), 3):
         cols = st.columns(3)
-        for col, h in zip(cols, htmls[i:i + 3]):
-            with col:
-                st.markdown(h, unsafe_allow_html=True)
+        for j, r in enumerate(registros[i:i + 3]):
+            with cols[j]:
+                st.markdown(_card_unidade_html(r["nome"], r["m"], r["erro"]), unsafe_allow_html=True)
+                if r["m"] is not None:
+                    st.button("📊 Abrir dashboard", key=f"abrir_{i + j}", use_container_width=True,
+                              on_click=_abrir_unidade, args=(r["nome"],))
 
-    # ---------- Comparativos ----------
-    secao("📊 Comparativo entre unidades")
-    alt = max(320, 36 * len(tab) + 60)
-    c1, c2 = st.columns(2)
-    with c1:
-        titulo_grafico("Conformidade por unidade", "Linha tracejada = meta de 85%")
-        t = tab.sort_values("Conformidade", ascending=False, na_position="last")
-        fig = _barra_h(t["Conformidade"].fillna(0), t["Unidade"], [_cor_conformidade(v) for v in t["Conformidade"]],
-                       [("—" if pd.isna(v) else f"{v:.1f}%".replace(".", ",")) for v in t["Conformidade"]],
-                       alt, meta=85)
-        fig.update_xaxes(range=[0, 108])
-        mostrar(fig, key="un_g_conf")
-    with c2:
-        titulo_grafico("Backlog por unidade", "Pendentes / abertas e programadas")
-        t = tab.sort_values("Backlog", ascending=False)
-        fig = go.Figure()
-        fig.add_bar(x=t["Pendentes"], y=t["Unidade"], orientation="h", name="Pendentes / Abertas",
-                    marker_color=PALETA["vermelho"])
-        fig.add_bar(x=t["Programadas"], y=t["Unidade"], orientation="h", name="Programadas",
-                    marker_color=PALETA["azul"])
-        estilizar(fig, alt)
-        fig.update_layout(barmode="stack", bargap=.35)
-        fig.update_yaxes(autorange="reversed")
-        fig.update_xaxes(showgrid=True, gridcolor="#1F2A44")
-        mostrar(fig, key="un_g_backlog")
+    # ---------- Comparativo ----------
+    comp = [r for r in registros if r["m"] and r["m"]["total"] > 0]
+    if comp:
+        secao("📊 Comparativo entre unidades")
+        altura = max(340, 30 * len(comp) + 90)
 
-    c3, c4 = st.columns(2)
-    with c3:
-        titulo_grafico("Custo total por unidade", "Materiais + mão de obra externa")
-        t = tab.sort_values("Custo", ascending=False)
-        fig = _barra_h(t["Custo"], t["Unidade"], PALETA["laranja"], [moeda_curta(v) for v in t["Custo"]], alt)
-        mostrar(fig, key="un_g_custo")
-    with c4:
-        titulo_grafico("Volume de OS por unidade", "Total de ordens de serviço no período")
-        t = tab.sort_values("OS", ascending=False)
-        fig = _barra_h(t["OS"], t["Unidade"], PALETA["azul_claro"], [fmt_int(v) for v in t["OS"]], alt)
-        mostrar(fig, key="un_g_os")
+        g1, g2 = st.columns(2)
+        with g1:
+            titulo_grafico("Conformidade por unidade", f"Linha tracejada = meta de {META_CONFORMIDADE}%")
+            ordenado = sorted(comp, key=lambda r: r["m"]["conf"])
+            fig = _barras_horizontais(
+                [r["nome"] for r in ordenado],
+                [("Conformidade", [r["m"]["conf"] for r in ordenado], [r["m"]["cor"] for r in ordenado])],
+                altura, sufixo="%", meta=META_CONFORMIDADE)
+            mostrar(fig, key="painel_conformidade")
+        with g2:
+            titulo_grafico("OS por unidade e status", "Volume total dividido por situação")
+            ordenado = sorted(comp, key=lambda r: r["m"]["total"])
+            nomes = [r["nome"] for r in ordenado]
+            series = [(g, [r["m"][c] for r in ordenado], COR_STATUS[g])
+                      for g, c in [("Concluídas", "conc"), ("Programadas", "prog"),
+                                   ("Pendentes / Abertas", "pend"), ("Canceladas", "canc")]]
+            fig = _barras_horizontais(nomes, series, altura, empilhar=True)
+            mostrar(fig, key="painel_status")
 
-    # ---------- Tabela completa ----------
-    secao("📋 Tabela completa para consulta")
-    exib = tab[["Unidade", "OS", "Concluídas", "Programadas", "Pendentes", "Canceladas", "Atrasadas",
-                "Conformidade", "Custo", "Tempo médio (dias)"]].copy()
-    st.dataframe(
-        exib, use_container_width=True, hide_index=True,
-        column_config={
-            "Conformidade": st.column_config.ProgressColumn("Conformidade", min_value=0, max_value=100, format="%.1f%%"),
-            "Custo": st.column_config.NumberColumn("Custo total (R$)", format="%.2f"),
-            "Tempo médio (dias)": st.column_config.NumberColumn("Tempo médio (dias)", format="%.1f"),
+        g3, g4 = st.columns(2)
+        with g3:
+            titulo_grafico("Custo por unidade", "Materiais + mão de obra externa")
+            ordenado = sorted(comp, key=lambda r: r["m"]["custo"])
+            nomes = [r["nome"] for r in ordenado]
+            fig = _barras_horizontais(
+                nomes,
+                [("Materiais", [r["m"]["mat"] for r in ordenado], PALETA["azul"]),
+                 ("Mão de obra externa", [r["m"]["moe"] for r in ordenado], PALETA["laranja"])],
+                altura, empilhar=True)
+            fig.update_xaxes(tickprefix="R$ ")
+            mostrar(fig, key="painel_custo")
+        with g4:
+            titulo_grafico("Backlog antigo", "OS pendentes há mais de 30 dias")
+            ordenado = sorted(comp, key=lambda r: r["m"]["pend30"])
+            if sum(r["m"]["pend30"] for r in ordenado) > 0:
+                fig = _barras_horizontais(
+                    [r["nome"] for r in ordenado],
+                    [("Pendentes > 30 dias", [r["m"]["pend30"] for r in ordenado], PALETA["vermelho"])],
+                    altura)
+                mostrar(fig, key="painel_backlog")
+            else:
+                st.success("Nenhuma OS pendente há mais de 30 dias nas unidades exibidas. 🎉")
+
+    # ---------- Tabela detalhada ----------
+    secao("📋 Tabela detalhada")
+    linhas = []
+    for r in registros:
+        m = r["m"]
+        if m is None:
+            linhas.append({"Unidade": r["nome"], "Situação": "Sem base"})
+            continue
+        linhas.append({
+            "Unidade": r["nome"], "Situação": m["sit"], "OS": m["total"], "Concluídas": m["conc"],
+            "Programadas": m["prog"], "Pendentes": m["pend"], "Canceladas": m["canc"],
+            "Pend. > 30 dias": m["pend30"],
+            "Conformidade (%)": None if pd.isna(m["conf"]) else round(m["conf"], 1),
+            "Tempo médio (dias)": None if pd.isna(m["tempo"]) else round(m["tempo"], 1),
+            "Custo materiais": m["mat"], "Custo mão de obra": m["moe"], "Custo total": m["custo"],
+            "Maior demanda": m["setor"][0] if m["setor"] else None,
+            "Tipo líder": m["tipo"][0] if m["tipo"] else None,
+            "Última OS": None if pd.isna(m["ultima"]) else m["ultima"].strftime("%d/%m/%Y"),
         })
-    st.download_button("⬇️ Baixar tabela (CSV)", exib.to_csv(index=False, sep=";", decimal=",").encode("utf-8-sig"),
-                       file_name="visao_unidades.csv", mime="text/csv", key="un_download")
-    if sem_base:
-        with st.expander(f"Unidades sem base ({len(sem_base)})"):
-            for nome, motivo in sem_base:
-                st.write(f"• **{nome}** — {motivo}")
+    df_tab = pd.DataFrame(linhas)
+    cfg = {
+        "Conformidade (%)": st.column_config.ProgressColumn("Conformidade", min_value=0, max_value=100, format="%.1f%%"),
+        "Custo materiais": st.column_config.NumberColumn("Custo materiais", format="R$ %.2f"),
+        "Custo mão de obra": st.column_config.NumberColumn("Custo mão de obra", format="R$ %.2f"),
+        "Custo total": st.column_config.NumberColumn("Custo total", format="R$ %.2f"),
+    }
+    _mostrar_tabela(df_tab, cfg)
+    st.download_button("⬇️ Baixar tabela (CSV)",
+                       df_tab.to_csv(index=False, sep=";", decimal=",").encode("utf-8-sig"),
+                       file_name="painel_unidades.csv", mime="text/csv", key="painel_download")
 
+    if sem_dados:
+        with st.expander(f"⚠️ Unidades sem base carregada ({len(sem_dados)})"):
+            for u, e in sem_dados.items():
+                st.markdown(f"- **{u}** — {e}")
+
+
+# ==========================================
+# CORPO PRINCIPAL DO APLICATIVO
+# ==========================================
+#st.markdown('<p class="main-header">🛠️ Gestão da Manutenção - Visão Geral & Painel Analítico</p>', unsafe_allow_html=True)
+#st.markdown(f'<p class="sub-header">Unidade Selecionada: <b>{unidade_escolhida}</b> | Classificação NLP, KPIs e Chat com IA.</p>', unsafe_allow_html=True)
+
+if 'termo_pesquisa' not in st.session_state:
+    st.session_state.termo_pesquisa = ""
+
+if 'mensagens_chat' not in st.session_state:
+    st.session_state.mensagens_chat = []
+
+
+def limpar_pesquisa():
+    if "relatorio_gerado" in st.session_state:
+        del st.session_state.relatorio_gerado
+    if "termo_relatorio" in st.session_state:
+        del st.session_state.termo_relatorio
+
+
+coluna_comentario = "OBSERVAÇÃO ABERTURA"
+
+url_unidade = ""
+try:
+    if hasattr(st, "secrets") and "UNIDADES" in st.secrets and unidade_escolhida in st.secrets["UNIDADES"]:
+        url_unidade = st.secrets["UNIDADES"][unidade_escolhida]
+except Exception:
+    pass
+
+# --- Aba "Todas as Unidades": independe da unidade selecionada na barra lateral ---
+if st.session_state.get("aba_ativa") == "unidades":
+    desenhar_navegacao()
+    st.markdown("---")
+    renderizar_painel_unidades(lista_unidades)
+    st.stop()
+
+df = carregar_dados_unidade(url_unidade, arquivo_carregado, unidade_escolhida)
+
+# --- Guardas: sem base ou sem coluna obrigatória, o app para aqui (evita erros nas etapas seguintes) ---
+if df is None:
+    st.info("📂 Nenhuma base carregada. Selecione uma unidade com dados disponíveis ou envie um arquivo na barra lateral.")
+    st.stop()
+
+df.columns = [str(c).strip().upper() for c in df.columns]
+
+if coluna_comentario not in df.columns:
+    st.error(f"❌ A coluna obrigatória **'{coluna_comentario}'** não foi encontrada na planilha.")
+    st.write(f"📋 **Colunas disponíveis na planilha:** `{list(df.columns)}`")
+    st.stop()
+
+df = df.fillna("N/A")
+df = df.dropna(subset=[coluna_comentario]).copy()
+
+if "CATEGORIA_NLP" not in df.columns:
+    with st.spinner(f"Processando algoritmo de classificação NLP em {len(df):,} registros..."):
+        df = classificar_texto_nlp(df, coluna_comentario)
+
+# Identifica a coluna de máquinas
+col_maquinas_ref = None
+for c in df.columns:
+    if c.strip().upper() in ["MÁQUINAS", "MAQUINAS", "MÁQUINA", "MAQUINA", "EQUIPAMENTO"]:
+        col_maquinas_ref = c
+        break
+
+# Texto de busca: Observação + Máquina/Equipamento + Categoria NLP
+if col_maquinas_ref:
+    df["TEXTO_BUSCA"] = (
+        df[coluna_comentario].astype(str).str.lower().fillna("") + " " +
+        df[col_maquinas_ref].astype(str).str.lower().fillna("") + " " +
+        df["CATEGORIA_NLP"].astype(str).str.lower().fillna("")
+    )
+else:
+    df["TEXTO_BUSCA"] = (
+        df[coluna_comentario].astype(str).str.lower().fillna("") + " " +
+        df["CATEGORIA_NLP"].astype(str).str.lower().fillna("")
+    )
+
+st.sidebar.markdown("---")
+st.sidebar.subheader("🎯 Filtros Dashboard")
+
+df_filtrado_dashboard = df.copy()
+
+if "STATUS" in df.columns:
+    lista_status = ["Todos"] + list(df["STATUS"].dropna().unique())
+    status_escolhido = st.sidebar.selectbox("Filtrar por Status", lista_status)
+    if status_escolhido != "Todos":
+        df_filtrado_dashboard = df_filtrado_dashboard[df_filtrado_dashboard["STATUS"] == status_escolhido]
+
+# ==========================================
+# 🛠️ FILTRO POR TIPO DE MANUTENÇÃO
+# ==========================================
+col_tipo_servico = None
+for c in df.columns:
+    c_limpo = c.strip().upper()
+    if "TIPO DE MANUT" in c_limpo or c_limpo == "TIPO":
+        col_tipo_servico = c
+        break
+
+if col_tipo_servico:
+    tipos_desejados = ["Corretiva Programada", "Corretiva Emergencial", "Checklist", "Roteiro", "Melhoria"]
+    lista_tipos = ["Todos"] + tipos_desejados
+    tipo_escolhido = st.sidebar.selectbox("Filtrar por Tipo", lista_tipos)
+
+    if tipo_escolhido != "Todos":
+        termo = tipo_escolhido.strip().lower()
+        coluna_str = df_filtrado_dashboard[col_tipo_servico].astype(str).str.strip().str.lower()
+
+        if termo == "checklist":
+            df_filtrado_dashboard = df_filtrado_dashboard[coluna_str == "checklist"]
+        elif "corretiva programada" in termo:
+            df_filtrado_dashboard = df_filtrado_dashboard[coluna_str.str.contains("corretiva", na=False) & coluna_str.str.contains("program", na=False)]
+        elif "corretiva emergencial" in termo:
+            df_filtrado_dashboard = df_filtrado_dashboard[coluna_str.str.contains("corretiva", na=False) & coluna_str.str.contains("emerg|urg", na=False)]
+        elif "roteiro" in termo:
+            df_filtrado_dashboard = df_filtrado_dashboard[coluna_str.str.contains("roteiro|rot", na=False)]
+        elif "melhoria" in termo:
+            df_filtrado_dashboard = df_filtrado_dashboard[coluna_str.str.contains("melhoria|melhor", na=False)]
+else:
+    st.sidebar.info("Coluna de Tipo de Manutenção não encontrada na base.")
+
+# ==========================================
+# 📅 FILTRO DE PERÍODO
+# ==========================================
+st.sidebar.markdown("---")
+st.sidebar.markdown("### 📅 Filtrar por Período")
+
+coluna_data = "ABERTO EM"
+
+if coluna_data in df.columns:
+    df[coluna_data] = pd.to_datetime(df[coluna_data], errors='coerce', dayfirst=True)
+    df_filtrado_dashboard[coluna_data] = pd.to_datetime(df_filtrado_dashboard[coluna_data], errors='coerce', dayfirst=True)
+
+    data_minima = df[coluna_data].min()
+    data_maxima = df[coluna_data].max()
+
+    if pd.notna(data_minima) and pd.notna(data_maxima):
+        periodo_selecionado = st.sidebar.date_input(
+            label="Selecione o intervalo (Início / Fim):",
+            value=(data_minima.date(), data_maxima.date()),
+            min_value=data_minima.date(),
+            max_value=data_maxima.date(),
+            format="DD/MM/YYYY"
+        )
+
+        if isinstance(periodo_selecionado, tuple) and len(periodo_selecionado) == 2:
+            data_inicio, data_fim = periodo_selecionado
+
+            mask_periodo = (df_filtrado_dashboard[coluna_data].dt.date >= data_inicio) & (df_filtrado_dashboard[coluna_data].dt.date <= data_fim)
+            df_filtrado_dashboard = df_filtrado_dashboard[mask_periodo].copy()
+
+            st.sidebar.success(f"Período: {data_inicio.strftime('%d/%m/%Y')} até {data_fim.strftime('%d/%m/%Y')}")
+else:
+    st.sidebar.info("Coluna de Data ('ABERTO EM') não encontrada na base.")
 
 # ==========================================
 # NAVEGAÇÃO POR BOTÕES (COM LIMPEZA DE ESTADO)
 # ==========================================
-if "aba_ativa" not in st.session_state:
-    st.session_state.aba_ativa = "dash"
-
-with st.container(key="nav_abas"):
-    col_b1, col_b2, col_b3, col_b4, col_b5 = st.columns(5)
-
-    with col_b1:
-        if st.button("📊 Dashboard Geral", use_container_width=True, type="primary" if st.session_state.aba_ativa == "dash" else "secondary"):
-            st.session_state.aba_ativa = "dash"
-            st.session_state.termo_pesquisa = ""
-            if "relatorio_gerado" in st.session_state:
-                del st.session_state.relatorio_gerado
-            st.rerun()
-
-    with col_b2:
-        if st.button("🔍 Pesquisa & Relatórios", use_container_width=True, type="primary" if st.session_state.aba_ativa == "busca" else "secondary"):
-            st.session_state.aba_ativa = "busca"
-            st.rerun()
-
-    with col_b3:
-        if st.button("🏷️ Classificação (NLP)", use_container_width=True, type="primary" if st.session_state.aba_ativa == "nlp" else "secondary"):
-            st.session_state.aba_ativa = "nlp"
-            st.session_state.termo_pesquisa = ""
-            if "relatorio_gerado" in st.session_state:
-                del st.session_state.relatorio_gerado
-            st.rerun()
-
-    with col_b4:
-        if st.button("💬 Chat Inteligente", use_container_width=True, type="primary" if st.session_state.aba_ativa == "chat" else "secondary"):
-            st.session_state.aba_ativa = "chat"
-            st.session_state.termo_pesquisa = ""
-            if "relatorio_gerado" in st.session_state:
-                del st.session_state.relatorio_gerado
-            st.rerun()
-
-    with col_b5:
-        if st.button("🏢 Visão das Unidades", use_container_width=True, type="primary" if st.session_state.aba_ativa == "unidades" else "secondary"):
-            st.session_state.aba_ativa = "unidades"
-            st.session_state.termo_pesquisa = ""
-            if "relatorio_gerado" in st.session_state:
-                del st.session_state.relatorio_gerado
-            st.rerun()
-
+desenhar_navegacao()
 st.markdown("---")
 
 # ==========================================
@@ -2465,5 +2621,3 @@ elif st.session_state.aba_ativa == "chat":
                 with st.expander(f"📋 Ver as OS usadas nesta resposta ({len(ev)} exibidas)"):
                     st.dataframe(ev, use_container_width=True, hide_index=True)
 
-elif st.session_state.aba_ativa == "unidades":
-    renderizar_visao_unidades()
