@@ -87,6 +87,17 @@ st.markdown("""
     [data-testid="stSidebarCollapsedControl"] button:hover { background: var(--accent) !important; }
     [data-testid="stExpander"] summary svg { fill: #F1F5F9 !important; color: #F1F5F9 !important; }
 
+    /* ---------- Tabelas em Markdown (respostas do chat e relatórios) ---------- */
+    [data-testid="stMarkdownContainer"] table { border-collapse: collapse; background: var(--surface); }
+    [data-testid="stMarkdownContainer"] th, [data-testid="stMarkdownContainer"] td {
+        color: var(--text) !important; background: transparent !important;
+        border: 1px solid #334155 !important; padding: 8px 12px !important;
+    }
+    [data-testid="stMarkdownContainer"] thead th {
+        background: var(--surface-2) !important; color: #F1F5F9 !important; font-weight: 700;
+    }
+    [data-testid="stMarkdownContainer"] tbody tr:nth-child(even) td { background: rgba(255,255,255,.03) !important; }
+
     input::placeholder, textarea::placeholder { color: #7C8AA5 !important; }
     [data-testid="stFileUploaderDropzone"] { background: var(--surface) !important; border: 1px dashed var(--border) !important; }
     [data-testid="stFileUploaderDropzone"] * { color: var(--text-2) !important; }
@@ -167,7 +178,6 @@ st.markdown("""
     }
     </style>
 """, unsafe_allow_html=True)
-
 # ==========================================
 # SISTEMA DE LOGIN MÚLTIPLO (CAIXA REDUZIDA)
 # ==========================================
