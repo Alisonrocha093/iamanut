@@ -1333,7 +1333,22 @@ def preparar_dash(base: pd.DataFrame) -> pd.DataFrame:
     if c_ini and c_fim:
         dias = (d[c_fim] - d[c_ini]).dt.total_seconds() / 86400
         d["TEMPO_DIAS"] = dias.where(dias >= 0)
+
+    # OS atrasada = ainda pendente/aberta e com data de execução prevista já vencida.
+    # Sem a coluna EXEC. PREVISTA não há como medir o prazo: toda pendente conta como atrasada.
+    pendente = d["STATUS_GRUPO"] == "Pendentes / Abertas"
+    if c_ini:
+        d["ATRASADA"] = pendente & (d[c_ini] < pd.Timestamp.today().normalize())
+    else:
+        d["ATRASADA"] = pendente
     return d
+
+
+def calcular_conformidade(n_conc, n_atras):
+    """Conformidade = finalizadas ÷ (finalizadas + atrasadas) × 100.
+    Programadas (no prazo), pendentes ainda dentro do prazo e canceladas ficam fora do cálculo."""
+    base = n_conc + n_atras
+    return n_conc / base * 100 if base else np.nan
 
 
 def estilizar(fig, altura=340, legenda=True):
@@ -1492,6 +1507,16 @@ CSS_PAINEL = """
     font-size: .78rem; color: var(--muted); line-height: 1.6; }
 .un-foot b { color: var(--text-2); }
 .un-empty { margin-top: 10px; font-size: .82rem; color: var(--muted); min-height: 9.5rem; }
+/* Card inteiro clicável: o botão fica esticado e transparente por cima do card */
+[class*="st-key-cardun_"] { position: relative; }
+[class*="st-key-cardun_"] [data-testid="stElementContainer"]:has(button),
+[class*="st-key-cardun_"] .element-container:has(button) {
+    position: absolute; inset: 0; z-index: 5; margin: 0 !important; }
+[class*="st-key-cardun_"] [data-testid="stElementContainer"]:has(button) > div,
+[class*="st-key-cardun_"] [data-testid="stButton"], [class*="st-key-cardun_"] [data-testid="stButton"] > div { height: 100%; }
+[class*="st-key-cardun_"] button { width: 100%; height: 100%; min-height: 100%; opacity: 0; cursor: pointer; }
+[class*="st-key-cardun_"]:hover .un-card { background: var(--surface-2); border-color: var(--accent);
+    box-shadow: 0 8px 20px rgba(0,0,0,.5); }
 .un-legenda { display: flex; flex-wrap: wrap; gap: 14px; font-size: .8rem; color: var(--muted); margin: 4px 0 12px; }
 .un-legenda i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 5px; }
 </style>
@@ -1541,6 +1566,7 @@ def _resumir_base(df_bruto):
     r["ABERTO_EM"] = (d["ABERTO EM"] if "ABERTO EM" in d.columns
                       else pd.Series(pd.NaT, index=d.index, dtype="datetime64[ns]"))
     r["STATUS_GRUPO"] = d["STATUS_GRUPO"]
+    r["ATRASADA"] = d["ATRASADA"]
     r["CUSTO_MAT"] = d["CUSTO_MAT"]
     r["CUSTO_MOE"] = d["CUSTO_MOE"]
     r["CUSTO_TOT"] = d["CUSTO_TOT"]
@@ -1577,7 +1603,7 @@ def _lider(serie):
 
 
 def _situacao(total, conf):
-    if total == 0:
+    if total == 0 or pd.isna(conf):
         return "Sem OS no período", PALETA["cinza"]
     if conf >= META_CONFORMIDADE:
         return "Dentro da meta", PALETA["verde"]
@@ -1598,14 +1624,15 @@ def _metricas_unidade(d):
     pend = d[d["STATUS_GRUPO"] == "Pendentes / Abertas"]
     pend30 = int(((hoje - pend["ABERTO_EM"]).dt.days > 30).sum()) if not pend.empty else 0
 
-    conf = n_conc / total * 100 if total else np.nan
+    n_atras = int(d["ATRASADA"].sum()) if "ATRASADA" in d.columns else 0
+    conf = calcular_conformidade(n_conc, n_atras)
     tempo = d["TEMPO_DIAS"].mean() if total and d["TEMPO_DIAS"].notna().any() else np.nan
     ultima = d["ABERTO_EM"].max() if total else pd.NaT
     sit, cor = _situacao(total, conf)
 
     return {
         "total": total, "conc": n_conc, "prog": n_prog, "pend": n_pend, "canc": n_canc,
-        "pend30": pend30, "conf": conf, "tempo": tempo,
+        "atras": n_atras, "pend30": pend30, "conf": conf, "tempo": tempo,
         "mat": float(d["CUSTO_MAT"].sum()), "moe": float(d["CUSTO_MOE"].sum()),
         "custo": float(d["CUSTO_TOT"].sum()),
         "setor": _lider(d["SETOR_REF"]), "tipo": _lider(d["TIPO_REF"]),
@@ -1643,7 +1670,7 @@ def _card_unidade_html(nome, m, erro=""):
     tempo_txt = f"{m['tempo']:.1f} d".replace(".", ",") if pd.notna(m["tempo"]) else "N/A"
     metricas = [
         ("Total OS", _fmt_int(total)), ("Concluídas", _fmt_int(m["conc"])), ("Backlog", _fmt_int(m["pend"])),
-        ("Pend. > 30 d", _fmt_int(m["pend30"])), ("Tempo médio", tempo_txt), ("Custo total", moeda_curta(m["custo"])),
+        ("Atrasadas", _fmt_int(m["atras"])), ("Tempo médio", tempo_txt), ("Custo total", moeda_curta(m["custo"])),
     ]
     grade = "".join(f'<div><div class="un-ml">{t}</div><div class="un-mv">{v}</div></div>' for t, v in metricas)
 
@@ -1665,6 +1692,7 @@ def _abrir_unidade(nome):
     """Callback do botão do card: seleciona a unidade na barra lateral e abre o Dashboard Geral."""
     st.session_state["unidade_sel"] = nome
     st.session_state.aba_ativa = "dash"
+    st.session_state.pop("relatorio_gerado", None)
     st.session_state.termo_pesquisa = ""
 
 
@@ -1772,7 +1800,8 @@ def renderizar_painel_unidades(lista_todas):
         card_kpi("Unidades monitoradas", _fmt_int(len(com_dados)), PALETA["azul"],
                  f"{n_crit} em situação crítica" if n_crit else "nenhuma em situação crítica"),
         card_kpi("Total de OS", _fmt_int(geral["total"]), PALETA["azul_claro"], "todas as unidades"),
-        card_kpi("Conformidade geral", _fmt_pct(geral["conf"]), geral["cor"], f"meta ≥ {META_CONFORMIDADE}%"),
+        card_kpi("Conformidade geral", _fmt_pct(geral["conf"]), geral["cor"],
+                 f"{_fmt_int(geral['conc'])} concl. ÷ ({_fmt_int(geral['conc'])} + {_fmt_int(geral['atras'])} atras.) · meta ≥ {META_CONFORMIDADE}%"),
         card_kpi("Backlog", _fmt_int(geral["pend"]), PALETA["roxo"], f"{_fmt_int(geral['pend30'])} há mais de 30 dias"),
         card_kpi("Tempo médio", tempo_geral, PALETA["teal"], "previsto → finalização"),
         card_kpi("Custo total", moeda_curta(geral["custo"]), PALETA["vermelho"],
@@ -1783,7 +1812,7 @@ def renderizar_painel_unidades(lista_todas):
             st.markdown(card, unsafe_allow_html=True)
 
     # ---------- Destaques automáticos ----------
-    ativas = [r for r in registros if r["m"] and r["m"]["total"] > 0]
+    ativas = [r for r in registros if r["m"] and r["m"]["total"] > 0 and pd.notna(r["m"]["conf"])]
     if ativas:
         melhor = max(ativas, key=lambda r: r["m"]["conf"])
         pior = min(ativas, key=lambda r: r["m"]["conf"])
@@ -1811,7 +1840,8 @@ def renderizar_painel_unidades(lista_todas):
         if m is None:
             return (2, 0, r["nome"])
         if ordem == "Menor conformidade":
-            return (0 if m["total"] else 1, m["conf"] if m["total"] else 0, r["nome"])
+            tem = bool(m["total"]) and pd.notna(m["conf"])
+            return (0 if tem else 1, m["conf"] if tem else 0, r["nome"])
         if ordem == "Maior nº de OS":
             return (0, -m["total"], r["nome"])
         if ordem == "Maior backlog":
@@ -1825,7 +1855,7 @@ def renderizar_painel_unidades(lista_todas):
     # ---------- Cartões ----------
     secao("🏢 Unidades")
     legenda = "".join(f'<span><i style="background:{c};"></i>{g}</span>' for g, c in COR_STATUS.items())
-    st.markdown(f'<div class="un-legenda">{legenda}<span>· A barra de cada cartão mostra a divisão das OS por status</span></div>',
+    st.markdown(f'<div class="un-legenda">{legenda}<span>· A barra mostra a divisão das OS por status · clique no card para abrir o dashboard da unidade</span></div>',
                 unsafe_allow_html=True)
 
     if not registros:
@@ -1834,10 +1864,14 @@ def renderizar_painel_unidades(lista_todas):
         cols = st.columns(3)
         for j, r in enumerate(registros[i:i + 3]):
             with cols[j]:
-                st.markdown(_card_unidade_html(r["nome"], r["m"], r["erro"]), unsafe_allow_html=True)
                 if r["m"] is not None:
-                    st.button("📊 Abrir dashboard", key=f"abrir_{i + j}", use_container_width=True,
-                              on_click=_abrir_unidade, args=(r["nome"],))
+                    with st.container(key=f"cardun_{i + j}"):
+                        st.markdown(_card_unidade_html(r["nome"], r["m"], r["erro"]), unsafe_allow_html=True)
+                        st.button("Abrir dashboard", key=f"abrir_{i + j}", use_container_width=True,
+                                  help=f"Abrir o dashboard de {r['nome']}",
+                                  on_click=_abrir_unidade, args=(r["nome"],))
+                else:
+                    st.markdown(_card_unidade_html(r["nome"], r["m"], r["erro"]), unsafe_allow_html=True)
 
     # ---------- Comparativo ----------
     comp = [r for r in registros if r["m"] and r["m"]["total"] > 0]
@@ -1899,7 +1933,7 @@ def renderizar_painel_unidades(lista_todas):
         linhas.append({
             "Unidade": r["nome"], "Situação": m["sit"], "OS": m["total"], "Concluídas": m["conc"],
             "Programadas": m["prog"], "Pendentes": m["pend"], "Canceladas": m["canc"],
-            "Pend. > 30 dias": m["pend30"],
+            "Atrasadas": m["atras"], "Pend. > 30 dias": m["pend30"],
             "Conformidade (%)": None if pd.isna(m["conf"]) else round(m["conf"], 1),
             "Tempo médio (dias)": None if pd.isna(m["tempo"]) else round(m["tempo"], 1),
             "Custo materiais": m["mat"], "Custo mão de obra": m["moe"], "Custo total": m["custo"],
@@ -2117,7 +2151,11 @@ if st.session_state.aba_ativa == "dash":
     n_prog = int(cont.get("Programadas", 0))
     n_pend = int(cont.get("Pendentes / Abertas", 0))
     n_canc = int(cont.get("Canceladas", 0))
-    pct_conc = n_conc / total_os * 100
+    n_atras = int(d["ATRASADA"].sum())
+    pct_conc = n_conc / total_os * 100                    # só informativo (% concluídas do total)
+    conf_os = calcular_conformidade(n_conc, n_atras)      # conformidade = finalizadas ÷ (finalizadas + atrasadas)
+    conf_val = 0.0 if pd.isna(conf_os) else conf_os
+    conf_txt = "—" if pd.isna(conf_os) else f"{conf_os:.1f}%".replace(".", ",")
 
     custo_mat, custo_moe = d["CUSTO_MAT"].sum(), d["CUSTO_MOE"].sum()
     custo_tot = custo_mat + custo_moe
@@ -2139,8 +2177,9 @@ if st.session_state.aba_ativa == "dash":
     cards = [
         card_kpi("Total de OS", fmt_int(total_os), PALETA["azul"], "no período", delta_os, inverso=True),
         card_kpi("Concluídas", fmt_int(n_conc), PALETA["verde"], f"{pct_conc:.1f}% do total".replace(".", ",")),
-        card_kpi("Backlog", fmt_int(n_pend), PALETA["roxo"], f"{fmt_int(n_prog)} programadas"),
-        card_kpi("Conformidade", f"{pct_conc:.1f}%".replace(".", ","), PALETA["azul_claro"], "concluídas ÷ total"),
+        card_kpi("Backlog", fmt_int(n_pend), PALETA["roxo"], f"{fmt_int(n_atras)} atrasadas · {fmt_int(n_prog)} programadas"),
+        card_kpi("Conformidade", conf_txt, PALETA["azul_claro"],
+                 f"{fmt_int(n_conc)} concl. ÷ ({fmt_int(n_conc)} + {fmt_int(n_atras)} atras.)"),
         card_kpi("Tempo médio", tempo_txt, PALETA["teal"], "previsto → finalização"),
         card_kpi("Custo total", moeda_curta(custo_tot), PALETA["vermelho"],
                  f"Mat. {moeda_curta(custo_mat)} · MO {moeda_curta(custo_moe)}", delta_custo, inverso=True),
@@ -2164,9 +2203,9 @@ if st.session_state.aba_ativa == "dash":
 
     with g1:
         titulo_grafico("Conformidade geral", "Meta sugerida: ≥ 85%")
-        cor_g = PALETA["verde"] if pct_conc >= 85 else (PALETA["laranja"] if pct_conc >= 60 else PALETA["vermelho"])
+        cor_g = PALETA["verde"] if conf_val >= 85 else (PALETA["laranja"] if conf_val >= 60 else PALETA["vermelho"])
         fig_g = go.Figure(go.Indicator(
-            mode="gauge+number", value=pct_conc,
+            mode="gauge+number", value=conf_val,
             number={"suffix": "%", "valueformat": ".1f", "font": {"size": 38, "color": cor_g}},
             gauge={"axis": {"range": [0, 100], "tickwidth": 1, "tickcolor": "#64748B",
                            "tickfont": {"color": "#94A3B8"}},
