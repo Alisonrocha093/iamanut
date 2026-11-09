@@ -69,6 +69,14 @@ st.markdown("""
     [data-baseweb="popover"] li, [data-baseweb="popover"] li * { color: var(--text) !important; background: transparent !important; }
     [data-baseweb="popover"] li:hover, [data-baseweb="popover"] li[aria-selected="true"] { background: var(--surface-2) !important; }
     /* ---------- Botões de navegação (abas) ---------- */
+    /* Barra de abas fixa no topo (não rola com a página) */
+    [data-testid="stHeader"] { background: var(--bg) !important; }
+    .st-key-nav_abas,
+    [data-testid="stLayoutWrapper"]:has(> .st-key-nav_abas),
+    [data-testid="stElementContainer"]:has(> .st-key-nav_abas) {
+        position: sticky; top: 3.75rem; z-index: 999;
+    }
+    .st-key-nav_abas { background: var(--bg); padding: 8px 0 10px; border-bottom: 1px solid var(--border); }
     .st-key-nav_abas button { min-height: 3.6rem; border-radius: 12px; }
     .st-key-nav_abas button p, .st-key-nav_abas button span { font-size: 1.1rem !important; font-weight: 700 !important; }
 
