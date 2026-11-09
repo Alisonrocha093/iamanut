@@ -1507,16 +1507,12 @@ CSS_PAINEL = """
     font-size: .78rem; color: var(--muted); line-height: 1.6; }
 .un-foot b { color: var(--text-2); }
 .un-empty { margin-top: 10px; font-size: .82rem; color: var(--muted); min-height: 9.5rem; }
-/* Card inteiro clicável: o botão (transparente) é posicionado sobre toda a área do card */
-[class*="st-key-cardun_"] { position: relative !important; gap: 0 !important; cursor: pointer; }
-[class*="st-key-cardun_"] [data-testid="stElementContainer"]:has(button),
-[class*="st-key-cardun_"] .element-container:has(button) { height: 0 !important; min-height: 0 !important; margin: 0 !important; }
-[class*="st-key-cardun_"] button {
-    position: absolute !important; top: 0; left: 0; right: 0; bottom: 0;
-    width: 100% !important; height: 100% !important; min-height: 0 !important;
-    opacity: 0; cursor: pointer; z-index: 10; }
+/* Card inteiro clicável (o clique é ligado por JS abaixo; sem JS, o botão "Abrir dashboard" continua visível) */
+[class*="st-key-cardun_"] { gap: 0 !important; cursor: pointer; }
 [class*="st-key-cardun_"]:hover .un-card { background: var(--surface-2); border-color: var(--accent);
     box-shadow: 0 8px 20px rgba(0,0,0,.5); }
+body.cards-js [class*="st-key-cardun_"] [data-testid="stElementContainer"]:has(button),
+body.cards-js [class*="st-key-cardun_"] .element-container:has(button) { display: none !important; }
 .un-legenda { display: flex; flex-wrap: wrap; gap: 14px; font-size: .8rem; color: var(--muted); margin: 4px 0 12px; }
 .un-legenda i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 5px; }
 </style>
@@ -1870,6 +1866,28 @@ def renderizar_painel_unidades(lista_todas):
                                   on_click=_abrir_unidade, args=(r["nome"],))
                 else:
                     st.markdown(_card_unidade_html(r["nome"], r["m"], r["erro"]), unsafe_allow_html=True)
+
+    # ---------- Clique em qualquer ponto do card ----------
+    # O botão de cada card fica oculto; um clique em qualquer lugar do card aciona esse botão.
+    import streamlit.components.v1 as components
+    components.html("""
+    <script>
+    (function () {
+      var doc = window.parent.document;
+      doc.body.classList.add('cards-js');
+      if (doc.__cardClick) doc.removeEventListener('click', doc.__cardClick, true);
+      doc.__cardClick = function (e) {
+        var t = e.target;
+        if (!t || !t.closest) return;
+        var box = t.closest('[class*="st-key-cardun_"]');
+        if (!box || t.closest('button')) return;
+        var b = box.querySelector('button');
+        if (b) b.click();
+      };
+      doc.addEventListener('click', doc.__cardClick, true);
+    })();
+    </script>
+    """, height=0)
 
     # ---------- Comparativo ----------
     comp = [r for r in registros if r["m"] and r["m"]["total"] > 0]
