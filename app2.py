@@ -1399,7 +1399,7 @@ def card_kpi(titulo, valor, cor, sub="", delta=None, inverso=False):
             f'<div class="kpi-value" style="color:{cor};">{valor}</div>'
             f'<div class="kpi-sub">{sub}{chip}</div></div>')
 
-
+'''
 def gerar_destaques(d: pd.DataFrame, col_setor=None) -> list:
     """Frases automáticas para leitura rápida da diretoria."""
     itens, total = [], len(d)
@@ -1423,7 +1423,7 @@ def gerar_destaques(d: pd.DataFrame, col_setor=None) -> list:
         n30 = int((idade > 30).sum())
         if n30:
             itens.append(f"⏳ <b>{n30}</b> OS pendentes há mais de 30 dias")
-
+'''
     if "CATEGORIA_NLP" in d.columns and d["CUSTO_TOT"].sum() > 0:
         c = d.groupby("CATEGORIA_NLP")["CUSTO_TOT"].sum().sort_values(ascending=False)
         itens.append(f"💰 Maior custo: <b>{c.index[0]}</b> ({moeda_curta(c.iloc[0])})")
