@@ -1673,8 +1673,8 @@ def _card_unidade_html(nome, m, erro=""):
             f'<div class="un-conf" style="color:{m["cor"]};">{_fmt_pct(m["conf"])}<small>conformidade</small></div>'
             f'<div class="un-bar">{segmentos}</div>'
             f'<div class="un-grid">{grade}</div>'
-           # f'<div class="un-foot">🏢 Maior demanda: <b>{setor}</b><br>'
-           # f'🛠️ Tipo líder: <b>{tipo}</b><br>📅 Última OS aberta: <b>{ultima}</b></div></div>')
+            f'<div class="un-foot">🏢 Maior demanda: <b>{setor}</b><br>'
+            f'🛠️ Tipo líder: <b>{tipo}</b><br>📅 Última OS aberta: <b>{ultima}</b></div></div>')
 
 
 def _abrir_unidade(nome):
