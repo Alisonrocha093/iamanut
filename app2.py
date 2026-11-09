@@ -1404,10 +1404,10 @@ def gerar_destaques(d: pd.DataFrame, col_setor=None) -> list:
     """Frases automáticas para leitura rápida da diretoria."""
     itens, total = [], len(d)
     hoje = pd.Timestamp.today().normalize()
-'''
+
     if "CATEGORIA_NLP" in d.columns and total:
         top = d["CATEGORIA_NLP"].value_counts()
-        itens.append(f"🏷️ Categoria líder: <b>{top.index[0]}</b> ({top.iloc[0] / total * 100:.0f}% das OS)")
+     #   itens.append(f"🏷️ Categoria líder: <b>{top.index[0]}</b> ({top.iloc[0] / total * 100:.0f}% das OS)")
 
     if col_setor and col_setor in d.columns and total:
         top = d[col_setor].value_counts()
@@ -1415,18 +1415,18 @@ def gerar_destaques(d: pd.DataFrame, col_setor=None) -> list:
 
     if "MES_REF" in d.columns and d["MES_REF"].notna().any():
         m = d["MES_REF"].value_counts().idxmax()
-        itens.append(f"📅 Mês de pico: <b>{m:%m/%Y}</b>")
+   #     itens.append(f"📅 Mês de pico: <b>{m:%m/%Y}</b>")
 
     pend = d[d["STATUS_GRUPO"] == "Pendentes / Abertas"]
     if "ABERTO EM" in pend.columns and not pend.empty:
         idade = (hoje - pend["ABERTO EM"]).dt.days
         n30 = int((idade > 30).sum())
         if n30:
-            itens.append(f"⏳ <b>{n30}</b> OS pendentes há mais de 30 dias")
-'''
+        #    itens.append(f"⏳ <b>{n30}</b> OS pendentes há mais de 30 dias")
+
     if "CATEGORIA_NLP" in d.columns and d["CUSTO_TOT"].sum() > 0:
         c = d.groupby("CATEGORIA_NLP")["CUSTO_TOT"].sum().sort_values(ascending=False)
-        itens.append(f"💰 Maior custo: <b>{c.index[0]}</b> ({moeda_curta(c.iloc[0])})")
+     #   itens.append(f"💰 Maior custo: <b>{c.index[0]}</b> ({moeda_curta(c.iloc[0])})")
     return itens[:5]
 
 
