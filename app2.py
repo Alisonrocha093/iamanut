@@ -1415,14 +1415,14 @@ def gerar_destaques(d: pd.DataFrame, col_setor=None) -> list:
 
     if "MES_REF" in d.columns and d["MES_REF"].notna().any():
         m = d["MES_REF"].value_counts().idxmax()
-       itens.append(f"📅 Mês de pico: <b>{m:%m/%Y}</b>")
+        itens.append(f"📅 Mês de pico: <b>{m:%m/%Y}</b>")
 
     pend = d[d["STATUS_GRUPO"] == "Pendentes / Abertas"]
     if "ABERTO EM" in pend.columns and not pend.empty:
         idade = (hoje - pend["ABERTO EM"]).dt.days
         n30 = int((idade > 30).sum())
         if n30:
-        itens.append(f"⏳ <b>{n30}</b> OS pendentes há mais de 30 dias")
+            itens.append(f"⏳ <b>{n30}</b> OS pendentes há mais de 30 dias")
 
     if "CATEGORIA_NLP" in d.columns and d["CUSTO_TOT"].sum() > 0:
         c = d.groupby("CATEGORIA_NLP")["CUSTO_TOT"].sum().sort_values(ascending=False)
@@ -2178,10 +2178,6 @@ if st.session_state.aba_ativa == "dash":
 
     # ---------- Destaques automáticos ----------
     col_setor = next((c for c in ["SETOR", "MÁQUINA", "MÁQUINAS", "MAQUINA", "MAQUINAS"] if c in d.columns), None)
-    destaques = gerar_destaques(d, col_setor)
-    if destaques:
-        st.markdown('<div class="insights">' + "".join(f'<span class="chip">{t}</span>' for t in destaques) + '</div>',
-                    unsafe_allow_html=True)
 
     # =================================================================
     # 1) SITUAÇÃO ATUAL — gauge + rosca de status + rosca por tipo
