@@ -1,5 +1,8 @@
 import os
 import io
+import hmac
+import hashlib
+import secrets as _pysecrets
 import re
 import json
 from concurrent.futures import ThreadPoolExecutor
@@ -189,10 +192,101 @@ st.markdown("""
 # ==========================================
 # SISTEMA DE LOGIN MÚLTIPLO (CAIXA REDUZIDA)
 # ==========================================
+ARQ_SENHAS = "senhas_usuarios.json"   # senhas pessoais (somente hash). Troque por banco/planilha se o servidor não guardar arquivos.
+MIN_SENHA = 8
+
+
+def _hash_senha(senha, salt=None):
+    salt = salt or _pysecrets.token_hex(16)
+    h = hashlib.pbkdf2_hmac("sha256", senha.encode("utf-8"), bytes.fromhex(salt), 200_000).hex()
+    return {"salt": salt, "hash": h}
+
+
+def _ler_senhas():
+    try:
+        with open(ARQ_SENHAS, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return {}
+
+
+def _gravar_senhas(dados):
+    tmp = ARQ_SENHAS + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
+        json.dump(dados, f, ensure_ascii=False, indent=2)
+    os.replace(tmp, ARQ_SENHAS)
+
+
+def _senhas_iniciais():
+    try:
+        if hasattr(st, "secrets") and "SENHA_APP" in st.secrets:
+            return dict(st.secrets["SENHA_APP"])
+    except Exception:
+        pass
+    return {}
+
+
+def _conferir_login(usuario, senha):
+    """Retorna (ok, primeiro_acesso). Quem já definiu senha pessoal só entra com ela;
+    a senha inicial do secrets vale apenas até a primeira troca."""
+    salvas = _ler_senhas()
+    if usuario in salvas:
+        reg = salvas[usuario]
+        calc = hashlib.pbkdf2_hmac("sha256", senha.encode("utf-8"), bytes.fromhex(reg["salt"]), 200_000).hex()
+        return hmac.compare_digest(calc, reg["hash"]), False
+    iniciais = _senhas_iniciais()
+    if usuario in iniciais:
+        return hmac.compare_digest(str(senha), str(iniciais[usuario])), True
+    return False, False
+
+
+def _definir_nova_senha(usuario, nova, confirmacao):
+    """Valida e grava a nova senha. Retorna mensagem de erro, ou None se deu certo."""
+    if len(nova) < MIN_SENHA:
+        return f"A senha deve ter pelo menos {MIN_SENHA} caracteres."
+    if nova != confirmacao:
+        return "A confirmação não confere com a nova senha."
+    if hmac.compare_digest(nova, str(_senhas_iniciais().get(usuario, "\0"))):
+        return "A nova senha não pode ser igual à senha inicial."
+    try:
+        dados = _ler_senhas()
+        dados[usuario] = _hash_senha(nova)
+        _gravar_senhas(dados)
+    except Exception as e:
+        return f"Não foi possível salvar a nova senha: {e}"
+    return None
+
+
 def verificar_autenticacao():
     if "autenticado" not in st.session_state:
         st.session_state.autenticado = False
         st.session_state.usuario_atual = ""
+    if "precisa_trocar_senha" not in st.session_state:
+        st.session_state.precisa_trocar_senha = False
+
+    # --- Primeiro acesso: troca de senha obrigatória antes de liberar o painel ---
+    if st.session_state.autenticado and st.session_state.precisa_trocar_senha:
+        _, col_centro, _ = st.columns([1, 1.2, 1])
+        with col_centro:
+            st.markdown("## 🔑 Defina sua senha")
+            st.info("Este é o seu primeiro acesso. Crie uma senha pessoal para continuar.")
+            with st.form("form_troca_senha"):
+                nova = st.text_input(f"Nova senha (mínimo {MIN_SENHA} caracteres)", type="password")
+                conf = st.text_input("Confirme a nova senha", type="password")
+                salvar = st.form_submit_button("Salvar e entrar", use_container_width=True)
+                if salvar:
+                    erro = _definir_nova_senha(st.session_state.usuario_atual, nova, conf)
+                    if erro:
+                        st.error(f"❌ {erro}")
+                    else:
+                        st.session_state.precisa_trocar_senha = False
+                        st.rerun()
+            if st.button("Cancelar e sair", key="cancelar_troca"):
+                st.session_state.autenticado = False
+                st.session_state.usuario_atual = ""
+                st.session_state.precisa_trocar_senha = False
+                st.rerun()
+        return False
 
     if not st.session_state.autenticado:
         col_esq, col_centro, col_dir = st.columns([1, 1.2, 1])
@@ -207,16 +301,11 @@ def verificar_autenticacao():
                 submit = st.form_submit_button("Entrar", use_container_width=True)
 
                 if submit:
-                    usuarios_cadastrados = {}
-                    try:
-                        if hasattr(st, "secrets") and "SENHA_APP" in st.secrets:
-                            usuarios_cadastrados = dict(st.secrets["SENHA_APP"])
-                    except Exception:
-                        pass
-
-                    if usuario_input in usuarios_cadastrados and senha_input == usuarios_cadastrados[usuario_input]:
+                    ok, primeiro_acesso = _conferir_login(usuario_input, senha_input)
+                    if ok:
                         st.session_state.autenticado = True
                         st.session_state.usuario_atual = usuario_input
+                        st.session_state.precisa_trocar_senha = primeiro_acesso
                         st.rerun()
                     else:
                         st.error("❌ Usuário ou senha incorretos.")
@@ -1183,7 +1272,23 @@ st.sidebar.markdown(f"👤 Logado como: **{st.session_state.get('usuario_atual',
 if st.sidebar.button("🚪 Sair", use_container_width=True, type="secondary"):
     st.session_state.autenticado = False
     st.session_state.usuario_atual = ""
+    st.session_state.precisa_trocar_senha = False
+    st.session_state.pop("unidade_sel", None)
+    st.session_state.pop("relatorio_gerado", None)
     st.rerun()
+
+with st.sidebar.expander("🔑 Alterar minha senha"):
+    with st.form("form_alterar_senha", clear_on_submit=True):
+        senha_atual = st.text_input("Senha atual", type="password")
+        senha_nova = st.text_input(f"Nova senha (mín. {MIN_SENHA})", type="password")
+        senha_conf = st.text_input("Confirme a nova senha", type="password")
+        if st.form_submit_button("Salvar nova senha", use_container_width=True):
+            ok_atual, _ = _conferir_login(st.session_state.get("usuario_atual", ""), senha_atual)
+            if not ok_atual:
+                st.error("Senha atual incorreta.")
+            else:
+                erro = _definir_nova_senha(st.session_state.get("usuario_atual", ""), senha_nova, senha_conf)
+                st.error(erro) if erro else st.success("✅ Senha alterada.")
 
 st.sidebar.markdown("---")
 
@@ -1204,7 +1309,7 @@ if not groq_api_key_input and os.path.exists("groq_api_key.txt"):
 st.sidebar.markdown("---")
 st.sidebar.subheader("📂 Seleção de Unidade")
 
-lista_unidades = [
+TODAS_UNIDADES = [
     "VISÃO GERAL",
     "OS CASA DO COMERCIO",
     "HOTEL BARREIRA ROXA",
@@ -1223,10 +1328,41 @@ lista_unidades = [
     "CENTRO DE DISTRIBUIÇÃO SENAC"
 ]
 
+
+def unidades_permitidas_do_usuario(usuario, todas):
+    """Lê [PERMISSOES] do secrets: usuario = ["UNIDADE A", "UNIDADE B"] ou ["*"] (todas).
+    Usuário sem entrada em [PERMISSOES] não enxerga nenhuma unidade."""
+    try:
+        perm = dict(st.secrets["PERMISSOES"]) if hasattr(st, "secrets") and "PERMISSOES" in st.secrets else {}
+    except Exception:
+        perm = {}
+    acesso = perm.get(usuario)
+    if acesso is None:
+        return []
+    acesso = [acesso] if isinstance(acesso, str) else list(acesso)
+    if "*" in acesso:
+        return list(todas)
+    return [u for u in todas if u in acesso]
+
+
+usuario_logado = st.session_state.get("usuario_atual", "")
+lista_unidades = unidades_permitidas_do_usuario(usuario_logado, TODAS_UNIDADES)
+acesso_total = len(lista_unidades) == len(TODAS_UNIDADES)
+
+if not lista_unidades:
+    st.error("🔒 Seu usuário não tem nenhuma unidade liberada. Peça ao administrador para configurar o acesso.")
+    st.stop()
+
+# Garante que uma seleção antiga (de outro login) não fique fora da lista permitida
+if st.session_state.get("unidade_sel") not in lista_unidades:
+    st.session_state.pop("unidade_sel", None)
+
 unidade_escolhida = st.sidebar.selectbox("Escolha a Unidade", lista_unidades, key="unidade_sel")
 
 st.sidebar.markdown("---")
-arquivo_carregado = st.sidebar.file_uploader("Enviar manualmente ", type=["csv", "xls", "xlsx"])
+# Envio manual de arquivo só para quem tem acesso a todas as unidades
+arquivo_carregado = (st.sidebar.file_uploader("Enviar manualmente ", type=["csv", "xls", "xlsx"])
+                     if acesso_total else None)
 
 
 # ==========================================
