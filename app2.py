@@ -1507,13 +1507,14 @@ CSS_PAINEL = """
     font-size: .78rem; color: var(--muted); line-height: 1.6; }
 .un-foot b { color: var(--text-2); }
 .un-empty { margin-top: 10px; font-size: .82rem; color: var(--muted); min-height: 9.5rem; }
-/* Card inteiro clicável: o botão fica esticado e transparente por cima do card */
-[class*="st-key-cardun_"] { position: relative; }
+/* Card inteiro clicável: o botão (transparente) é posicionado sobre toda a área do card */
+[class*="st-key-cardun_"] { position: relative !important; gap: 0 !important; cursor: pointer; }
 [class*="st-key-cardun_"] [data-testid="stElementContainer"]:has(button),
-[class*="st-key-cardun_"] .element-container:has(button) {
-    position: absolute; inset: 0; width: 100% !important; height: 100% !important; z-index: 5; margin: 0 !important; }
-[class*="st-key-cardun_"] [data-testid="stButton"], [class*="st-key-cardun_"] [data-testid="stButton"] > div { height: 100%; width: 100%; }
-[class*="st-key-cardun_"] button { width: 100%; height: 100%; min-height: 100%; opacity: 0; cursor: pointer; }
+[class*="st-key-cardun_"] .element-container:has(button) { height: 0 !important; min-height: 0 !important; margin: 0 !important; }
+[class*="st-key-cardun_"] button {
+    position: absolute !important; top: 0; left: 0; right: 0; bottom: 0;
+    width: 100% !important; height: 100% !important; min-height: 0 !important;
+    opacity: 0; cursor: pointer; z-index: 10; }
 [class*="st-key-cardun_"]:hover .un-card { background: var(--surface-2); border-color: var(--accent);
     box-shadow: 0 8px 20px rgba(0,0,0,.5); }
 .un-legenda { display: flex; flex-wrap: wrap; gap: 14px; font-size: .8rem; color: var(--muted); margin: 4px 0 12px; }
