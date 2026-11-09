@@ -1399,12 +1399,12 @@ def card_kpi(titulo, valor, cor, sub="", delta=None, inverso=False):
             f'<div class="kpi-value" style="color:{cor};">{valor}</div>'
             f'<div class="kpi-sub">{sub}{chip}</div></div>')
 
-'''
+
 def gerar_destaques(d: pd.DataFrame, col_setor=None) -> list:
     """Frases automáticas para leitura rápida da diretoria."""
     itens, total = [], len(d)
     hoje = pd.Timestamp.today().normalize()
-
+'''
     if "CATEGORIA_NLP" in d.columns and total:
         top = d["CATEGORIA_NLP"].value_counts()
         itens.append(f"🏷️ Categoria líder: <b>{top.index[0]}</b> ({top.iloc[0] / total * 100:.0f}% das OS)")
