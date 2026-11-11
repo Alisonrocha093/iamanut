@@ -2237,7 +2237,7 @@ else:
 st.sidebar.markdown("---")
 st.sidebar.markdown("### 📅 Filtrar por Período")
 
-coluna_data = "ABERTO EM"
+coluna_data = "EXEC. PREVISTA"
 
 if coluna_data in df.columns:
     df[coluna_data] = pd.to_datetime(df[coluna_data], errors='coerce', dayfirst=True)
@@ -2263,7 +2263,7 @@ if coluna_data in df.columns:
 
             st.sidebar.success(f"Período: {data_inicio.strftime('%d/%m/%Y')} até {data_fim.strftime('%d/%m/%Y')}")
 else:
-    st.sidebar.info("Coluna de Data ('ABERTO EM') não encontrada na base.")
+    st.sidebar.info("Coluna de Data ('EXEC. PREVISTA') não encontrada na base.")
 
 # ==========================================
 # NAVEGAÇÃO POR BOTÕES (COM LIMPEZA DE ESTADO)
