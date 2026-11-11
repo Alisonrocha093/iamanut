@@ -2436,8 +2436,8 @@ if st.session_state.aba_ativa == "dash":
     with e2:
         titulo_grafico("Idade do backlog", "OS pendentes por tempo em aberto")
         pend = d[d["STATUS_GRUPO"] == "Pendentes / Abertas"]
-        if "ABERTO EM" in pend.columns and not pend.empty and pend["ABERTO EM"].notna().any():
-            idade = (hoje - pend["ABERTO EM"]).dt.days.dropna()
+        if "ABERTO EM" in pend.columns and not pend.empty and pend["EXEC. PREVISTA"].notna().any():
+            idade = (hoje - pend["EXEC. PREVISTA"]).dt.days.dropna()
             faixas = ["0–7 dias", "8–30 dias", "31–90 dias", "> 90 dias"]
             cats = pd.cut(idade, bins=[-1, 7, 30, 90, 10 ** 6], labels=faixas)
             qtds = [int((cats == f).sum()) for f in faixas]
