@@ -2162,7 +2162,6 @@ if coluna_comentario not in df.columns:
     st.stop()
 
 df = df.fillna("N/A")
-df = df.dropna(subset=[coluna_comentario]).copy()
 
 if "CATEGORIA_NLP" not in df.columns:
     with st.spinner(f"Processando algoritmo de classificação NLP em {len(df):,} registros..."):
@@ -2258,8 +2257,14 @@ if coluna_data in df.columns:
         if isinstance(periodo_selecionado, tuple) and len(periodo_selecionado) == 2:
             data_inicio, data_fim = periodo_selecionado
 
-            mask_periodo = (df_filtrado_dashboard[coluna_data].dt.date >= data_inicio) & (df_filtrado_dashboard[coluna_data].dt.date <= data_fim)
-            df_filtrado_dashboard = df_filtrado_dashboard[mask_periodo].copy()
+            # Só filtra se o usuário estreitou o intervalo; com o período completo, nenhuma OS é descartada
+            if (data_inicio, data_fim) != (data_minima.date(), data_maxima.date()):
+                incluir_sem_data = st.sidebar.checkbox("Incluir OS sem data prevista", value=True)
+                datas = df_filtrado_dashboard[coluna_data]
+                mask_periodo = (datas.dt.date >= data_inicio) & (datas.dt.date <= data_fim)
+                if incluir_sem_data:
+                    mask_periodo = mask_periodo | datas.isna()
+                df_filtrado_dashboard = df_filtrado_dashboard[mask_periodo].copy()
 
             st.sidebar.success(f"Período: {data_inicio.strftime('%d/%m/%Y')} até {data_fim.strftime('%d/%m/%Y')}")
 else:
