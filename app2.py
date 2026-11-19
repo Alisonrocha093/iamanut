@@ -5,6 +5,7 @@ import hashlib
 import secrets as _pysecrets
 import re
 import json
+import base64
 from concurrent.futures import ThreadPoolExecutor
 from html import escape as _esc
 import unicodedata
@@ -192,8 +193,69 @@ st.markdown("""
 # ==========================================
 # SISTEMA DE LOGIN MÚLTIPLO (CAIXA REDUZIDA)
 # ==========================================
-ARQ_SENHAS = "senhas_usuarios.json"   # senhas pessoais (somente hash). Troque por banco/planilha se o servidor não guardar arquivos.
+ARQ_SENHAS = "senhas_usuarios.json"   # fallback local (some quando o Streamlit Cloud reinicia/redeploya)
 MIN_SENHA = 8
+
+
+# --- Armazenamento persistente das senhas (somente hash) num repositório PRIVADO do GitHub ---
+# Configure em .streamlit/secrets.toml (ou em Settings > Secrets no Streamlit Cloud):
+#   [SENHAS_STORAGE]
+#   github_token = "ghp_xxx"            # token com permissão Contents: Read and write
+#   repo         = "usuario/app-senhas" # repositório PRIVADO, DIFERENTE do repo do app
+#   path         = "senhas_usuarios.json"
+#   branch       = "main"
+def _cfg_remoto():
+    try:
+        if hasattr(st, "secrets") and "SENHAS_STORAGE" in st.secrets:
+            cfg = dict(st.secrets["SENHAS_STORAGE"])
+            if cfg.get("github_token") and cfg.get("repo"):
+                return cfg
+    except Exception:
+        pass
+    return None
+
+
+def _gh_request(metodo, cfg, **kw):
+    url = f"https://api.github.com/repos/{cfg['repo']}/contents/{cfg.get('path', ARQ_SENHAS)}"
+    headers = {
+        "Authorization": f"Bearer {cfg['github_token']}",
+        "Accept": "application/vnd.github+json",
+    }
+    return requests.request(metodo, url, headers=headers, timeout=15, **kw)
+
+
+def _gh_ler(cfg):
+    """Retorna (dados, sha). Arquivo inexistente -> ({}, None). Qualquer outra falha levanta erro
+    (nunca devolve {} em caso de falha, para não reabilitar as senhas iniciais por engano)."""
+    r = _gh_request("GET", cfg, params={"ref": cfg.get("branch", "main")})
+    if r.status_code == 404:
+        return {}, None
+    if r.status_code != 200:
+        raise RuntimeError(f"GitHub respondeu {r.status_code} ao ler as senhas.")
+    j = r.json()
+    texto = base64.b64decode(j["content"]).decode("utf-8").strip()
+    return (json.loads(texto) if texto else {}), j["sha"]
+
+
+def _gh_gravar(cfg, dados):
+    conteudo = base64.b64encode(
+        json.dumps(dados, ensure_ascii=False, indent=2).encode("utf-8")
+    ).decode("ascii")
+    for tentativa in range(2):
+        _, sha = _gh_ler(cfg)
+        corpo = {
+            "message": "Atualiza senhas de usuários",
+            "content": conteudo,
+            "branch": cfg.get("branch", "main"),
+        }
+        if sha:
+            corpo["sha"] = sha
+        r = _gh_request("PUT", cfg, json=corpo)
+        if r.status_code in (200, 201):
+            return
+        if r.status_code in (409, 422) and tentativa == 0:
+            continue  # alguém gravou ao mesmo tempo; relê o sha e tenta de novo
+        raise RuntimeError(f"GitHub respondeu {r.status_code} ao gravar as senhas.")
 
 
 def _hash_senha(senha, salt=None):
@@ -203,6 +265,9 @@ def _hash_senha(senha, salt=None):
 
 
 def _ler_senhas():
+    cfg = _cfg_remoto()
+    if cfg:
+        return _gh_ler(cfg)[0]
     try:
         with open(ARQ_SENHAS, "r", encoding="utf-8") as f:
             return json.load(f)
@@ -211,6 +276,10 @@ def _ler_senhas():
 
 
 def _gravar_senhas(dados):
+    cfg = _cfg_remoto()
+    if cfg:
+        _gh_gravar(cfg, dados)
+        return
     tmp = ARQ_SENHAS + ".tmp"
     with open(tmp, "w", encoding="utf-8") as f:
         json.dump(dados, f, ensure_ascii=False, indent=2)
@@ -301,7 +370,11 @@ def verificar_autenticacao():
                 submit = st.form_submit_button("Entrar", use_container_width=True)
 
                 if submit:
-                    ok, primeiro_acesso = _conferir_login(usuario_input, senha_input)
+                    try:
+                        ok, primeiro_acesso = _conferir_login(usuario_input, senha_input)
+                    except Exception as e:
+                        st.error(f"❌ Não foi possível consultar as senhas salvas: {e}")
+                        return False
                     if ok:
                         st.session_state.autenticado = True
                         st.session_state.usuario_atual = usuario_input
@@ -1283,7 +1356,11 @@ with st.sidebar.expander("🔑 Alterar minha senha"):
         senha_nova = st.text_input(f"Nova senha (mín. {MIN_SENHA})", type="password")
         senha_conf = st.text_input("Confirme a nova senha", type="password")
         if st.form_submit_button("Salvar nova senha", use_container_width=True):
-            ok_atual, _ = _conferir_login(st.session_state.get("usuario_atual", ""), senha_atual)
+            try:
+                ok_atual, _ = _conferir_login(st.session_state.get("usuario_atual", ""), senha_atual)
+            except Exception as e:
+                ok_atual = False
+                st.error(f"Não foi possível consultar as senhas salvas: {e}")
             if not ok_atual:
                 st.error("Senha atual incorreta.")
             else:
